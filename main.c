@@ -9,11 +9,6 @@
 const char* FORMAT = "MSB";
 const char* map_begin = NULL;
 
-#define Event void
-#define Region void
-#define Part void
-#define BoneName void
-
 #define varint int64_t
 #define utf16_t wchar_t
 
@@ -34,170 +29,31 @@ const char* map_begin = NULL;
 
 #define VERSION 5
 
-typedef struct {
-    int16_t id;
-    utf16_t* name;
-} MapPiece;
-
-DA(MapPiece, MapPieces);
-DA(void, Objects);
-DA(void, Collisions);
-DA(void, Navmeshes);
-
-typedef struct {
-    MapPieces map_pieces;
-    Objects objects;
-    Collisions collisions;
-    Navmeshes navmeshes;
-} Model;
-
-DA(Model, Models);
-DA(Event, Events);
-DA(Region, Regions);
-DA(Part, Parts);
-DA(BoneName, BoneNames);
-
-typedef struct {
-    Models models;
-    Events events;
-    Regions regions;
-    Parts parts;
-    BoneNames boneNames;
-} Entry;
-
-DA(Entry, Entries);
-
 typedef enum {
-    MT_MapPiece,
-    MT_Object,
-    MT_Enemy,
-    MT_Item,
-    MT_Player,
-    MT_Collision,
-    MT_Navmesh,
-    MT_Other,
-} ModelType;
+	MT_MapPiece = 0,
+	MT_Object = 1,
+	MT_Collision = 3,
+	MT_Navmesh = 4,
+} Model_Type;
 
+typedef struct {
+	Model_Type type;
+	bool has_type_data;
+	utf16_t *name;
+} Entry;
+DA(Entry, Model);
 
-void print_model_type(ModelType type) {
-    switch (type) {
-    case MT_MapPiece: printf("MT_MapPiece\n"); break;
-    case MT_Object: printf("MT_Object\n"); break;
-    case MT_Enemy: printf("MT_Enemy\n"); break;
-    case MT_Item: printf("MT_Item\n"); break;
-    case MT_Player: printf("MT_Player\n"); break;
-    case MT_Collision: printf("MT_Collision\n"); break;
-    case MT_Navmesh: printf("MT_Navmesh\n"); break;
-    case MT_Other: printf("MT_Other\n"); break;
-    default: UNREACHABLE("ModelType");
-    }
-}
+typedef struct {
+    Model map_pieces;
+    Model objects;
+    Model collisions;
+    Model navmeshes;
+} ModelParam;
 
-bool model_read(String_View sv, MapPiece *map_piece, ModelType type) {
-    const char *start = sv.data;
-
-    varint name_offset = read_item(varint, &sv);
-    printf("name_offset = %lld\n", name_offset);
-
-    assert_item(char, &sv, (char)type);
-    assert_item(char, &sv, 0);
-
-    map_piece->id = read_item(int16_t, &sv);
-    printf("id = %d\n", map_piece->id);
-
-    assert_item(int32_t, &sv, 0);
-
-    varint type_data_offset = read_item(varint, &sv);
-    printf("type_data_offset = %lld\n", type_data_offset);
-
-    assert(name_offset != 0);
-
-    sv.data = start + name_offset;
-
-    map_piece->name = read_utf_16(&sv);
-    wprintf(L"name = %ls\n", map_piece->name);
-    exit(69);
-
-    return true;
-}
-
-bool entry_read(Entry* entry, String_View sv) {
-    entry->models = (Models){0};
-    Model model = {0};
-    model.map_pieces = (MapPieces){0};
-
-    ModelType type = (ModelType)*(int32_t*)(sv.data + 8);
-    printf("[INFO] Model Type: ");
-    print_model_type(type);
-    switch (type) {
-    case MT_MapPiece: {
-        MapPiece mp = {0};
-        if (!model_read(sv, &mp, type)) return false;
-        da_append(&model.map_pieces, mp);
-    }
-    break;
-    case MT_Object: TODO("MT_Object"); break;
-    case MT_Enemy: TODO("MT_Enemy"); break;
-    case MT_Item: TODO("MT_Item"); break;
-    case MT_Player: TODO("MT_Player"); break;
-    case MT_Collision: TODO("MT_Collision"); break;
-    case MT_Navmesh: TODO("MT_Navmesh"); break;
-    case MT_Other: TODO("MT_Other"); break;
-    default: UNREACHABLE("ModelType");
-    }
-    exit(69);
-    return true;
-}
-
-bool map_pieces_read(MapPieces* map_pieces, String_View sv) {
-    UNUSED(map_pieces);
-    MapPiece map_piece = {0};
-    if (!model_read(sv, &map_piece, MT_MapPiece)) return false;
-    return true;
-}
-
-bool models_read(Models* models, String_View sv) {
-    assert_item(int32_t, &sv, VERSION);
-
-    int32_t offset_count = read_item(int32_t, &sv);
-    int64_t name_offset  = read_item(int64_t, &sv);
-    nob_log(INFO, "offset_count: %d",   offset_count);
-    nob_log(INFO, "name_offset:  %lld", name_offset);
-
-    varint *entry_offsets = read_item_ptr(varint, &sv, offset_count);
-    varint  next_param_offset = read_item(varint, &sv);
-    nob_log(INFO, "entry_offsets: %p",   entry_offsets);
-    nob_log(INFO, "next_param_offset:  %lld", next_param_offset);
-
-    wchar_t *name = (wchar_t *)(sv.data + name_offset);
-    wprintf(L"name = %ls\n", name);
-
-    Entries entries = {0};
-    da_reserve(&entries, (size_t)offset_count);
-    for (int32_t i=0; i<offset_count; i++) {
-        varint offset = entry_offsets[i];
-        sv.data = map_begin + offset;
-        sv.count -= offset;
-        Entry entry = {0};
-        if (!entry_read(&entry, sv)) return false;
-        da_append(&entries, entry);
-    }
-    exit(69);
-
-
-    UNUSED(models);
-    MapPieces map_pieces = {0};
-    map_pieces_read(&map_pieces, sv);
-    return true;
-}
-
-bool entries_read(Entries *entries, String_View sv) {
-    Entry entry = {0};
-    entry.models = (Models){0};
-    if (!models_read(&entry.models, sv)) return false;
-    da_append(entries, entry);
-    return true;
-}
+typedef struct {} Events;
+typedef struct {} Regions;
+typedef struct {} Parts;
+typedef struct {} BoneNames;
 
 void assert_header(String_View* sv) {
     assert_item(int32_t, sv, 1);
@@ -207,6 +63,102 @@ void assert_header(String_View* sv) {
     assert_item(char, sv, 1);
     assert_item(char, sv, (char)0xFF);
     nob_log(INFO, "MSB Header verified");
+}
+
+void print_model_type(Model_Type type) {
+	printf("Model Type = ");
+	switch (type) {
+	case MT_MapPiece: printf("MT_MapPiece"); break;
+	case MT_Object: printf("MT_Object"); break;
+	case MT_Collision: printf("MT_Collision"); break;
+	case MT_Navmesh: printf("MT_Navmesh"); break;
+	default: UNREACHABLE(temp_sprintf("Unknown Model_Type %d", type));
+	}
+	printf("\n");
+}
+
+void read_entry(String_View* sv, Entry *entry) {
+	const char *start = sv->data;
+	int64_t name_offset = read_item(varint, sv);
+	assert_item(int8_t, sv, (int8_t)entry->type);
+	assert_item(int8_t, sv, 0);
+	read_item(int16_t, sv); // id
+	assert_item(int32_t, sv, 0);
+	int64_t type_data_offset = read_item(varint, sv);
+	assert_item(int32_t, sv, 0);
+	assert(name_offset != 0 && "invalid");
+	sv->data = start + name_offset;
+	entry->name = (utf16_t *)sv->data;
+	if (entry->has_type_data) {
+		sv->data = start + type_data_offset; 
+		assert_item(varint, sv, 0);
+	}
+}
+
+typedef struct {
+	ModelParam models;
+	Events events;
+	Regions regions;
+	Parts parts;
+	BoneNames boneNames;
+} Entries;
+
+ModelParam read_model(String_View *sv) {
+    ModelParam model = {0};
+    assert_item(int32_t, sv, VERSION);
+
+    int32_t offset_count = read_item(int32_t, sv);
+    int64_t name_offset  = read_item(int64_t, sv);
+
+    varint *entry_offsets = read_item_ptr(varint, sv, offset_count-1);
+    varint  next_param_offset = read_item(varint, sv);
+
+    utf16_t *name = (utf16_t *)(map_begin + name_offset);
+	utf16_t *required = L"MODEL_PARAM_ST";
+	assert(wcscmp(name, required) == 0);
+
+	for (int i=0; i<offset_count-1; i++) {
+		Entry entry = {0};
+		sv->data = (void*)(map_begin + entry_offsets[i]);
+		Model_Type model_type = *(int8_t *)(entry_offsets[i] + map_begin + sizeof(varint));
+		entry.type = model_type;
+		switch (model_type) {
+		case MT_MapPiece: {
+			entry.has_type_data = false;
+			read_entry(sv, &entry);
+			da_append(&model.map_pieces, entry);
+	    } break;
+		case MT_Object: {
+			entry.has_type_data = true;
+			read_entry(sv, &entry);
+			da_append(&model.objects, entry);
+		} break;
+		case MT_Collision: {
+			entry.has_type_data = false;
+			read_entry(sv, &entry);
+			da_append(&model.collisions, entry);
+		} break;
+		case MT_Navmesh: {
+			entry.has_type_data = false;
+			read_entry(sv, &entry);
+			da_append(&model.navmeshes, entry);
+		} break;
+		default: UNREACHABLE("Model_Type");
+		}
+	}
+	nob_log(INFO, "Read %zu map pieces.", model.map_pieces.count);
+	nob_log(INFO, "Read %zu objects.", model.objects.count);
+	nob_log(INFO, "Read %zu collisions.", model.collisions.count);
+	nob_log(INFO, "Read %zu navmeshes.", model.navmeshes.count);
+	sv->data = map_begin + next_param_offset;
+
+	return model;
+}
+
+Events read_events(String_View *sv) {
+	Events events = {};
+	TODO("next");
+	return events;
 }
 
 int main() {
@@ -224,11 +176,12 @@ int main() {
         nob_log(ERROR, "Invalid file format for %s: Expected `%s` but got `%s`\n", map_path, FORMAT, format);
         return 1;
     }
-    else {
-        nob_log(INFO, "Format: `"SV_Fmt"`", SV_Arg(fmt_sv));
-    }
     assert_header(&map_sv);
-    Entries entries = {0};
-    if (!entries_read(&entries, map_sv)) return 1;
+
+	Entries entries = {0};
+	entries.models = read_model(&map_sv);
+	entries.events = read_events(&map_sv);
+
+	TODO("next");
     return 0;
 }
