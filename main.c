@@ -82,6 +82,16 @@ typedef enum {
 	RT_Fog = 15,
 } RegionType;
 
+typedef enum
+{
+	PT_MapPiece = 0,
+	PT_Object = 1,
+	PT_Collision = 3,
+	PT_Navmesh = 4,
+	PT_ConnectCollision = 5,
+} PartType;
+
+
 typedef struct {
 	ModelType type;
 	bool has_type_data;
@@ -90,10 +100,10 @@ typedef struct {
 DA(Entry, Model);
 
 typedef struct {
-    Model map_pieces;
-    Model objects;
-    Model collisions;
-    Model navmeshes;
+    Model MapPieces;
+    Model Objects;
+    Model Collisions;
+    Model Navmeshes;
 } ModelParam;
 
 typedef struct {
@@ -323,7 +333,118 @@ typedef struct {
 	Fogs Fogs;
 } PointParam;
 
-typedef struct {} Parts;
+#define PartCollisionPatternSize 0x10
+#define PartNavmeshPatternSize 0x10
+typedef struct {
+	varint name_offset;
+	byte type;
+	byte val3; //0
+	int16_t id;
+	int16_t model_index;
+	int16_t val6; //0
+	V3f position;
+	V3f rotation;
+	V3f scale;
+	int32_t draw_groups[4];
+	int32_t Unk44;
+	int32_t Unk48;
+	int32_t Unk4C;
+	int32_t Unk50;
+	int32_t disp_groups[4];
+	int32_t Unk64;
+	int32_t val16; //0
+	byte Unk6C;
+	byte val18; //0
+	byte Unk6E;
+	byte val20; //0
+	varint type_data_offset;
+	int64_t val22; //0
+} Part;
+
+typedef union {
+	struct {
+		int16_t UnkT00;
+		byte UnkT02;
+		byte val3; // 0
+		int32_t val4; //0
+	} map_piece;
+	struct {
+		int32_t map_object_instance_param_id;
+		int16_t UnkT04;
+		int16_t val3; // 0
+		int32_t val4; // 0
+		int32_t val5; // 0
+	} object;
+	struct {
+		int32_t UnkT00;
+		int32_t UnkT04;
+		int32_t UnkT08;
+		int32_t UnkT0C;
+		byte UnkT10;
+		byte UnkT11;
+		byte UnkT12;
+		byte UnkT13;
+		byte UnkT14;
+		byte UnkT15;
+		byte val11; //0
+		byte UnkT17;
+		int32_t UnkT18;
+		int32_t UnkT1C;
+		int32_t UnkT20;
+		int16_t val16; //0
+		byte UnkT26;
+		byte UnkT27;
+		int32_t UnkT28;
+		byte UnkT2C;
+		byte val21; //0
+		int16_t UnkT2E;
+		int32_t UnkT30;
+		byte val24; //0
+		byte UnkT35;
+		int16_t UnkT36;
+		int32_t val27; //0
+		int32_t UnkT3C;
+		byte UnkT40;
+		byte val30; //0
+		byte val31; //0
+		byte val32; //0
+		int32_t UnkT44;
+		char pattern[PartCollisionPatternSize]; // 0x00
+	} collision;
+	struct {
+		int32_t UnkT00;
+		int32_t UnkT04;
+		int32_t UnkT08;
+		int32_t UnkT0C;
+		char pattern[PartNavmeshPatternSize]; // 0x00
+	} navmesh;
+	struct {
+		int32_t collision_index;
+		byte MapID;
+		int32_t UnkT08;
+		byte UnkT0C;
+		byte val5; //0
+		byte val6; //0
+		byte val7; //0
+	} connect_collision;
+} PartTypeData;
+
+typedef struct {
+	Part part;
+	utf16_t* name;
+	PartTypeData type_data;
+} PartSt;
+
+DA(PartSt, Parts);
+
+typedef struct {
+	Parts MapPieces;
+	Parts Objects;
+	Parts Collisions;
+	Parts Navmeshes;
+	Parts ConnectCollisions;
+} PartParam;
+
 typedef struct {} BoneNames;
 
 typedef struct {
@@ -397,7 +518,7 @@ typedef struct {
 	ModelParam models;
 	EventParam events;
 	PointParam regions;
-	Parts parts;
+	PartParam parts;
 	BoneNames boneNames;
 } Entries;
 
@@ -433,7 +554,7 @@ void* get_param_entry(const ParamSt *param, size_t i) {
 	return (void*)(map_begin + param->entry_offsets[i]);
 }
 
-ModelParam read_model(String_View *sv) {
+ModelParam read_model_param(String_View *sv) {
     ModelParam model = {0};
 	ParamSt param = read_param(sv);
 
@@ -450,30 +571,30 @@ ModelParam read_model(String_View *sv) {
 		case MT_MapPiece: {
 			entry.has_type_data = false;
 			read_entry(sv, &entry);
-			da_append(&model.map_pieces, entry);
+			da_append(&model.MapPieces, entry);
 	    } break;
 		case MT_Object: {
 			entry.has_type_data = true;
 			read_entry(sv, &entry);
-			da_append(&model.objects, entry);
+			da_append(&model.Objects, entry);
 		} break;
 		case MT_Collision: {
 			entry.has_type_data = false;
 			read_entry(sv, &entry);
-			da_append(&model.collisions, entry);
+			da_append(&model.Collisions, entry);
 		} break;
 		case MT_Navmesh: {
 			entry.has_type_data = false;
 			read_entry(sv, &entry);
-			da_append(&model.navmeshes, entry);
+			da_append(&model.Navmeshes, entry);
 		} break;
 		default: UNREACHABLE("Model_Type");
 		}
 	}
-	nob_log(INFO, "Read %zu map pieces.", model.map_pieces.count);
-	nob_log(INFO, "Read %zu objects.", model.objects.count);
-	nob_log(INFO, "Read %zu collisions.", model.collisions.count);
-	nob_log(INFO, "Read %zu navmeshes.", model.navmeshes.count);
+	nob_log(INFO, "Read %zu map pieces.", model.MapPieces.count);
+	nob_log(INFO, "Read %zu objects.", model.Objects.count);
+	nob_log(INFO, "Read %zu collisions.", model.Collisions.count);
+	nob_log(INFO, "Read %zu navmeshes.", model.Navmeshes.count);
 	sv->data = map_begin + param.next_param_offset;
 
 	return model;
@@ -590,7 +711,7 @@ MapOffset read_map_offset(String_View *sv) {
 	return map_offset;
 }
 
-EventParam read_events(String_View *sv) {
+EventParam read_event_param(String_View *sv) {
 	EventParam events = {0};
 	ParamSt param = read_param(sv);
     utf16_t *name = get_param_name(&param);
@@ -831,7 +952,7 @@ StartPoint read_start_point(String_View *sv) {
 
 
 
-PointParam read_regions(String_View *sv) {
+PointParam read_point_param(String_View *sv) {
 	PointParam regions = {0};
 	ParamSt param = read_param(sv);
     utf16_t *name = get_param_name(&param);
@@ -885,6 +1006,106 @@ PointParam read_regions(String_View *sv) {
 	return regions;
 }
 
+void read_route_param(String_View *sv) {
+	ParamSt param = read_param(sv);
+    utf16_t *name = get_param_name(&param);
+	utf16_t *required = L"ROUTE_PARAM_ST";
+	assert(wcscmp(name, required) == 0);
+	for (int i=0; i<param.offset_count-1; i++) {
+		UNREACHABLE("route params are empty in ds2");
+	}
+	sv->data = map_begin + param.next_param_offset;
+}
+
+void read_layer_param(String_View *sv) {
+	ParamSt param = read_param(sv);
+    utf16_t *name = get_param_name(&param);
+	utf16_t *required = L"LAYER_PARAM_ST";
+	assert(wcscmp(name, required) == 0);
+	for (int i=0; i<param.offset_count-1; i++) {
+		UNREACHABLE("layer params are empty in ds2");
+	}
+	sv->data = map_begin + param.next_param_offset;
+}
+
+PartTypeData read_part_type_data(String_View *sv, PartType type) {
+	PartTypeData data = {0};
+	switch (type) {
+	case PT_MapPiece: {
+		memcpy(&data.map_piece, sv->data, sizeof(data.map_piece));
+	} break;
+	case PT_Object: {
+		memcpy(&data.object, sv->data, sizeof(data.object));
+	} break;
+	case PT_Collision: {
+		memcpy(&data.collision, sv->data, sizeof(data.collision));
+	} break;
+	case PT_Navmesh: {
+		memcpy(&data.navmesh, sv->data, sizeof(data.navmesh));
+	} break;
+	case PT_ConnectCollision: {
+		memcpy(&data.connect_collision, sv->data, sizeof(data.connect_collision));
+	} break;
+	default: UNREACHABLE("part_type");
+	}
+	return data;
+}
+
+PartSt new_part(String_View *sv, PartType type) {
+	const char *start = sv->data;
+	PartSt part = {0};
+	part.part = *(Part *)sv->data;
+	assert(part.part.name_offset != 0);
+	assert(part.part.type_data_offset != 0);
+	sv->data = start + part.part.name_offset;
+	part.name = (utf16_t *)sv->data;
+	sv->data = start + part.part.type_data_offset;
+	part.type_data = read_part_type_data(sv, type);
+	return part;
+}
+
+PartParam read_parts_param(String_View *sv) {
+	PartParam parts = {0};
+	ParamSt param = read_param(sv);
+    utf16_t *name = get_param_name(&param);
+	utf16_t *required = L"PARTS_PARAM_ST";
+	assert(wcscmp(name, required) == 0);
+	for (int i=0; i<param.offset_count-1; i++) {
+		sv->data = get_param_entry(&param, i);
+		PartType part_type = *(byte *)(sv->data + sizeof(varint));
+		PartSt part = new_part(sv, part_type);
+		switch (part_type) {
+		case PT_MapPiece: {
+			da_append(&parts.MapPieces, part);
+		} break;
+		case PT_Object: {
+			da_append(&parts.Objects, part);
+		} break;
+		case PT_Collision: {
+			da_append(&parts.Collisions, part);
+		} break;
+		case PT_Navmesh: {
+			da_append(&parts.Navmeshes, part);
+		} break;
+		case PT_ConnectCollision: {
+			da_append(&parts.ConnectCollisions, part);
+		} break;
+		default: UNREACHABLE("region_type");
+		}
+	}
+
+	nob_log(INFO, "Read %zu MapPiece", parts.MapPieces.count);
+	nob_log(INFO, "Read %zu Object", parts.Objects.count);
+	nob_log(INFO, "Read %zu Collision", parts.Collisions.count);
+	nob_log(INFO, "Read %zu Navmesh", parts.Navmeshes.count);
+	nob_log(INFO, "Read %zu ConnectCollision", parts.ConnectCollisions.count);
+	sv->data = map_begin + param.next_param_offset;
+	return parts;
+}
+
+
+
+
 int main() {
     Nob_String_Builder map_sb = {0};
     const char *map_path = "./map/m10_02_00_00/m10_02_00_00.msb";
@@ -898,9 +1119,12 @@ int main() {
 	map_sv.data += sizeof(Header);
 
 	Entries entries = {0};
-	entries.models = read_model(&map_sv);
-	entries.events = read_events(&map_sv);
-	entries.regions = read_regions(&map_sv);
+	entries.models = read_model_param(&map_sv);
+	entries.events = read_event_param(&map_sv);
+	entries.regions = read_point_param(&map_sv);
+	read_route_param(&map_sv);
+	read_layer_param(&map_sv);
+	entries.parts = read_parts_param(&map_sv);
 
 	TODO("next");
     return 0;
