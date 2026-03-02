@@ -272,65 +272,92 @@ typedef struct {
 	varint type_data_offset;
 	int64_t val15; // 0
 	int64_t val16; // 0
+} __Region;
+
+#define RegionLightPatternSize 0x10
+#define RegionSoundPatternSize 0x14
+#define RegionSFXPatternSize 0x18
+#define RegionEnvLightPatternSize 0x14
+#define RegionFogPatternSize 0x18
+typedef union {
+	struct {
+		int32_t UnkT00;
+		Color ColorT04;
+		Color ColorT08;
+		float UnkT0C;
+		char pattern[RegionLightPatternSize]; // 0x00
+		int32_t val4; // 0
+	} light;
+	struct {
+		int32_t UnkT00;
+		int32_t sound_id;
+		int32_t UnkT08;
+		char pattern[RegionSoundPatternSize]; // 0x00
+	} sound;
+	struct {
+		int32_t effect_id;
+		int32_t UnkT04;
+		char pattern[RegionSFXPatternSize]; // 0x00
+	} sfx;
+	struct {
+		int32_t UnkT00;
+		float UnkT04;
+		float UnkT08;
+		float UnkT0C;
+		float UnkT10;
+		float UnkT14;
+		float UnkT18;
+		int32_t val9; // 0
+	} wind;
+	struct {
+		int32_t UnkT00;
+		float   UnkT04;
+		float   UnkT08;
+		char pattern[RegionEnvLightPatternSize]; // 0x00
+	} env_light;
+	struct {
+		int32_t UnkT00;
+		int32_t UnkT04;
+		char pattern[RegionFogPatternSize]; // 0x00
+		int32_t val4; // 0
+	} fog;
+} RegionTypeData;
+
+typedef struct {
+	int32_t region_index;
+	int32_t Unk04;
+} Child;
+
+#define N_SHAPE_CHILDREN 8
+typedef struct {
+	ShapeType type;
+	bool has_shape_data;
+	union {
+		float radius;
+		V2f v2;
+		V3f v3;
+		Child children[N_SHAPE_CHILDREN];
+	};
+} Shape;
+
+typedef struct {
+	__Region region;
+	Shape shape;
+	utf16_t *name;
+	RegionTypeData type_data;
 } Region;
 
-typedef Region Region0;
-typedef Region StartPoint;
-
-#define SoundPatternSize 0x14
-typedef struct {
-	Region region;
-	int32_t UnkT00;
-	int32_t sound_id;
-	int32_t UnkT08;
-	char pattern[SoundPatternSize]; // 0x00
-} Sound;
-
-#define SFXPatternSize 0x18
-typedef struct {
-	Region region;
-	int32_t effect_id;
-	int32_t UnkT04;
-	char pattern[SFXPatternSize]; // 0x00
-} SFX;
+DA(Region, Regions);
 
 typedef struct {
-	Region region;
-	int32_t UnkT00;
-	float UnkT04;
-	float UnkT08;
-	float UnkT0C;
-	float UnkT10;
-	float UnkT14;
-	float UnkT18;
-	int32_t val9; // 0
-} Wind;
-
-#define EnvLightPatternSize 0x14
-typedef struct {
-	Region region;
-	int32_t UnkT00;
-	float   UnkT04;
-	float   UnkT08;
-	char pattern[EnvLightPatternSize]; // 0x00
-} EnvLight;
-
-DA(Region0, Region0s);
-DA(StartPoint, StartPoints);
-DA(Sound, Sounds);
-DA(SFX, SFXs);
-DA(Wind, Winds);
-DA(EnvLight, EnvLights);
-
-typedef struct {
-	Region0s Region0s;
-	Lights Lights;
-	StartPoints StartPoints;
-	Sounds Sounds;
-	SFXs SFXs;
-	Winds Winds;
-	EnvLights EnvLights;
-	Fogs Fogs;
+	Regions Regions;
+	Regions Lights;
+	Regions StartPoints;
+	Regions Sounds;
+	Regions SFXs;
+	Regions Winds;
+	Regions EnvLights;
+	Regions Fogs;
 } PointParam;
 
 #define PartCollisionPatternSize 0x10
@@ -359,7 +386,7 @@ typedef struct {
 	byte val20; //0
 	varint type_data_offset;
 	int64_t val22; //0
-} Part;
+} __Part;
 
 typedef union {
 	struct {
@@ -430,12 +457,12 @@ typedef union {
 } PartTypeData;
 
 typedef struct {
-	Part part;
+	__Part part;
 	utf16_t* name;
 	PartTypeData type_data;
-} PartSt;
+} Part;
 
-DA(PartSt, Parts);
+DA(Part, Parts);
 
 typedef struct {
 	Parts MapPieces;
@@ -446,6 +473,7 @@ typedef struct {
 } PartParam;
 
 typedef struct {} BoneNames;
+typedef struct {} PartPoses;
 
 typedef struct {
 	char magic[4]; // `MSB `
@@ -519,6 +547,7 @@ typedef struct {
 	EventParam events;
 	PointParam regions;
 	PartParam parts;
+	PartPoses partPoses;
 	BoneNames boneNames;
 } Entries;
 
@@ -763,28 +792,11 @@ EventParam read_event_param(String_View *sv) {
 	return events;
 }
 
-typedef struct {
-	int32_t region_index;
-	int32_t Unk04;
-} Child;
-
 Child new_child(String_View *sv) {
 	Child child = *(Child *)sv->data;
 	sv->data += sizeof(Child);
 	return child;
 }
-
-#define N_SHAPE_CHILDREN 8
-typedef struct {
-	ShapeType type;
-	bool has_shape_data;
-	union {
-		float radius;
-		V2f v2;
-		V3f v3;
-		Child children[N_SHAPE_CHILDREN];
-	};
-} Shape;
 
 Shape create_shape(ShapeType type) {
 	switch (type) {
@@ -867,23 +879,62 @@ void read_shape_data(Shape* shape, String_View *sv) {
 	}
 }
 
-void read_type_data(RegionType type) {
-	UNUSED(type);
-	TODO("read_type_data");
+RegionTypeData read_regiontype_data(String_View *sv, RegionType type) {
+	RegionTypeData data = {0};
+	switch (type) {
+	case RT_Light: {
+		memcpy(&data.light, sv->data, sizeof(data.light));
+		for (size_t i=0; i<RegionLightPatternSize; i+=1) {
+			assert(data.light.pattern[i] == 0x00);
+		}
+		assert(data.light.val4 == 0);
+	} break;
+	case RT_Sound: {
+		memcpy(&data.sound, sv->data, sizeof(data.sound));
+		for (size_t i=0; i<RegionSoundPatternSize; i+=1) {
+			assert(data.sound.pattern[i] == 0x00);
+		}
+	} break;
+	case RT_SFX: {
+		memcpy(&data.sfx, sv->data, sizeof(data.sfx));
+		for (size_t i=0; i<RegionSFXPatternSize; i+=1) {
+			assert(data.sfx.pattern[i] == 0x00);
+		}
+	} break;
+	case RT_Wind: {
+		memcpy(&data.wind, sv->data, sizeof(data.wind));
+		assert(data.wind.val9 == 0);
+	} break;
+	case RT_EnvLight: {
+		memcpy(&data.env_light, sv->data, sizeof(data.env_light));
+		for (size_t i=0; i<RegionEnvLightPatternSize; i+=1) {
+			assert(data.env_light.pattern[i] == 0x00);
+		}
+	} break;
+	case RT_Fog: {
+		memcpy(&data.fog, sv->data, sizeof(data.fog));
+		for (size_t i=0; i<RegionFogPatternSize; i+=1) {
+			assert(data.fog.pattern[i] == 0x00);
+		}
+		assert(data.fog.val4 == 0);
+	} break;
+	case RT_StartPoint:
+	case RT_Region0:
+	default: UNREACHABLE("RegionType");
+	}
+	return data;
 }
 
-Region read_region(String_View *sv, bool has_type_data) {
+__Region read_region_(String_View *sv) {
 	const char *start = sv->data;
-	Region region = *(Region *)sv->data;
+	__Region region = *(__Region *)sv->data;
 	assert(region.val11 == -1);
 	for (size_t i=0; i<RegionPatternSize; i+=1) {
 		assert(region.pattern[i] == 0x00);
 	}
 	assert(region.val15 == 0);
 	assert(region.val16 == 0);
-	sv->data += sizeof(Region);
-
-	Shape shape = create_shape(region.shape_type);
+	sv->data += sizeof(__Region);
 
 	assert(region.name_offset != 0);
 	assert(*(int32_t *)(start + region.unkOffsetA) == 0);
@@ -891,66 +942,33 @@ Region read_region(String_View *sv, bool has_type_data) {
 
 	// TODO: this assertion is incorrect
 	// assert((shape.has_shape_data^region.shape_data_offset) == 0);
-	// assert((has_type_data^region.type_data_offset) == 0);
 
-	utf16_t *name = (utf16_t *)(start + region.name_offset);
-	UNUSED(name);
-	// TODO: store name, shape, type_data somewhere
-
-
-	if (shape.has_shape_data) {
-		sv->data = start + region.shape_data_offset;
-		read_shape_data(&shape, sv);
-	}
-
-	if (has_type_data) {
-		sv->data = start + region.type_data_offset;
-		read_type_data(region.type);
-	}
 	return region;
 }
 
-Region0 read_region0(String_View *sv, bool has_type_data) {
-	Region0 region0 = read_region(sv, has_type_data);
-	return region0;
-}
+Region read_region(String_View *sv, bool has_type_data) {
+	const char *start = sv->data;
+	Region region;
+	region.region = read_region_(sv);
 
-Sound read_sound(String_View *sv, bool has_type_data) {
-	Sound sound = {0};
-	sound.region =  read_region(sv, has_type_data);
-	// TODO: i am reading type data in the read_region function maybe do it here?
-	return sound;
-}
+	// TODO: this assertion is incorrect
+	// assert((has_type_data^region.type_data_offset) == 0);
 
-SFX read_sfx(String_View *sv, bool has_type_data) {
-	SFX sfx = {0};
-	sfx.region =  read_region(sv, has_type_data);
-	// TODO: i am reading type data in the read_region function maybe do it here?
-	return sfx;
-}
+	region.shape = create_shape(region.region.shape_type);
+	region.name = (utf16_t *)(start + region.region.name_offset);
 
-EnvLight read_env_light(String_View *sv, bool has_type_data) {
-	EnvLight env_light = {0};
-	env_light.region =  read_region(sv, has_type_data);
-	// TODO: i am reading type data in the read_region function maybe do it here?
-	return env_light;
-}
-
-
-
-StartPoint read_start_point(String_View *sv) {
-	StartPoint start_point = *(StartPoint *)sv->data;
-	assert(start_point.val11 == -1);
-	for (size_t i=0; i<RegionPatternSize; i+=1) {
-		assert(start_point.pattern[i] == 0x00);
+	if (region.shape.has_shape_data) {
+		sv->data = start + region.region.shape_data_offset;
+		read_shape_data(&region.shape, sv);
 	}
-	assert(start_point.val15 == 0);
-	assert(start_point.val16 == 0);
-	sv->data += sizeof(StartPoint);
-	return start_point;
+
+	if (has_type_data) {
+		sv->data = start + region.region.type_data_offset;
+		region.type_data = read_regiontype_data(sv, region.region.type);
+	}
+
+	return region;
 }
-
-
 
 PointParam read_point_param(String_View *sv) {
 	PointParam regions = {0};
@@ -963,38 +981,41 @@ PointParam read_point_param(String_View *sv) {
 		RegionType region_type = *(byte *)(sv->data + sizeof(varint) + 2);
 		switch (region_type) {
 		case RT_Region0: {
-			Region0 region0 = read_region0(sv, false);
-			da_append(&regions.Region0s, region0);
+			Region region = read_region(sv, false);
+			da_append(&regions.Regions, region);
 		} break; 
 		case RT_Light: {
-			TODO("Light");						
+			Region light = read_region(sv, true);
+			da_append(&regions.Lights, light);
 		} break; 
 		case RT_StartPoint: {
-			StartPoint start_point = read_start_point(sv);
+			Region start_point = read_region(sv, false);
 			da_append(&regions.StartPoints, start_point);
 		} break; 
 		case RT_Sound: {
-			Sound sound = read_sound(sv, false);
+			Region sound = read_region(sv, true);
 			da_append(&regions.Sounds, sound);
 		} break; 
 		case RT_SFX: {
-			SFX sfx = read_sfx(sv, false);
+			Region sfx = read_region(sv, true);
 			da_append(&regions.SFXs, sfx);
 		} break; 
 		case RT_Wind: {
-			TODO("Wind");					   
+			Region wind = read_region(sv, true);
+			da_append(&regions.Winds, wind);
 		} break; 
 		case RT_EnvLight: {
-			EnvLight env_light = read_env_light(sv, false);
+			Region env_light = read_region(sv, true);
 			da_append(&regions.EnvLights, env_light);
 		} break; 
 		case RT_Fog: {
-			TODO("Fog");					  
+			Region fog = read_region(sv, true);
+			da_append(&regions.Fogs, fog);
 		} break; 
 		default: UNREACHABLE("region_type");
 		}
 	}
-	nob_log(INFO, "Read %zu Region0", regions.Region0s.count);
+	nob_log(INFO, "Read %zu Region", regions.Regions.count);
 	nob_log(INFO, "Read %zu Light", regions.Lights.count);
 	nob_log(INFO, "Read %zu StartPoint", regions.StartPoints.count);
 	nob_log(INFO, "Read %zu Sound", regions.Sounds.count);
@@ -1051,10 +1072,10 @@ PartTypeData read_part_type_data(String_View *sv, PartType type) {
 	return data;
 }
 
-PartSt new_part(String_View *sv, PartType type) {
+Part new_part(String_View *sv, PartType type) {
 	const char *start = sv->data;
-	PartSt part = {0};
-	part.part = *(Part *)sv->data;
+	Part part = {0};
+	part.part = *(__Part *)sv->data;
 	assert(part.part.name_offset != 0);
 	assert(part.part.type_data_offset != 0);
 	sv->data = start + part.part.name_offset;
@@ -1073,7 +1094,7 @@ PartParam read_parts_param(String_View *sv) {
 	for (int i=0; i<param.offset_count-1; i++) {
 		sv->data = get_param_entry(&param, i);
 		PartType part_type = *(byte *)(sv->data + sizeof(varint));
-		PartSt part = new_part(sv, part_type);
+		Part part = new_part(sv, part_type);
 		switch (part_type) {
 		case PT_MapPiece: {
 			da_append(&parts.MapPieces, part);
@@ -1103,7 +1124,60 @@ PartParam read_parts_param(String_View *sv) {
 	return parts;
 }
 
+void free_models(ModelParam *param) {
+	da_free(param->MapPieces);
+	da_free(param->Navmeshes);
+	da_free(param->Collisions);
+	da_free(param->Objects);
+}
 
+void free_events(EventParam *param) {
+	da_free(param->BGColors);
+	da_free(param->CheapModes);
+	da_free(param->Fogs);
+	da_free(param->Lights);
+	da_free(param->MapOffsets);
+	da_free(param->Shadows);
+	da_free(param->Warps);
+}
+
+void free_regions(PointParam *param) {
+	da_free(param->Lights);
+	da_free(param->Fogs);
+	da_free(param->EnvLights);
+	da_free(param->Regions);
+	da_free(param->SFXs);
+	da_free(param->Sounds);
+	da_free(param->Winds);
+	da_free(param->StartPoints);
+}
+
+void free_parts(PartParam *param) {
+	da_free(param->Objects);
+	da_free(param->Collisions);
+	da_free(param->Navmeshes);
+	da_free(param->MapPieces);
+	da_free(param->ConnectCollisions);
+}
+
+void free_part_poses(PartPoses *param) {
+	UNUSED(param);
+	// TODO("free part poses");
+}
+
+void free_bone_names(BoneNames *param) {
+	UNUSED(param);
+	// TODO("free bone names");
+}
+
+void free_entries(Entries *entries) {
+	free_models(&entries->models);
+	free_events(&entries->events);
+	free_regions(&entries->regions);
+	free_parts(&entries->parts);
+	free_part_poses(&entries->partPoses);
+	free_bone_names(&entries->boneNames);
+}
 
 
 int main() {
@@ -1126,6 +1200,8 @@ int main() {
 	read_layer_param(&map_sv);
 	entries.parts = read_parts_param(&map_sv);
 
-	TODO("next");
+	free_entries(&entries);
+
+	printf("Done.");
     return 0;
 }
