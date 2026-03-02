@@ -485,7 +485,7 @@ typedef struct {
 	Bones bones;
 } PartPoses;
 
-typedef struct {} BoneNames;
+DA(utf16_t*, BoneNames);
 
 typedef struct {
 	char magic[4]; // `MSB `
@@ -754,6 +754,40 @@ MapOffset read_map_offset(String_View *sv) {
 	return map_offset;
 }
 
+Warp read_warp(String_View *sv) {
+	const char* start = sv->data;
+	Event event = read_event(sv);
+	assert(event.type_data_offset != 0);
+	assert(event.name_offset != 0);
+	sv->data = start + event.name_offset;
+	utf16_t *name = (utf16_t *)sv->data;
+	UNUSED(name);
+	sv->data = start + event.type_data_offset;
+	Warp warp = *(Warp *)sv->data;
+	assert(warp.val2 == 0);
+	assert(warp.val3 == 0);
+	assert(warp.val4 == 0);
+	sv->data += sizeof(Warp);
+	return warp;
+}
+
+CheapMode read_cheap_mode(String_View *sv) {
+	const char* start = sv->data;
+	Event event = read_event(sv);
+	assert(event.type_data_offset != 0);
+	assert(event.name_offset != 0);
+	sv->data = start + event.name_offset;
+	utf16_t *name = (utf16_t *)sv->data;
+	UNUSED(name);
+	sv->data = start + event.type_data_offset;
+	CheapMode cheap_mode = *(CheapMode *)sv->data;
+	for (size_t i=0; i<CheapModePatternSize; i+=1) {
+		assert(cheap_mode.pattern[i] == 0);
+	}
+	sv->data += sizeof(CheapMode);
+	return cheap_mode;
+}
+
 EventParam read_event_param(String_View *sv) {
 	EventParam events = {0};
 	ParamSt param = read_param(sv);
@@ -786,10 +820,12 @@ EventParam read_event_param(String_View *sv) {
 			da_append(&events.MapOffsets, map_offset);
 		} break;
 	    case ET_Warp: {
-			TODO("ET_Warp");						  
+			Warp warp = read_warp(sv);
+			da_append(&events.Warps, warp);
 		} break;
 	    case ET_CheapMode: {
-			TODO("ET_CheapMode");							   
+			CheapMode warp = read_cheap_mode(sv);
+			da_append(&events.CheapModes, warp);
 		} break;
 		default: UNREACHABLE("model_type");
 		}
@@ -1160,7 +1196,6 @@ PartPoses read_part_poses(String_View *sv) {
 		const char *start = sv->data;
 		PartPoseSt pose = *(PartPoseSt *)sv->data;
 		assert(pose.val3 == 0);
-
 		sv->data = start + pose.bonesOffset;
 		for (int i = 0; i < pose.boneCount; i++) {
 			Bone bone = new_bone(sv);
@@ -1168,8 +1203,26 @@ PartPoses read_part_poses(String_View *sv) {
 		}
 	}
 	nob_log(INFO, "Read %zu PartPoses", pp.bones.count);
+	sv->data = map_begin + param.next_param_offset;
 	return pp;
 }
+
+BoneNames read_bone_names(String_View *sv) {
+	BoneNames names = {0};
+	ParamSt param = read_param_ex(sv, 0);
+    utf16_t *name = get_param_name(&param);
+	utf16_t *required = L"MAPSTUDIO_BONE_NAME_STRING";
+	assert(wcscmp(name, required) == 0);
+	for (int i=0; i<param.offset_count-1; i++) {
+		sv->data = get_param_entry(&param, i);
+		utf16_t *name = (utf16_t *)sv->data;
+		da_append(&names, name);
+	}
+	nob_log(INFO, "Read %zu BoneNames", names.count);
+	sv->data = map_begin + param.next_param_offset;
+	return names;
+}
+
 
 void free_models(ModelParam *param) {
 	da_free(param->MapPieces);
@@ -1212,8 +1265,7 @@ void free_part_poses(PartPoses *param) {
 }
 
 void free_bone_names(BoneNames *param) {
-	UNUSED(param);
-	// TODO("free bone names");
+	da_free(*param);
 }
 
 void free_entries(Entries *entries) {
@@ -1246,6 +1298,9 @@ int main() {
 	read_layer_param(&map_sv);
 	entries.parts = read_parts_param(&map_sv);
 	entries.part_poses = read_part_poses(&map_sv);
+	entries.bone_names = read_bone_names(&map_sv);
+
+	assert(map_sv.data == map_begin);
 
 	free_entries(&entries);
 
