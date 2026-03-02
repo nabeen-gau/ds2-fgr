@@ -472,8 +472,20 @@ typedef struct {
 	Parts ConnectCollisions;
 } PartParam;
 
+typedef struct {
+	int32_t NameIndex;
+	V3f Translation;
+	V3f Rotation;
+	V3f Scale;
+} Bone;
+
+DA(Bone, Bones);
+
+typedef struct {
+	Bones bones;
+} PartPoses;
+
 typedef struct {} BoneNames;
-typedef struct {} PartPoses;
 
 typedef struct {
 	char magic[4]; // `MSB `
@@ -547,8 +559,8 @@ typedef struct {
 	EventParam events;
 	PointParam regions;
 	PartParam parts;
-	PartPoses partPoses;
-	BoneNames boneNames;
+	PartPoses part_poses;
+	BoneNames bone_names;
 } Entries;
 
 typedef struct {
@@ -562,10 +574,10 @@ typedef struct {
 
 } ModalParamST;
 
-ParamSt read_param(String_View *sv) {
+ParamSt read_param_ex(String_View *sv, int32_t version) {
 	ParamSt param = {0};
 	param.version = read_item(int32_t, sv);
-	assert(param.version == VERSION);
+	assert(param.version == version);
 
     param.offset_count = read_item(int32_t, sv);
     param.name_offset  = read_item(int64_t, sv);
@@ -574,6 +586,8 @@ ParamSt read_param(String_View *sv) {
     param.next_param_offset = read_item(varint, sv);
 	return param;
 }
+
+#define read_param(sv) read_param_ex((sv), VERSION)
 
 utf16_t* get_param_name(const ParamSt *param) {
     return (utf16_t *)(map_begin + param->name_offset);
@@ -1124,6 +1138,39 @@ PartParam read_parts_param(String_View *sv) {
 	return parts;
 }
 
+typedef struct {
+	int16_t PartIndex;
+	int16_t boneCount;
+	int32_t val3; // 0
+	varint bonesOffset;
+} PartPoseSt;
+
+Bone new_bone(String_View *sv) {
+	return *(Bone *)sv->data;
+}
+
+PartPoses read_part_poses(String_View *sv) {
+	PartPoses pp = {0};
+	ParamSt param = read_param_ex(sv, 0);
+    utf16_t *name = get_param_name(&param);
+	utf16_t *required = L"MAPSTUDIO_PARTS_POSE_ST";
+	assert(wcscmp(name, required) == 0);
+	for (int i=0; i<param.offset_count-1; i++) {
+		sv->data = get_param_entry(&param, i);
+		const char *start = sv->data;
+		PartPoseSt pose = *(PartPoseSt *)sv->data;
+		assert(pose.val3 == 0);
+
+		sv->data = start + pose.bonesOffset;
+		for (int i = 0; i < pose.boneCount; i++) {
+			Bone bone = new_bone(sv);
+			da_append(&pp.bones, bone);
+		}
+	}
+	nob_log(INFO, "Read %zu PartPoses", pp.bones.count);
+	return pp;
+}
+
 void free_models(ModelParam *param) {
 	da_free(param->MapPieces);
 	da_free(param->Navmeshes);
@@ -1161,8 +1208,7 @@ void free_parts(PartParam *param) {
 }
 
 void free_part_poses(PartPoses *param) {
-	UNUSED(param);
-	// TODO("free part poses");
+	da_free(param->bones);
 }
 
 void free_bone_names(BoneNames *param) {
@@ -1175,8 +1221,8 @@ void free_entries(Entries *entries) {
 	free_events(&entries->events);
 	free_regions(&entries->regions);
 	free_parts(&entries->parts);
-	free_part_poses(&entries->partPoses);
-	free_bone_names(&entries->boneNames);
+	free_part_poses(&entries->part_poses);
+	free_bone_names(&entries->bone_names);
 }
 
 
@@ -1199,6 +1245,7 @@ int main() {
 	read_route_param(&map_sv);
 	read_layer_param(&map_sv);
 	entries.parts = read_parts_param(&map_sv);
+	entries.part_poses = read_part_poses(&map_sv);
 
 	free_entries(&entries);
 
