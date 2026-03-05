@@ -91,10 +91,20 @@ typedef enum
 	PT_ConnectCollision = 5,
 } PartType;
 
+typedef struct {
+	varint name_offset;
+	int8_t type;
+	int8_t val3;
+	int16_t id;
+	int32_t val5;
+	int64_t type_data_offset;
+	varint val7;
+} __Entry;
 
 typedef struct {
 	ModelType type;
 	bool has_type_data;
+	__Entry entry;
 	utf16_t *name;
 } Entry;
 DA(Entry, Model);
@@ -115,7 +125,7 @@ typedef struct {
 } ParamSt;
 
 typedef struct {
-	char r, g, b, a;
+	uint8_t r, g, b, a;
 } Color;
 
 typedef uint8_t byte;
@@ -209,22 +219,39 @@ typedef struct {
 	char pattern[CheapModePatternSize]; // 0x00
 } CheapMode;
 
-DA(Light, Lights);
-DA(Shadow, Shadows);
-DA(Fog, Fogs);
-DA(BGColor, BGColors);
-DA(MapOffset, MapOffsets);
-DA(Warp, Warps);
-DA(CheapMode, CheapModes);
+typedef struct {
+	varint name_offset;
+	int32_t event_id;
+	byte type;
+	byte val4; // 0
+	int16_t id;
+	varint type_data_offset;
+} __Event;
 
 typedef struct {
-	Lights Lights;
-	Shadows Shadows;
-	Fogs Fogs;
-	BGColors BGColors;
-	MapOffsets MapOffsets;
-	Warps Warps;
-	CheapModes CheapModes;
+	__Event event;
+	utf16_t* name;
+	union {
+		Light light;
+		Shadow shadow;
+		Fog fog;
+		BGColor bgcolor;
+		MapOffset map_offset;
+		Warp warp;
+		CheapMode cheap_mode;
+	} type_data;
+} Event;
+
+DA(Event, Events);
+
+typedef struct {
+	Events Lights;
+	Events Shadows;
+	Events Fogs;
+	Events BGColors;
+	Events MapOffsets;
+	Events Warps;
+	Events CheapModes;
 } EventParam;
 
 typedef uint32_t uint;
@@ -529,27 +556,17 @@ void print_model_type(ModelType type) {
 	printf("\n");
 }
 
-typedef struct {
-	varint name_offset;
-	int8_t type;
-	int8_t val3;
-	int16_t id;
-	int32_t val5;
-	int64_t type_data_offset;
-	varint val7;
-} EntryFmt;
-
 void read_entry(String_View* sv, Entry *entry) {
 	const char *start = sv->data;
-	EntryFmt ef = *(EntryFmt *)sv->data;
-	assert_val(ef.type, (int8_t)entry->type);
-	assert_val(ef.val3, 0);
-	assert_val(ef.val5, 0);
-	assert_val(ef.val7, 0);
-	sv->data += ef.name_offset;
+	entry->entry = *(__Entry *)sv->data;
+	assert_val(entry->entry.type, (int8_t)entry->type);
+	assert_val(entry->entry.val3, 0);
+	assert_val(entry->entry.val5, 0);
+	assert_val(entry->entry.val7, 0);
+	sv->data += entry->entry.name_offset;
 	entry->name = (utf16_t *)sv->data;
 	if (entry->has_type_data) {
-		sv->data = start + ef.type_data_offset;
+		sv->data = start + entry->entry.type_data_offset;
 		assert_item(varint, sv, 0);
 	}
 }
@@ -643,25 +660,16 @@ ModelParam read_model_param(String_View *sv) {
 	return model;
 }
 
-typedef struct {
-	varint name_offset;
-	int32_t event_id;
-	byte type;
-	byte val4; // 0
-	int16_t id;
-	varint type_data_offset;
-} Event;
-
-Event read_event(String_View *sv) {
-	Event event = *(Event *)sv->data;
+__Event read_event(String_View *sv) {
+	__Event event = *(__Event *)sv->data;
 	assert(event.val4 == (byte)0);
-	sv->data += sizeof(Event);
+	sv->data += sizeof(__Event);
 	return event;
 }
 
-Light read_light(String_View *sv) {
+Event read_light(String_View *sv) {
 	const char* start = sv->data;
-	Event event = read_event(sv);
+	__Event event = read_event(sv);
 	assert(event.type_data_offset != 0);
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
@@ -679,12 +687,16 @@ Light read_light(String_View *sv) {
 		assert(light.pattern[i] == 0x00);
 	}
 	sv->data += sizeof(Light);
-	return light;
+	return (Event) {
+		.event = event,
+		.name = name,
+		.type_data.light = light,
+	};
 }
 
-Shadow read_shadow(String_View *sv) {
+Event read_shadow(String_View *sv) {
 	const char* start = sv->data;
-	Event event = read_event(sv);
+	__Event event = read_event(sv);
 	assert(event.type_data_offset != 0);
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
@@ -699,12 +711,16 @@ Shadow read_shadow(String_View *sv) {
 		assert(shadow.pattern[i] == 0x00);
 	}
 	sv->data += sizeof(Shadow);
-	return shadow;
+	return (Event) {
+		.event = event,
+		.name = name,
+		.type_data.shadow = shadow,
+	};
 }
 
-Fog read_fog(String_View *sv) {
+Event read_fog(String_View *sv) {
 	const char* start = sv->data;
-	Event event = read_event(sv);
+	__Event event = read_event(sv);
 	assert(event.type_data_offset != 0);
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
@@ -719,12 +735,16 @@ Fog read_fog(String_View *sv) {
 		assert(fog.pattern[i] == 0x00);
 	}
 	sv->data += sizeof(Fog);
-	return fog;
+	return (Event) {
+		.event = event,
+		.name = name,
+		.type_data.fog = fog,
+	};
 }
 
-BGColor read_bgcolor(String_View *sv) {
+Event read_bgcolor(String_View *sv) {
 	const char* start = sv->data;
-	Event event = read_event(sv);
+	__Event event = read_event(sv);
 	assert(event.type_data_offset != 0);
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
@@ -736,12 +756,16 @@ BGColor read_bgcolor(String_View *sv) {
 		assert(bgcolor.pattern[i] == 0x00);
 	}
 	sv->data += sizeof(BGColor);
-	return bgcolor;
+	return (Event) {
+		.event = event,
+		.name = name,
+		.type_data.bgcolor = bgcolor,
+	};
 }
 
-MapOffset read_map_offset(String_View *sv) {
+Event read_map_offset(String_View *sv) {
 	const char* start = sv->data;
-	Event event = read_event(sv);
+	__Event event = read_event(sv);
 	assert(event.type_data_offset != 0);
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
@@ -751,12 +775,16 @@ MapOffset read_map_offset(String_View *sv) {
 	MapOffset map_offset = *(MapOffset *)sv->data;
 	assert(map_offset.degree == 0);
 	sv->data += sizeof(MapOffset);
-	return map_offset;
+	return (Event) {
+		.event = event,
+		.name = name,
+		.type_data.map_offset = map_offset,
+	};
 }
 
-Warp read_warp(String_View *sv) {
+Event read_warp(String_View *sv) {
 	const char* start = sv->data;
-	Event event = read_event(sv);
+	__Event event = read_event(sv);
 	assert(event.type_data_offset != 0);
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
@@ -768,12 +796,16 @@ Warp read_warp(String_View *sv) {
 	assert(warp.val3 == 0);
 	assert(warp.val4 == 0);
 	sv->data += sizeof(Warp);
-	return warp;
+	return (Event) {
+		.event = event,
+		.name = name,
+		.type_data.warp = warp,
+	};
 }
 
-CheapMode read_cheap_mode(String_View *sv) {
+Event read_cheap_mode(String_View *sv) {
 	const char* start = sv->data;
-	Event event = read_event(sv);
+	__Event event = read_event(sv);
 	assert(event.type_data_offset != 0);
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
@@ -785,7 +817,11 @@ CheapMode read_cheap_mode(String_View *sv) {
 		assert(cheap_mode.pattern[i] == 0);
 	}
 	sv->data += sizeof(CheapMode);
-	return cheap_mode;
+	return (Event) {
+		.event = event,
+		.name = name,
+		.type_data.cheap_mode = cheap_mode,
+	};
 }
 
 EventParam read_event_param(String_View *sv) {
@@ -800,31 +836,31 @@ EventParam read_event_param(String_View *sv) {
 		EventType model_type = *(int8_t *)(sv->data + sizeof(varint) + 4);
 		switch (model_type) {
 	    case ET_Light: {
-			Light light = read_light(sv);
+			Event light = read_light(sv);
 			da_append(&events.Lights, light);
 		} break;
 	    case ET_Shadow: {
-			Shadow shadow = read_shadow(sv);
+			Event shadow = read_shadow(sv);
 			da_append(&events.Shadows, shadow);
 		} break;
 	    case ET_Fog: {
-			Fog fog = read_fog(sv);
+			Event fog = read_fog(sv);
 			da_append(&events.Fogs, fog);
 		} break;
 	    case ET_BGColor: {
-			BGColor bgcolor = read_bgcolor(sv);
+			Event bgcolor = read_bgcolor(sv);
 			da_append(&events.BGColors, bgcolor);
 		} break;
 	    case ET_MapOffset: {
-			MapOffset map_offset = read_map_offset(sv);
+			Event map_offset = read_map_offset(sv);
 			da_append(&events.MapOffsets, map_offset);
 		} break;
 	    case ET_Warp: {
-			Warp warp = read_warp(sv);
+			Event warp = read_warp(sv);
 			da_append(&events.Warps, warp);
 		} break;
 	    case ET_CheapMode: {
-			CheapMode warp = read_cheap_mode(sv);
+			Event warp = read_cheap_mode(sv);
 			da_append(&events.CheapModes, warp);
 		} break;
 		default: UNREACHABLE("model_type");
