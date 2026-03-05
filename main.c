@@ -866,13 +866,13 @@ EventParam read_event_param(String_View *sv) {
 		default: UNREACHABLE("model_type");
 		}
 	}
-	nob_log(INFO, "Read %zu Lights", events.Lights.count);
-	nob_log(INFO, "Read %zu Shadows", events.Shadows.count);
-	nob_log(INFO, "Read %zu Fogs", events.Fogs.count);
-	nob_log(INFO, "Read %zu BGColors", events.BGColors.count);
-	nob_log(INFO, "Read %zu MapOffsets", events.MapOffsets.count);
-	nob_log(INFO, "Read %zu Warps", events.Warps.count);
-	nob_log(INFO, "Read %zu CheapModes", events.CheapModes.count);
+	nob_log(INFO, "Read %zu Events.Lights", events.Lights.count);
+	nob_log(INFO, "Read %zu Events.Shadows", events.Shadows.count);
+	nob_log(INFO, "Read %zu Events.Fogs", events.Fogs.count);
+	nob_log(INFO, "Read %zu Events.BGColors", events.BGColors.count);
+	nob_log(INFO, "Read %zu Events.MapOffsets", events.MapOffsets.count);
+	nob_log(INFO, "Read %zu Events.Warps", events.Warps.count);
+	nob_log(INFO, "Read %zu Events.CheapModes", events.CheapModes.count);
 
 	sv->data = map_begin + param.next_param_offset;
 	return events;
@@ -1101,14 +1101,14 @@ PointParam read_point_param(String_View *sv) {
 		default: UNREACHABLE("region_type");
 		}
 	}
-	nob_log(INFO, "Read %zu Region", regions.Regions.count);
-	nob_log(INFO, "Read %zu Light", regions.Lights.count);
-	nob_log(INFO, "Read %zu StartPoint", regions.StartPoints.count);
-	nob_log(INFO, "Read %zu Sound", regions.Sounds.count);
-	nob_log(INFO, "Read %zu SFX", regions.SFXs.count);
-	nob_log(INFO, "Read %zu Wind", regions.Winds.count);
-	nob_log(INFO, "Read %zu EnvLight", regions.EnvLights.count);
-	nob_log(INFO, "Read %zu Fog", regions.Fogs.count);
+	nob_log(INFO, "Read %zu Regions.Region", regions.Regions.count);
+	nob_log(INFO, "Read %zu Regions.Light", regions.Lights.count);
+	nob_log(INFO, "Read %zu Regions.StartPoint", regions.StartPoints.count);
+	nob_log(INFO, "Read %zu Regions.Sound", regions.Sounds.count);
+	nob_log(INFO, "Read %zu Regions.SFX", regions.SFXs.count);
+	nob_log(INFO, "Read %zu Regions.Wind", regions.Winds.count);
+	nob_log(INFO, "Read %zu Regions.EnvLight", regions.EnvLights.count);
+	nob_log(INFO, "Read %zu Regions.Fog", regions.Fogs.count);
 	sv->data = map_begin + param.next_param_offset;
 	return regions;
 }
@@ -1313,17 +1313,14 @@ void free_entries(Entries *entries) {
 	free_bone_names(&entries->bone_names);
 }
 
+#define map_path(name) "./map/" name "/" name ".msb"
 
-int main() {
-    Nob_String_Builder map_sb = {0};
-    const char *map_path = "./map/m10_02_00_00/m10_02_00_00.msb";
-    if (!nob_read_entire_file(map_path, &map_sb)) return 1;
-    printf("Read %zu bytes from %s\n", map_sb.count, map_path);
-    String_View map_sv = sb_to_sv(map_sb);
-
+Entries load_map(const char* map_path, String_View map_sv) {
 	Header h = *(Header *)map_sv.data;
-    map_begin = map_sv.data;
-    if (!assert_header(map_path, &h)) return 1;
+	map_begin = map_sv.data;
+	if (!assert_header(map_path, &h)) {
+		exit(1);
+	}
 	map_sv.data += sizeof(Header);
 
 	Entries entries = {0};
@@ -1337,9 +1334,70 @@ int main() {
 	entries.bone_names = read_bone_names(&map_sv);
 
 	assert(map_sv.data == map_begin);
+	return entries;
+}
 
+int test_loading_all_maps() {
+	const char *map_names[] = {
+		map_path("m10_02_00_00"),
+		map_path("m10_04_00_00"),
+		map_path("m10_10_00_00"),
+		map_path("m10_14_00_00"),
+		map_path("m10_15_00_00"),
+		map_path("m10_16_00_00"),
+		map_path("m10_17_00_00"),
+		map_path("m10_18_00_00"),
+		map_path("m10_19_00_00"),
+		map_path("m10_23_00_00"),
+		map_path("m10_25_00_00"),
+		map_path("m10_27_00_00"),
+		map_path("m10_29_00_00"),
+		map_path("m10_30_00_00"),
+		map_path("m10_31_00_00"),
+		map_path("m10_32_00_00"),
+		map_path("m10_33_00_00"),
+		map_path("m10_34_00_00"),
+		map_path("m20_10_00_00"),
+		map_path("m20_11_00_00"),
+		map_path("m20_21_00_00"),
+		map_path("m20_24_00_00"),
+		map_path("m20_26_00_00"),
+		map_path("m40_03_00_00"),
+		map_path("m50_35_00_00"),
+		map_path("m50_36_00_00"),
+		map_path("m50_37_00_00"),
+		map_path("m50_38_00_00"),
+	};
+	for (size_t i=0; i<ARRAY_LEN(map_names); i++) {
+		printf("==============================\n");
+		Nob_String_Builder map_sb = {0};
+		const char *map_path = map_names[i];
+		if (!nob_read_entire_file(map_path, &map_sb)) {
+			exit(1);
+		}
+		printf("Read %zu bytes from %s\n", map_sb.count, map_path);
+		String_View map_sv = sb_to_sv(map_sb);
+
+		Entries entries = load_map(map_path, map_sv);
+		free_entries(&entries);
+		da_free(map_sb);
+		printf("Done %s.\n", map_names[i]);
+		printf("==============================\n");
+	}
+	return 0;
+}
+
+int main() {
+	Nob_String_Builder map_sb = {0};
+	const char *map_path = map_path("m10_02_00_00");
+	if (!nob_read_entire_file(map_path, &map_sb)) {
+		return 1;
+	}
+	printf("Read %zu bytes from %s\n", map_sb.count, map_path);
+	String_View map_sv = sb_to_sv(map_sb);
+	Entries entries = load_map(map_path, map_sv);
 	free_entries(&entries);
-
+	da_free(map_sb);
 	printf("Done.");
     return 0;
 }
