@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,6 +6,8 @@
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
+
+// #define LOG_GENERATED_FILES
 
 // [          FILE        ]
 // [Header][ModelInfo][...]
@@ -51,6 +54,7 @@ const char* map_begin = NULL;
 #define assert_val_ret(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); return false;}
 #define assert_val(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); exit(1);}
 
+#define packed_struct struct __attribute__((packed))
 
 #define VERSION 5
 
@@ -91,7 +95,7 @@ typedef enum
 	PT_ConnectCollision = 5,
 } PartType;
 
-typedef struct {
+typedef packed_struct {
 	varint name_offset;
 	int8_t type;
 	int8_t val3;
@@ -109,14 +113,7 @@ typedef struct {
 } Entry;
 DA(Entry, Model);
 
-typedef struct {
-    Model MapPieces;
-    Model Objects;
-    Model Collisions;
-    Model Navmeshes;
-} ModelParam;
-
-typedef struct {
+typedef packed_struct {
 	int32_t version;
 	int32_t offset_count;
 	int64_t name_offset;
@@ -125,13 +122,22 @@ typedef struct {
 } ParamSt;
 
 typedef struct {
+	ParamSt param;
+	utf16_t *name;
+    Model MapPieces;
+    Model Objects;
+    Model Collisions;
+    Model Navmeshes;
+} ModelParam;
+
+typedef packed_struct {
 	uint8_t r, g, b, a;
 } Color;
 
 typedef uint8_t byte;
 
 #define LightPatternSize 0x3B
-typedef struct {
+typedef packed_struct {
 	byte UnkT00;
 	byte val2; // 0
 	int16_t val3; // -1
@@ -156,7 +162,7 @@ typedef struct {
 } Light;
 
 #define ShadowPatternSize 0x18
-typedef struct {
+typedef packed_struct {
 	int32_t val1; //0
 	float UnkT04;
 	float UnkT08;
@@ -171,7 +177,7 @@ typedef struct {
 } Shadow;
 
 #define FogPatternSize 0x11
-typedef struct {
+typedef packed_struct {
 	byte UnkT00;
 	byte val2; //0
 	byte val3; //0
@@ -187,25 +193,25 @@ typedef struct {
 } Fog;
 
 #define BGColorPatternSize 0x24
-typedef struct {
+typedef packed_struct {
 	Color color;
 	char pattern[BGColorPatternSize]; // 0x00
 } BGColor;
 
-typedef struct { 
+typedef packed_struct { 
 	float x,y; 
 } V2f;
 
-typedef struct { 
+typedef packed_struct { 
 	float x,y,z; 
 } V3f;
 
-typedef struct {
+typedef packed_struct {
 	V3f translation;
 	int32_t degree; // 0
 } MapOffset;
 
-typedef struct {
+typedef packed_struct {
 	byte UnkT00;
 	byte val2; // 0
 	byte val3; // 0
@@ -214,12 +220,12 @@ typedef struct {
 } Warp;
 
 #define CheapModePatternSize 0xE
-typedef struct {
+typedef packed_struct {
 	int16_t UnkT00;
 	char pattern[CheapModePatternSize]; // 0x00
 } CheapMode;
 
-typedef struct {
+typedef packed_struct {
 	varint name_offset;
 	int32_t event_id;
 	byte type;
@@ -282,7 +288,7 @@ bool has_shape_data(ShapeType type) {
 }
 
 #define RegionPatternSize 0x24
-typedef struct { 
+typedef packed_struct { 
 	int64_t name_offset;
 	int16_t Unk08;
 	byte type;
@@ -350,7 +356,7 @@ typedef union {
 	} fog;
 } RegionTypeData;
 
-typedef struct {
+typedef packed_struct {
 	int32_t region_index;
 	int32_t Unk04;
 } Child;
@@ -389,12 +395,12 @@ typedef struct {
 
 #define PartCollisionPatternSize 0x10
 #define PartNavmeshPatternSize 0x10
-typedef struct {
+typedef packed_struct {
 	varint name_offset;
 	byte type;
 	byte val3; //0
 	int16_t id;
-	int16_t model_index;
+	int16_t model_index; // model_name is derived from model_index in MSB2.ModelParam.MapPieces.items[model_index].name
 	int16_t val6; //0
 	V3f position;
 	V3f rotation;
@@ -514,7 +520,7 @@ typedef struct {
 
 DA(utf16_t*, BoneNames);
 
-typedef struct {
+typedef packed_struct {
 	char magic[4]; // `MSB `
 	int32_t val1;  // 1
 	int32_t val2;  // 0x10
@@ -540,7 +546,9 @@ bool assert_header(const char *map_path, Header* h) {
 	assert_val_ret(h->val4, false);
 	assert_val_ret(h->val5, 1);
 	assert_val_ret(h->val6, (char)0xFF);
+#ifdef LOG_GENERATED_FILES
     nob_log(INFO, "MSB Header verified");
+#endif
 	return true;
 }
 
@@ -572,24 +580,21 @@ void read_entry(String_View* sv, Entry *entry) {
 }
 
 typedef struct {
+	Header header;
 	ModelParam models;
 	EventParam events;
 	PointParam regions;
 	PartParam parts;
 	PartPoses part_poses;
 	BoneNames bone_names;
-} Entries;
+} MSB2;
 
-typedef struct {
+typedef packed_struct {
 	int32_t version; // 5
 	int32_t offset_count;
 	int64_t name_offset;
 	varint *entry_offsets; // n = offset_count - 1
 } ModalParamSTBegin;
-
-typedef struct {
-
-} ModalParamST;
 
 ParamSt read_param_ex(String_View *sv, int32_t version) {
 	ParamSt param = {0};
@@ -616,15 +621,15 @@ void* get_param_entry(const ParamSt *param, size_t i) {
 
 ModelParam read_model_param(String_View *sv) {
     ModelParam model = {0};
-	ParamSt param = read_param(sv);
+	model.param = read_param(sv);
 
-    utf16_t *name = get_param_name(&param);
+    model.name = get_param_name(&model.param);
 	utf16_t *required = L"MODEL_PARAM_ST";
-	assert(wcscmp(name, required) == 0);
+	assert(wcscmp(model.name, required) == 0);
 
-	for (int i=0; i<param.offset_count-1; i++) {
+	for (int i=0; i<model.param.offset_count-1; i++) {
 		Entry entry = {0};
-		sv->data = get_param_entry(&param, i);
+		sv->data = get_param_entry(&model.param, i);
 		ModelType model_type = *(int8_t *)(sv->data + sizeof(varint));
 		entry.type = model_type;
 		switch (model_type) {
@@ -651,11 +656,13 @@ ModelParam read_model_param(String_View *sv) {
 		default: UNREACHABLE("Model_Type");
 		}
 	}
+#ifdef LOG_GENERATED_FILES
 	nob_log(INFO, "Read %zu map pieces.", model.MapPieces.count);
 	nob_log(INFO, "Read %zu objects.", model.Objects.count);
 	nob_log(INFO, "Read %zu collisions.", model.Collisions.count);
 	nob_log(INFO, "Read %zu navmeshes.", model.Navmeshes.count);
-	sv->data = map_begin + param.next_param_offset;
+#endif
+	sv->data = map_begin + model.param.next_param_offset;
 
 	return model;
 }
@@ -866,6 +873,7 @@ EventParam read_event_param(String_View *sv) {
 		default: UNREACHABLE("model_type");
 		}
 	}
+#ifdef LOG_GENERATED_FILES
 	nob_log(INFO, "Read %zu Events.Lights", events.Lights.count);
 	nob_log(INFO, "Read %zu Events.Shadows", events.Shadows.count);
 	nob_log(INFO, "Read %zu Events.Fogs", events.Fogs.count);
@@ -873,7 +881,7 @@ EventParam read_event_param(String_View *sv) {
 	nob_log(INFO, "Read %zu Events.MapOffsets", events.MapOffsets.count);
 	nob_log(INFO, "Read %zu Events.Warps", events.Warps.count);
 	nob_log(INFO, "Read %zu Events.CheapModes", events.CheapModes.count);
-
+#endif
 	sv->data = map_begin + param.next_param_offset;
 	return events;
 }
@@ -1101,6 +1109,7 @@ PointParam read_point_param(String_View *sv) {
 		default: UNREACHABLE("region_type");
 		}
 	}
+#ifdef LOG_GENERATED_FILES
 	nob_log(INFO, "Read %zu Regions.Region", regions.Regions.count);
 	nob_log(INFO, "Read %zu Regions.Light", regions.Lights.count);
 	nob_log(INFO, "Read %zu Regions.StartPoint", regions.StartPoints.count);
@@ -1109,6 +1118,7 @@ PointParam read_point_param(String_View *sv) {
 	nob_log(INFO, "Read %zu Regions.Wind", regions.Winds.count);
 	nob_log(INFO, "Read %zu Regions.EnvLight", regions.EnvLights.count);
 	nob_log(INFO, "Read %zu Regions.Fog", regions.Fogs.count);
+#endif
 	sv->data = map_begin + param.next_param_offset;
 	return regions;
 }
@@ -1200,17 +1210,18 @@ PartParam read_parts_param(String_View *sv) {
 		default: UNREACHABLE("region_type");
 		}
 	}
-
+#ifdef LOG_GENERATED_FILES
 	nob_log(INFO, "Read %zu MapPiece", parts.MapPieces.count);
 	nob_log(INFO, "Read %zu Object", parts.Objects.count);
 	nob_log(INFO, "Read %zu Collision", parts.Collisions.count);
 	nob_log(INFO, "Read %zu Navmesh", parts.Navmeshes.count);
 	nob_log(INFO, "Read %zu ConnectCollision", parts.ConnectCollisions.count);
+#endif
 	sv->data = map_begin + param.next_param_offset;
 	return parts;
 }
 
-typedef struct {
+typedef packed_struct {
 	int16_t PartIndex;
 	int16_t boneCount;
 	int32_t val3; // 0
@@ -1238,7 +1249,9 @@ PartPoses read_part_poses(String_View *sv) {
 			da_append(&pp.bones, bone);
 		}
 	}
+#ifdef LOG_GENERATED_FILES
 	nob_log(INFO, "Read %zu PartPoses", pp.bones.count);
+#endif
 	sv->data = map_begin + param.next_param_offset;
 	return pp;
 }
@@ -1254,7 +1267,9 @@ BoneNames read_bone_names(String_View *sv) {
 		utf16_t *name = (utf16_t *)sv->data;
 		da_append(&names, name);
 	}
+#ifdef LOG_GENERATED_FILES
 	nob_log(INFO, "Read %zu BoneNames", names.count);
+#endif
 	sv->data = map_begin + param.next_param_offset;
 	return names;
 }
@@ -1304,7 +1319,7 @@ void free_bone_names(BoneNames *param) {
 	da_free(*param);
 }
 
-void free_entries(Entries *entries) {
+void free_entries(MSB2 *entries) {
 	free_models(&entries->models);
 	free_events(&entries->events);
 	free_regions(&entries->regions);
@@ -1315,7 +1330,7 @@ void free_entries(Entries *entries) {
 
 #define map_path(name) "./map/" name "/" name ".msb"
 
-Entries load_map(const char* map_path, String_View map_sv) {
+MSB2 load_map(const char* map_path, String_View map_sv) {
 	Header h = *(Header *)map_sv.data;
 	map_begin = map_sv.data;
 	if (!assert_header(map_path, &h)) {
@@ -1323,18 +1338,23 @@ Entries load_map(const char* map_path, String_View map_sv) {
 	}
 	map_sv.data += sizeof(Header);
 
-	Entries entries = {0};
-	entries.models = read_model_param(&map_sv);
-	entries.events = read_event_param(&map_sv);
-	entries.regions = read_point_param(&map_sv);
+	MSB2 map = {0};
+	map.header = h;
+	map.models = read_model_param(&map_sv);
+	map.events = read_event_param(&map_sv);
+	map.regions = read_point_param(&map_sv);
 	read_route_param(&map_sv);
 	read_layer_param(&map_sv);
-	entries.parts = read_parts_param(&map_sv);
-	entries.part_poses = read_part_poses(&map_sv);
-	entries.bone_names = read_bone_names(&map_sv);
+	map.parts = read_parts_param(&map_sv);
+	map.part_poses = read_part_poses(&map_sv);
+	map.bone_names = read_bone_names(&map_sv);
 
 	assert(map_sv.data == map_begin);
-	return entries;
+
+	// TODO: maybe this is unnecessary if the model names are unique
+	// disambiguate_model_names(&map.models);
+
+	return map;
 }
 
 int test_loading_all_maps() {
@@ -1378,13 +1398,144 @@ int test_loading_all_maps() {
 		printf("Read %zu bytes from %s\n", map_sb.count, map_path);
 		String_View map_sv = sb_to_sv(map_sb);
 
-		Entries entries = load_map(map_path, map_sv);
-		free_entries(&entries);
+		MSB2 map = load_map(map_path, map_sv);
+		free_entries(&map);
 		da_free(map_sb);
 		printf("Done %s.\n", map_names[i]);
 		printf("==============================\n");
 	}
 	return 0;
+}
+
+void write_header(String_Builder *sb, Header *h) {
+	size_t length = sizeof(Header);
+	nob_sb_append_buf(sb, h, length);
+}
+
+void sb_reserve(String_Builder *sb, size_t nbytes) {
+	for (size_t i=0; i<nbytes; i++) {
+		nob_sb_append(sb, 0);
+	}
+}
+
+void __sb_write(String_Builder *sb, void *data, size_t length) {
+	nob_sb_append_buf(sb, data, length);
+}
+
+#define sb_write(sb, data) __sb_write((sb), &data, sizeof(data));
+
+void sb_write_varint(String_Builder *sb, varint value) {
+	nob_da_reserve(sb, sb->count + sizeof(value));
+	memcpy(sb->items + sb->count, &value, sizeof(value));
+}
+
+void sb_patch(String_Builder *sb, size_t position, varint data) {
+	size_t cur_pos = sb->count;
+	sb->count = position;
+	sb_write_varint(sb, data);
+	sb->count = cur_pos;
+}
+
+void sb_append_utf16t(String_Builder *sb, utf16_t *str) {
+	size_t name_size = wcstombs(NULL, str, 0)*sizeof(wchar_t);
+	nob_da_reserve(sb, sb->count + name_size + sizeof(wchar_t)); // additional for null terminator
+	memcpy(sb->items + sb->count, str, name_size);
+	sb->count += name_size + sizeof(wchar_t);
+	for (size_t i=0; i<sizeof(wchar_t); i++) {
+		sb->items[sb->count-1-i] = 0;
+	}
+}
+
+void write_type_data(String_Builder *sb, ModelType type) {
+	switch (type) {
+		case MT_Object: sb_write_varint(sb, 0); break;
+		default:
+			UNREACHABLE("Not Implemented");
+	}
+}
+
+DA(size_t, DArrz);
+#define sb_pad sb_reserve
+void write_model(String_Builder *sb, Model *model, DArrz *offset_positions, size_t *entries_count) {
+	for (size_t i=0; i<model->count; i++) {
+		size_t begin = sb->count;
+		assert(*entries_count < offset_positions->count);
+		size_t param_pos = offset_positions->items[*entries_count];
+		sb_patch(sb, param_pos, (varint)sb->count);
+
+		size_t name_offset = sb->count;
+		sb_reserve(sb, sizeof(varint)); // name_offset
+
+		size_t length = offsetof(__Entry, type_data_offset) - offsetof(__Entry, type);
+		nob_sb_append_buf(sb, &model->items[i].entry.type, length);
+
+		size_t type_data_offset = sb->count;
+		sb_reserve(sb, sizeof(varint)); // type_data_offset
+		sb_pad(sb, sizeof(varint));
+
+		sb_patch(sb, name_offset, sb->count - begin);
+		sb_append_utf16t(sb, model->items[i].name);
+		sb_pad(sb, sizeof(varint));
+
+		if (model->items[i].has_type_data) {
+			sb_patch(sb, type_data_offset, sb->count - begin);
+			write_type_data(sb, model->items[i].type);
+		} else {
+			sb_patch(sb, type_data_offset, 0);
+		}
+
+		sb_pad(sb, sizeof(varint));
+		(*entries_count)++;
+	}
+}
+
+void write_model_param(String_Builder *sb, ModelParam *param) {
+	ParamSt *p = &param->param;
+	size_t length = offsetof(ParamSt, name_offset);
+	nob_sb_append_buf(sb, p, length);
+	size_t name_offset = sb->count;
+	sb_write(sb, p->name_offset);
+
+	DArrz offset_positions = {0};
+	for (int i=0; i<p->offset_count-1; i++) {
+		da_append(&offset_positions, sb->count);
+		sb_reserve(sb, sizeof(varint));
+	}
+	size_t next_param_offset = sb->count;
+	sb_write(sb, p->next_param_offset);
+
+
+	sb_patch(sb, name_offset, (varint)sb->count);
+	sb_append_utf16t(sb, param->name);
+	sb_pad(sb, sizeof(varint));
+
+	size_t entries_count = 0;
+	write_model(sb, &param->MapPieces, &offset_positions, &entries_count);
+	write_model(sb, &param->Objects, &offset_positions, &entries_count);
+	write_model(sb, &param->Collisions, &offset_positions, &entries_count);
+	write_model(sb, &param->Navmeshes, &offset_positions, &entries_count);
+	sb_patch(sb, next_param_offset, sb->count);
+}
+
+bool write_map(String_Builder *sb, MSB2 *entries) {
+	write_header(sb, &entries->header);
+	write_model_param(sb, &entries->models);
+
+	TODO("write_map");
+	// Immediate checking
+	String_View sv = sb_to_sv(*sb);
+	Header h = *(Header *)sv.data;
+	map_begin = sv.data;
+	if (!assert_header("", &h)) {
+		exit(1);
+	}
+	sv.data += sizeof(Header);
+
+	MSB2 map = {0};
+	map.models = read_model_param(&sv);
+
+	TODO("write_map");
+	return true;
 }
 
 int main() {
@@ -1395,8 +1546,14 @@ int main() {
 	}
 	printf("Read %zu bytes from %s\n", map_sb.count, map_path);
 	String_View map_sv = sb_to_sv(map_sb);
-	Entries entries = load_map(map_path, map_sv);
-	free_entries(&entries);
+	MSB2 map = load_map(map_path, map_sv);
+
+	String_Builder rsb = {0};
+	if (!write_map(&rsb, &map)) {
+		return 1;
+	}
+
+	free_entries(&map);
 	da_free(map_sb);
 	printf("Done.");
     return 0;
