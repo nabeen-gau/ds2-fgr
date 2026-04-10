@@ -52,7 +52,7 @@ const char* map_begin = NULL;
 #define read_item_ptr(type, sv, n)  _read_item_ptr(type, sv); (sv)->data += sizeof(type)*(n)
 
 #define assert_val_ret(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); return false;}
-#define assert_val(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); exit(1);}
+#define assert_val(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); assert(false);}
 
 #define packed_struct struct __attribute__((packed))
 
@@ -237,6 +237,7 @@ typedef packed_struct {
 typedef struct {
 	__Event event;
 	utf16_t* name;
+	EventType type;
 	union {
 		Light light;
 		Shadow shadow;
@@ -251,6 +252,8 @@ typedef struct {
 DA(Event, Events);
 
 typedef struct {
+	ParamSt param;
+	utf16_t *name;
 	Events Lights;
 	Events Shadows;
 	Events Fogs;
@@ -313,7 +316,7 @@ typedef packed_struct {
 #define RegionEnvLightPatternSize 0x14
 #define RegionFogPatternSize 0x18
 typedef union {
-	struct {
+	packed_struct {
 		int32_t UnkT00;
 		Color ColorT04;
 		Color ColorT08;
@@ -321,18 +324,18 @@ typedef union {
 		char pattern[RegionLightPatternSize]; // 0x00
 		int32_t val4; // 0
 	} light;
-	struct {
+	packed_struct {
 		int32_t UnkT00;
 		int32_t sound_id;
 		int32_t UnkT08;
 		char pattern[RegionSoundPatternSize]; // 0x00
 	} sound;
-	struct {
+	packed_struct {
 		int32_t effect_id;
 		int32_t UnkT04;
 		char pattern[RegionSFXPatternSize]; // 0x00
 	} sfx;
-	struct {
+	packed_struct {
 		int32_t UnkT00;
 		float UnkT04;
 		float UnkT08;
@@ -342,13 +345,13 @@ typedef union {
 		float UnkT18;
 		int32_t val9; // 0
 	} wind;
-	struct {
+	packed_struct {
 		int32_t UnkT00;
 		float   UnkT04;
 		float   UnkT08;
 		char pattern[RegionEnvLightPatternSize]; // 0x00
 	} env_light;
-	struct {
+	packed_struct {
 		int32_t UnkT00;
 		int32_t UnkT04;
 		char pattern[RegionFogPatternSize]; // 0x00
@@ -377,12 +380,15 @@ typedef struct {
 	__Region region;
 	Shape shape;
 	utf16_t *name;
+	bool has_type_data;
 	RegionTypeData type_data;
 } Region;
 
 DA(Region, Regions);
 
 typedef struct {
+	ParamSt param;
+	utf16_t *name;
 	Regions Regions;
 	Regions Lights;
 	Regions StartPoints;
@@ -681,7 +687,6 @@ Event read_light(String_View *sv) {
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
 	utf16_t *name = (utf16_t *)sv->data;
-	UNUSED(name);
 	sv->data = start + event.type_data_offset;
 	Light light = *(Light *)sv->data;
 	assert(light.val2 == 0);
@@ -708,7 +713,6 @@ Event read_shadow(String_View *sv) {
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
 	utf16_t *name = (utf16_t *)sv->data;
-	UNUSED(name);
 	sv->data = start + event.type_data_offset;
 	Shadow shadow = *(Shadow *)sv->data;
 	assert(shadow.val1 == 0);
@@ -732,7 +736,6 @@ Event read_fog(String_View *sv) {
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
 	utf16_t *name = (utf16_t *)sv->data;
-	UNUSED(name);
 	sv->data = start + event.type_data_offset;
 	Fog fog = *(Fog *)sv->data;
 	assert(fog.val2 == 0);
@@ -756,7 +759,6 @@ Event read_bgcolor(String_View *sv) {
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
 	utf16_t *name = (utf16_t *)sv->data;
-	UNUSED(name);
 	sv->data = start + event.type_data_offset;
 	BGColor bgcolor = *(BGColor *)sv->data;
 	for (size_t i=0; i<BGColorPatternSize; i+=1) {
@@ -777,7 +779,6 @@ Event read_map_offset(String_View *sv) {
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
 	utf16_t *name = (utf16_t *)sv->data;
-	UNUSED(name);
 	sv->data = start + event.type_data_offset;
 	MapOffset map_offset = *(MapOffset *)sv->data;
 	assert(map_offset.degree == 0);
@@ -796,7 +797,6 @@ Event read_warp(String_View *sv) {
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
 	utf16_t *name = (utf16_t *)sv->data;
-	UNUSED(name);
 	sv->data = start + event.type_data_offset;
 	Warp warp = *(Warp *)sv->data;
 	assert(warp.val2 == 0);
@@ -817,7 +817,6 @@ Event read_cheap_mode(String_View *sv) {
 	assert(event.name_offset != 0);
 	sv->data = start + event.name_offset;
 	utf16_t *name = (utf16_t *)sv->data;
-	UNUSED(name);
 	sv->data = start + event.type_data_offset;
 	CheapMode cheap_mode = *(CheapMode *)sv->data;
 	for (size_t i=0; i<CheapModePatternSize; i+=1) {
@@ -834,41 +833,50 @@ Event read_cheap_mode(String_View *sv) {
 EventParam read_event_param(String_View *sv) {
 	EventParam events = {0};
 	ParamSt param = read_param(sv);
+	events.param = param;
     utf16_t *name = get_param_name(&param);
+	events.name = name;
 	utf16_t *required = L"EVENT_PARAM_ST";
 	assert(wcscmp(name, required) == 0);
 
 	for (int i=0; i<param.offset_count-1; i++) {
 		sv->data = get_param_entry(&param, i);
-		EventType model_type = *(int8_t *)(sv->data + sizeof(varint) + 4);
-		switch (model_type) {
+		EventType event_type = *(int8_t *)(sv->data + sizeof(varint) + 4);
+		switch (event_type) {
 	    case ET_Light: {
 			Event light = read_light(sv);
+			light.type = event_type;
 			da_append(&events.Lights, light);
 		} break;
 	    case ET_Shadow: {
 			Event shadow = read_shadow(sv);
+			shadow.type = event_type;
 			da_append(&events.Shadows, shadow);
 		} break;
 	    case ET_Fog: {
 			Event fog = read_fog(sv);
+			fog.type = event_type;
 			da_append(&events.Fogs, fog);
 		} break;
 	    case ET_BGColor: {
 			Event bgcolor = read_bgcolor(sv);
+			bgcolor.type = event_type;
 			da_append(&events.BGColors, bgcolor);
 		} break;
 	    case ET_MapOffset: {
 			Event map_offset = read_map_offset(sv);
+			map_offset.type = event_type;
 			da_append(&events.MapOffsets, map_offset);
 		} break;
 	    case ET_Warp: {
 			Event warp = read_warp(sv);
+			warp.type = event_type;
 			da_append(&events.Warps, warp);
 		} break;
 	    case ET_CheapMode: {
-			Event warp = read_cheap_mode(sv);
-			da_append(&events.CheapModes, warp);
+			Event cheap_mode = read_cheap_mode(sv);
+			cheap_mode.type = event_type;
+			da_append(&events.CheapModes, cheap_mode);
 		} break;
 		default: UNREACHABLE("model_type");
 		}
@@ -1043,9 +1051,10 @@ __Region read_region_(String_View *sv) {
 Region read_region(String_View *sv, bool has_type_data) {
 	const char *start = sv->data;
 	Region region;
+	region.has_type_data = has_type_data;
 	region.region = read_region_(sv);
 
-	// TODO: this assertion is incorrect
+	// NOTE: this assertion is incorrect
 	// assert((has_type_data^region.type_data_offset) == 0);
 
 	region.shape = create_shape(region.region.shape_type);
@@ -1067,7 +1076,9 @@ Region read_region(String_View *sv, bool has_type_data) {
 PointParam read_point_param(String_View *sv) {
 	PointParam regions = {0};
 	ParamSt param = read_param(sv);
+	regions.param = param;
     utf16_t *name = get_param_name(&param);
+	regions.name = name;
 	utf16_t *required = L"POINT_PARAM_ST";
 	assert(wcscmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
@@ -1422,12 +1433,26 @@ void __sb_write(String_Builder *sb, void *data, size_t length) {
 	nob_sb_append_buf(sb, data, length);
 }
 
-#define sb_write(sb, data) __sb_write((sb), &data, sizeof(data));
+#define sb_write(sb, data) __sb_write((sb), &(data), sizeof(data));
 
 void sb_write_varint(String_Builder *sb, varint value) {
 	nob_da_reserve(sb, sb->count + sizeof(value));
 	memcpy(sb->items + sb->count, &value, sizeof(value));
+	sb->count += sizeof(varint);
 }
+
+void sb_write_int64t(String_Builder *sb, int64_t value) {
+	nob_da_reserve(sb, sb->count + sizeof(value));
+	memcpy(sb->items + sb->count, &value, sizeof(value));
+	sb->count += sizeof(int64_t);
+}
+
+void sb_write_int32t(String_Builder *sb, int32_t value) {
+	nob_da_reserve(sb, sb->count + sizeof(value));
+	memcpy(sb->items + sb->count, &value, sizeof(value));
+	sb->count += sizeof(int32_t);
+}
+
 
 void sb_patch(String_Builder *sb, size_t position, varint data) {
 	size_t cur_pos = sb->count;
@@ -1437,22 +1462,80 @@ void sb_patch(String_Builder *sb, size_t position, varint data) {
 }
 
 void sb_append_utf16t(String_Builder *sb, utf16_t *str) {
-	size_t name_size = wcstombs(NULL, str, 0)*sizeof(wchar_t);
-	nob_da_reserve(sb, sb->count + name_size + sizeof(wchar_t)); // additional for null terminator
-	memcpy(sb->items + sb->count, str, name_size);
-	sb->count += name_size + sizeof(wchar_t);
-	for (size_t i=0; i<sizeof(wchar_t); i++) {
-		sb->items[sb->count-1-i] = 0;
+	// compute the size of string
+	char *c = (char *)str;
+	size_t name_size = 0;
+	size_t zcount = 0;
+	while (true) {
+		if (*c == 0) {
+			zcount++;
+		} else {
+			zcount = 0;
+		}
+		name_size++;
+		if (zcount >= sizeof(utf16_t) && name_size%sizeof(utf16_t) == 0) {
+			break;
+		}
+		c++;
 	}
+
+	nob_da_reserve(sb, sb->count + name_size);
+	memcpy(sb->items + sb->count, str, name_size);
+	sb->count += name_size;
 }
 
-void write_type_data(String_Builder *sb, ModelType type) {
+void write_model_type_data(String_Builder *sb, ModelType type) {
 	switch (type) {
 		case MT_Object: sb_write_varint(sb, 0); break;
 		default:
 			UNREACHABLE("Not Implemented");
 	}
 }
+
+void write_event_type_data(String_Builder *sb, Event *event) {
+	switch (event->type) {
+	case ET_Light: {
+		size_t length = sizeof(Light);
+		sb_append_buf(sb, &event->type_data.light, length);
+	} break;
+	case ET_Shadow: {
+		size_t length = sizeof(Shadow);
+		sb_append_buf(sb, &event->type_data.shadow, length);
+	} break;
+	case ET_Fog: {
+		size_t length = sizeof(Fog);
+		sb_append_buf(sb, &event->type_data.fog, length);
+	} break;
+	case ET_BGColor: {
+		size_t length = sizeof(BGColor);
+		sb_append_buf(sb, &event->type_data.bgcolor, length);
+	} break;
+	case ET_MapOffset: {
+		size_t length = sizeof(MapOffset);
+		sb_append_buf(sb, &event->type_data.map_offset, length);
+	} break;
+	case ET_Warp: {
+		size_t length = sizeof(Warp);
+		sb_append_buf(sb, &event->type_data.warp, length);
+	} break;
+	case ET_CheapMode: {
+		size_t length = sizeof(CheapMode);
+		sb_append_buf(sb, &event->type_data.cheap_mode, length);
+	} break;
+	default: UNREACHABLE("Not Implemented");
+	}
+}
+
+void sb_append_sint32(String_Builder *sb, int32_t value) {
+	size_t length = sizeof(value);
+	sb_append_buf(sb, &value, length);
+}
+
+void sb_append_float(String_Builder *sb, float value) {
+	size_t length = sizeof(float);
+	sb_append_buf(sb, &value, length);
+}
+
 
 DA(size_t, DArrz);
 #define sb_pad sb_reserve
@@ -1461,53 +1544,211 @@ void write_model(String_Builder *sb, Model *model, DArrz *offset_positions, size
 		size_t begin = sb->count;
 		assert(*entries_count < offset_positions->count);
 		size_t param_pos = offset_positions->items[*entries_count];
-		sb_patch(sb, param_pos, (varint)sb->count);
+		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
 
 		size_t name_offset = sb->count;
 		sb_reserve(sb, sizeof(varint)); // name_offset
 
-		size_t length = offsetof(__Entry, type_data_offset) - offsetof(__Entry, type);
-		nob_sb_append_buf(sb, &model->items[i].entry.type, length);
+
+		size_t length = offsetof(__Entry, id) - offsetof(__Entry, type);
+		sb_append_buf(sb, &model->items[i].entry.type, length);
+
+		int16_t id = i;
+		length = sizeof(int16_t);
+		sb_append_buf(sb, &id, length);
+
+		sb_append_sint32(sb, model->items[i].entry.val5);
 
 		size_t type_data_offset = sb->count;
 		sb_reserve(sb, sizeof(varint)); // type_data_offset
-		sb_pad(sb, sizeof(varint));
+		sb_write_varint(sb, 0);
 
 		sb_patch(sb, name_offset, sb->count - begin);
 		sb_append_utf16t(sb, model->items[i].name);
-		sb_pad(sb, sizeof(varint));
+		sb_pad_align(sb, sizeof(varint));
 
 		if (model->items[i].has_type_data) {
 			sb_patch(sb, type_data_offset, sb->count - begin);
-			write_type_data(sb, model->items[i].type);
+			write_model_type_data(sb, model->items[i].type);
 		} else {
 			sb_patch(sb, type_data_offset, 0);
 		}
 
-		sb_pad(sb, sizeof(varint));
+		sb_pad_align(sb, sizeof(varint));
 		(*entries_count)++;
 	}
 }
 
-void write_model_param(String_Builder *sb, ModelParam *param) {
-	ParamSt *p = &param->param;
+void write_events(String_Builder *sb, Events *model, DArrz *offset_positions, size_t *entries_count) {
+	for (size_t i=0; i<model->count; i++) {
+		size_t begin = sb->count;
+		assert(*entries_count < offset_positions->count);
+		size_t param_pos = offset_positions->items[*entries_count];
+		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+
+		size_t name_offset = sb->count;
+		sb_reserve(sb, sizeof(varint)); // name_offset
+
+		size_t length = offsetof(__Event, id) - offsetof(__Event, event_id);
+		nob_sb_append_buf(sb, &model->items[i].event.event_id, length);
+
+		int16_t id = i;
+		length = sizeof(int16_t);
+		sb_append_buf(sb, &id, length);
+
+		size_t type_data_offset = sb->count;
+		sb_reserve(sb, sizeof(varint)); // type_data_offset
+
+		sb_patch(sb, name_offset, sb->count - begin);
+		sb_append_utf16t(sb, model->items[i].name);
+		sb_pad_align(sb, sizeof(varint));
+
+		sb_patch(sb, type_data_offset, sb->count - begin);
+		write_event_type_data(sb, &model->items[i]);
+
+		sb_pad_align(sb, sizeof(varint));
+		(*entries_count)++;
+	}
+}
+
+void write_regions(String_Builder *sb, Regions *model, DArrz *offset_positions, size_t *entries_count) {
+	for (size_t i=0; i<model->count; i++) {
+		size_t begin = sb->count;
+		assert(*entries_count < offset_positions->count);
+		size_t param_pos = offset_positions->items[*entries_count];
+		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+
+		size_t name_offset = sb->count;
+		sb_reserve(sb, sizeof(varint)); // name_offset
+
+		size_t length = offsetof(__Region, id) - offsetof(__Region, Unk08);
+		nob_sb_append_buf(sb, &model->items[i].region.Unk08, length);
+
+		int16_t id = (int16_t)i;
+		length = sizeof(int16_t);
+		sb_append_buf(sb, &id, length);
+
+		length = offsetof(__Region, unkOffsetA) - offsetof(__Region, Unk0E);
+		nob_sb_append_buf(sb, &model->items[i].region.Unk0E, length);
+
+		size_t unkOffsetA = sb->count;
+		sb_reserve(sb, sizeof(varint));
+		size_t unkOffsetB = sb->count;
+		sb_reserve(sb, sizeof(varint));
+
+		length = offsetof(__Region, shape_data_offset) - offsetof(__Region, val11);
+		nob_sb_append_buf(sb, &model->items[i].region.val11, length);
+
+		size_t shape_data_offset = sb->count;
+		sb_reserve(sb, sizeof(varint));
+		size_t type_data_offset = sb->count;
+		sb_reserve(sb, sizeof(varint)); // type_data_offset
+
+		sb_write_int64t(sb, 0);
+		sb_write_int64t(sb, 0);
+
+		sb_patch(sb, name_offset, sb->count - begin);
+		sb_append_utf16t(sb, model->items[i].name);
+		sb_pad_align(sb, 4);
+
+		sb_patch(sb, unkOffsetA, sb->count - begin);
+		sb_write_int32t(sb, 0);
+		sb_patch(sb, unkOffsetB, sb->count - begin);
+		sb_write_int32t(sb, 0);
+		sb_pad_align(sb, sizeof(varint));
+
+		if (model->items[i].shape.has_shape_data) {
+			sb_patch(sb, shape_data_offset, sb->count - begin);
+
+			switch (model->items[i].shape.type) {
+			case ST_Circle: 
+			case ST_Sphere:
+				sb_append_float(sb, model->items[i].shape.radius);
+				break;
+			case ST_Cylinder: 
+			case ST_Rectangle:
+				sb_append_float(sb, model->items[i].shape.v2.x);
+				sb_append_float(sb, model->items[i].shape.v2.y);
+				break;
+			case ST_Box: 
+				sb_append_float(sb, model->items[i].shape.v3.x);
+				sb_append_float(sb, model->items[i].shape.v3.y);
+				sb_append_float(sb, model->items[i].shape.v3.z);
+				break;
+			case ST_Composite:
+				length = sizeof(model->items[i].shape.children);
+				sb_append_buf(sb, model->items[i].shape.children, length);
+				break;
+			case ST_None:
+			case ST_Point:
+			default: UNREACHABLE("this ShapeType should not have shape data!!");
+			}
+		} else {
+			sb_patch(sb, shape_data_offset, 0);
+		}
+
+		if (model->items[i].has_type_data) {
+			sb_patch(sb, type_data_offset, sb->count - begin);
+			switch((RegionType)model->items[i].region.type) {
+			case RT_Light:
+				length = sizeof(model->items[i].type_data.light);
+				sb_append_buf(sb, &model->items[i].type_data.light, length);
+			break;
+			case RT_Sound:
+				length = sizeof(model->items[i].type_data.sound);
+				sb_append_buf(sb, &model->items[i].type_data.sound, length);
+			break;
+			case RT_SFX: 
+				length = sizeof(model->items[i].type_data.sfx);
+				sb_append_buf(sb, &model->items[i].type_data.sfx, length);
+			break;
+			case RT_Wind: 
+				length = sizeof(model->items[i].type_data.wind);
+				sb_append_buf(sb, &model->items[i].type_data.wind, length);
+			break;
+			case RT_EnvLight: 
+				length = sizeof(model->items[i].type_data.env_light);
+				sb_append_buf(sb, &model->items[i].type_data.env_light, length);
+			break;
+			case RT_Fog: 
+				length = sizeof(model->items[i].type_data.fog);
+				sb_append_buf(sb, &model->items[i].type_data.fog, length);
+			break;
+			case RT_Region0: 
+			case RT_StartPoint: 
+			default: UNREACHABLE("this RegionType should not have type data!!");
+			}
+		} else {
+			sb_patch(sb, type_data_offset, 0);
+		}
+
+		sb_pad_align(sb, sizeof(varint));
+		(*entries_count)++;
+	}
+}
+
+size_t write_param_header(String_Builder *sb, ParamSt *p, utf16_t *name, DArrz *offset_positions) {
 	size_t length = offsetof(ParamSt, name_offset);
 	nob_sb_append_buf(sb, p, length);
 	size_t name_offset = sb->count;
 	sb_write(sb, p->name_offset);
 
-	DArrz offset_positions = {0};
 	for (int i=0; i<p->offset_count-1; i++) {
-		da_append(&offset_positions, sb->count);
+		da_append(offset_positions, sb->count);
 		sb_reserve(sb, sizeof(varint));
 	}
 	size_t next_param_offset = sb->count;
 	sb_write(sb, p->next_param_offset);
 
-
 	sb_patch(sb, name_offset, (varint)sb->count);
-	sb_append_utf16t(sb, param->name);
-	sb_pad(sb, sizeof(varint));
+	sb_append_utf16t(sb, name);
+	sb_pad_align(sb, sizeof(varint));
+	return next_param_offset;
+}
+
+void write_model_param(String_Builder *sb, ModelParam *param) {
+	DArrz offset_positions = {0};
+	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
 
 	size_t entries_count = 0;
 	write_model(sb, &param->MapPieces, &offset_positions, &entries_count);
@@ -1517,11 +1758,44 @@ void write_model_param(String_Builder *sb, ModelParam *param) {
 	sb_patch(sb, next_param_offset, sb->count);
 }
 
+void write_event_param(String_Builder *sb, EventParam *param) {
+	DArrz offset_positions = {0};
+	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
+
+	size_t entries_count = 0;
+	write_events(sb, &param->Lights, &offset_positions, &entries_count);
+	write_events(sb, &param->Shadows, &offset_positions, &entries_count);
+	write_events(sb, &param->Fogs, &offset_positions, &entries_count);
+	write_events(sb, &param->BGColors, &offset_positions, &entries_count);
+	write_events(sb, &param->MapOffsets, &offset_positions, &entries_count);
+	write_events(sb, &param->Warps, &offset_positions, &entries_count);
+	write_events(sb, &param->CheapModes, &offset_positions, &entries_count);
+	sb_patch(sb, next_param_offset, sb->count);
+}
+
+void write_region_param(String_Builder *sb, PointParam *param) {
+	DArrz offset_positions = {0};
+	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
+
+	size_t entries_count = 0;
+	write_regions(sb, &param->Regions, &offset_positions, &entries_count);
+	write_regions(sb, &param->Lights, &offset_positions, &entries_count);
+	write_regions(sb, &param->StartPoints, &offset_positions, &entries_count);
+	write_regions(sb, &param->Sounds, &offset_positions, &entries_count);
+	write_regions(sb, &param->SFXs, &offset_positions, &entries_count);
+	write_regions(sb, &param->Winds, &offset_positions, &entries_count);
+	write_regions(sb, &param->EnvLights, &offset_positions, &entries_count);
+	write_regions(sb, &param->Fogs, &offset_positions, &entries_count);
+	sb_patch(sb, next_param_offset, sb->count);
+}
+
+
 bool write_map(String_Builder *sb, MSB2 *entries) {
 	write_header(sb, &entries->header);
 	write_model_param(sb, &entries->models);
+	write_event_param(sb, &entries->events);
+	write_region_param(sb, &entries->regions);
 
-	TODO("write_map");
 	// Immediate checking
 	String_View sv = sb_to_sv(*sb);
 	Header h = *(Header *)sv.data;
@@ -1533,6 +1807,8 @@ bool write_map(String_Builder *sb, MSB2 *entries) {
 
 	MSB2 map = {0};
 	map.models = read_model_param(&sv);
+	map.events = read_event_param(&sv);
+	map.regions = read_point_param(&sv);
 
 	TODO("write_map");
 	return true;
