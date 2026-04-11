@@ -1386,6 +1386,7 @@ void free_entries(MSB2 *entries) {
 }
 
 #define map_path(name) "./map/" name "/" name ".msb"
+#define eventlocation_path(name) "./Param/eventlocation_" name ".param"
 
 MSB2 load_map(const char* map_path, String_View map_sv) {
 	Header h = *(Header *)map_sv.data;
@@ -1412,56 +1413,6 @@ MSB2 load_map(const char* map_path, String_View map_sv) {
 	// disambiguate_model_names(&map.models);
 
 	return map;
-}
-
-int test_loading_all_maps() {
-	const char *map_names[] = {
-		map_path("m10_02_00_00"),
-		map_path("m10_04_00_00"),
-		map_path("m10_10_00_00"),
-		map_path("m10_14_00_00"),
-		map_path("m10_15_00_00"),
-		map_path("m10_16_00_00"),
-		map_path("m10_17_00_00"),
-		map_path("m10_18_00_00"),
-		map_path("m10_19_00_00"),
-		map_path("m10_23_00_00"),
-		map_path("m10_25_00_00"),
-		map_path("m10_27_00_00"),
-		map_path("m10_29_00_00"),
-		map_path("m10_30_00_00"),
-		map_path("m10_31_00_00"),
-		map_path("m10_32_00_00"),
-		map_path("m10_33_00_00"),
-		map_path("m10_34_00_00"),
-		map_path("m20_10_00_00"),
-		map_path("m20_11_00_00"),
-		map_path("m20_21_00_00"),
-		map_path("m20_24_00_00"),
-		map_path("m20_26_00_00"),
-		map_path("m40_03_00_00"),
-		map_path("m50_35_00_00"),
-		map_path("m50_36_00_00"),
-		map_path("m50_37_00_00"),
-		map_path("m50_38_00_00"),
-	};
-	for (size_t i=0; i<ARRAY_LEN(map_names); i++) {
-		printf("==============================\n");
-		Nob_String_Builder map_sb = {0};
-		const char *map_path = map_names[i];
-		if (!nob_read_entire_file(map_path, &map_sb)) {
-			exit(1);
-		}
-		printf("Read %zu bytes from %s\n", map_sb.count, map_path);
-		String_View map_sv = sb_to_sv(map_sb);
-
-		MSB2 map = load_map(map_path, map_sv);
-		free_entries(&map);
-		da_free(map_sb);
-		printf("Done %s.\n", map_names[i]);
-		printf("==============================\n");
-	}
-	return 0;
 }
 
 void write_header(String_Builder *sb, Header *h) {
@@ -2014,31 +1965,280 @@ bool write_map(String_Builder *sb, MSB2 *entries) {
 	map.part_poses = read_part_poses(&sv);
 	map.bone_names = read_bone_names(&sv);
 
+	free_entries(&map);
+
 	return true;
 }
 
+int test_loading_all_maps() {
+	const char *map_names[] = {
+		map_path("m10_02_00_00"),
+		map_path("m10_04_00_00"),
+		map_path("m10_10_00_00"),
+		map_path("m10_14_00_00"),
+		map_path("m10_15_00_00"),
+		map_path("m10_16_00_00"),
+		map_path("m10_17_00_00"),
+		map_path("m10_18_00_00"),
+		map_path("m10_19_00_00"),
+		map_path("m10_23_00_00"),
+		map_path("m10_25_00_00"),
+		map_path("m10_27_00_00"),
+		map_path("m10_29_00_00"),
+		map_path("m10_30_00_00"),
+		map_path("m10_31_00_00"),
+		map_path("m10_32_00_00"),
+		map_path("m10_33_00_00"),
+		map_path("m10_34_00_00"),
+		map_path("m20_10_00_00"),
+		map_path("m20_11_00_00"),
+		map_path("m20_21_00_00"),
+		map_path("m20_24_00_00"),
+		map_path("m20_26_00_00"),
+		map_path("m40_03_00_00"),
+		map_path("m50_35_00_00"),
+		map_path("m50_36_00_00"),
+		map_path("m50_37_00_00"),
+		map_path("m50_38_00_00"),
+	};
+	for (size_t i=0; i<ARRAY_LEN(map_names); i++) {
+		printf("==============================\n");
+		Nob_String_Builder map_sb = {0};
+		const char *map_path = map_names[i];
+		if (!nob_read_entire_file(map_path, &map_sb)) {
+			return 1;
+		}
+		printf("Read %zu bytes from %s\n", map_sb.count, map_path);
+		String_View map_sv = sb_to_sv(map_sb);
+
+		MSB2 map = load_map(map_path, map_sv);
+
+		String_Builder rsb = {0};
+		if (!write_map(&rsb, &map)) {
+			return 1;
+		}
+
+		assert(map_sb.count == rsb.count);
+		for (size_t i=0; i<map_sb.count; i++) {
+			assert(map_sb.items[i] == rsb.items[i]);
+		}
+
+		free_entries(&map);
+		da_free(map_sb);
+		printf("Done %s.\n", map_names[i]);
+		printf("==============================\n");
+	}
+	return 0;
+}
+
+bool is_dcx(String_View *sv) {
+	if (sv->count < 4) return false;
+	char magic[5];
+	memcpy(magic, sv->data, 4);
+	magic[4] = 0;
+	if (strcmp(magic, "DCP\0") == 0 || strcmp(magic, "DCX\0") == 0) return true;
+	return false;
+}
+
+// byte-sized
+typedef enum {
+	FF1_None = 0,
+	FF1_Flag01 = 1<<0,
+	FF1_IntDataOffset = 1<<1, /// Expanded header with 32-bit data offset.
+	FF1_LongDataOffset = 1<<2, /// Expanded header with 64-bit data offset.
+	FF1_Flag08 = 1<<3, /// Unused?
+	FF1_Flag10 = 1<<4, /// Unused?
+	FF1_Flag20 = 1<<5, /// Unused?
+	FF1_Flag40 = 1<<6, /// Unused?
+	FF1_OffsetParamType = 1<<7, /// Param type string is written separately instead of fixed-width in the header.
+} FormatFlags1;
+
+// byte-sized
+typedef enum {
+	FF2_None = 0,
+	FF2_UnicodeRowNames = 1<<0, /// Row names are written as UTF-16.
+	FF2_Flag02 = 1<<1, /// Unknown.
+	FF2_Flag04 = 1<<2, /// Unknown.
+	FF2_Flag08 = 1<<3, /// Unused?
+	FF2_Flag10 = 1<<4, /// Unused?
+	FF2_Flag20 = 1<<5, /// Unused?
+	FF2_Flag40 = 1<<6, /// Unused?
+	FF2_Flag80 = 1<<7, /// Unused?
+} FormatFlags2;
+
+byte sv_read_byte(String_View *sv) {
+	assert(sv->count > 0);
+	byte b = *sv->data;
+	sv->data += sizeof(byte);
+	sv->count--;
+	return b;
+}
+
+typedef enum {
+	Str_Char,
+	Str_Wide,
+	Str_JIS,
+} StringType;
+
+typedef struct {
+	StringType type;
+	union {
+		const char *str_char;
+		utf16_t *str_wide;
+		const char *str_jis;
+	} as;
+} String;
+
+typedef struct {
+	int32_t ID;
+	int32_t garbage;
+	int64_t DataOffset;
+	int64_t nameOffset;
+	String Name;
+} Row;
+
+DA(Row, Rows);
+
+typedef packed_struct {
+	byte BigEndian;
+	byte Format2D; //enum FormatFlags1
+	byte Format2E; //enum FormatFlags1
+	byte ParamdefFormatVersion;
+} PARAM_Format;
+
+typedef struct {
+	PARAM_Format format;
+	long actualStringsOffset;
+	uint32_t stringsOffset;
+	int16_t Unk06;
+	int16_t ParamdefDataVersion;
+	int16_t rowCount;
+	String ParamType;
+	Rows rows;
+	size_t DetectedSize;
+} PARAM;
+
+
+Row new_row(String_View *sv, const char *start, PARAM *param) {
+	Row row = {0};
+	row.ID = read_item(int32_t, sv);
+	if (param->format.Format2D & FF1_LongDataOffset) {
+		row.garbage = read_item(int32_t, sv);
+		row.DataOffset = read_item(int64_t, sv);
+		row.nameOffset = read_item(int64_t, sv);
+	} else {
+		row.DataOffset = (int64_t)read_item(uint32_t, sv);
+		row.nameOffset = (int64_t)read_item(uint32_t, sv);
+	}
+
+	if (row.nameOffset != 0) {
+		if (param->actualStringsOffset == 0 || row.nameOffset < param->actualStringsOffset) {
+			param->actualStringsOffset = row.nameOffset;
+		}
+
+		if (param->format.Format2E & FF2_UnicodeRowNames) {
+			row.Name.type = Str_Wide;
+			row.Name.as.str_wide = (utf16_t *)(start + row.nameOffset);
+		} else {
+			row.Name.type = Str_JIS;
+			row.Name.as.str_jis = (char *)(start + row.nameOffset);
+		}
+	}
+
+	return row;
+}
+
+#define PARAM_FORMAT_POSITION 0x2C
+PARAM load_param(String_View *sv) {
+	PARAM param = {0};
+	if (is_dcx(sv)) {
+		TODO("Not implemented!");
+	}
+
+	const char *start = sv->data;
+	assert(sv->count > PARAM_FORMAT_POSITION);
+	sv->data += PARAM_FORMAT_POSITION;
+
+	memcpy(&param.format, sv->data, sizeof(PARAM_Format));
+	param.format.BigEndian = (param.format.BigEndian == 0xFF || param.format.BigEndian == 0);
+	sv->data = start;
+
+	// TODO:
+	// Make a private copy of the file to read row data from later
+	// byte[] copy = br.GetBytes(0, (int)br.Stream.Length);
+	// RowReader = new BinaryReaderEx(BigEndian, copy);
+
+	// The strings offset in the header is highly unreliable; only use it as a last resort
+	param.actualStringsOffset = 0;
+	param.stringsOffset = read_item(uint32_t, sv);
+	if (((param.format.Format2D & FF1_Flag01) && (param.format.Format2D & FF1_IntDataOffset)) || (param.format.Format2D & FF1_LongDataOffset)) {
+		assert_item(int16_t, sv, 0);
+	} else { 
+		read_item(uint16_t, sv); //data_start
+	}
+	param.Unk06 = read_item(int16_t, sv);
+	param.ParamdefDataVersion = read_item(int16_t, sv);
+	param.rowCount = read_item(int16_t, sv);
+	if (param.format.Format2D & FF1_OffsetParamType) {
+		assert_item(int32_t, sv, 0);
+		int64_t paramTypeOffset = read_item(int64_t, sv);
+		for (size_t i=0; i<0x14; i++) {
+			assert_item(byte, sv, 0x00);
+		}
+		param.ParamType.type = Str_Wide;
+		param.ParamType.as.str_wide = (utf16_t *)(start + paramTypeOffset);
+		param.actualStringsOffset = paramTypeOffset;
+	} else {
+#define PARAM_TYPE_NAME_LENGTH 0x20
+		param.ParamType.type = Str_Char;
+		param.ParamType.as.str_char = sv->data;
+		sv->data += PARAM_TYPE_NAME_LENGTH;
+	}
+	sv->data += sizeof(PARAM_Format); // Skip Format
+	if (param.format.Format2D & FF1_Flag01 && param.format.Format2D & FF1_IntDataOffset) {
+		read_item(int32_t, sv); // data_start
+		assert_item(int32_t, sv, 0);
+		assert_item(int32_t, sv, 0);
+		assert_item(int32_t, sv, 0);
+	} else if (param.format.Format2D & FF1_LongDataOffset) {
+		read_item(int64_t, sv); // data_start
+		assert_item(int64_t, sv, 0);
+	}
+
+	da_reserve(&param.rows, (size_t)param.rowCount);
+	for (int i = 0; i < param.rowCount; i++) {
+		Row row = new_row(sv, start, &param);
+		da_append(&param.rows, row);
+	}
+	if (param.rows.count > 1) {
+		param.DetectedSize = param.rows.items[1].DataOffset - param.rows.items[0].DataOffset;
+	} else if (param.rows.count == 1) {
+		param.DetectedSize = (param.actualStringsOffset == 0 ? param.stringsOffset : param.actualStringsOffset) - param.rows.items[0].DataOffset;
+	} else {
+		param.DetectedSize = -1;
+	}
+
+	return param;
+}
+
+void free_PARAM(PARAM *param) {
+	da_free(param->rows);
+}
+
 int main() {
-	Nob_String_Builder map_sb = {0};
-	const char *map_path = map_path("m10_02_00_00");
-	if (!nob_read_entire_file(map_path, &map_sb)) {
+	// int ret = test_loading_all_maps();
+
+	Nob_String_Builder sb = {0};
+	const char *path = eventlocation_path("m10_02_00_00");
+	if (!nob_read_entire_file(path, &sb)) {
 		return 1;
 	}
-	printf("Read %zu bytes from %s\n", map_sb.count, map_path);
-	String_View map_sv = sb_to_sv(map_sb);
-	MSB2 map = load_map(map_path, map_sv);
+	printf("Read %zu bytes from %s\n", sb.count, path);
+	String_View sv = sb_to_sv(sb);
 
-	String_Builder rsb = {0};
-	if (!write_map(&rsb, &map)) {
-		return 1;
-	}
+	PARAM param = load_param(&sv);
+	free_PARAM(&param);
 
-	assert(map_sb.count == rsb.count);
-	for (size_t i=0; i<map_sb.count; i++) {
-		assert(map_sb.items[i] == rsb.items[i]);
-	}
-
-	free_entries(&map);
-	da_free(map_sb);
-	printf("Done.");
+	printf("Done.\n");
     return 0;
 }
