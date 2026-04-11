@@ -2106,7 +2106,33 @@ typedef packed_struct {
 	byte ParamdefFormatVersion;
 } PARAM_Format;
 
+typedef packed_struct {
+	V3f position;
+	V3f rotation;
+	byte region_type, Unk19, Unk1A, Unk1B;
+	V3f scale;
+	uint16_t Unk28, Unk2A;
+	uint32_t Unk2C;
+} EventLocPARAMDEF;
+
+typedef enum {
+	Cell_EventLoc,
+} CellType;
+
 typedef struct {
+	union {
+		EventLocPARAMDEF event_loc;
+	} as;
+} Cell;
+typedef struct {
+	CellType type;
+	Cell *items;
+	size_t count;
+	size_t capacity;
+} Cells;
+
+typedef struct {
+	String_View data;
 	PARAM_Format format;
 	long actualStringsOffset;
 	uint32_t stringsOffset;
@@ -2116,6 +2142,7 @@ typedef struct {
 	String ParamType;
 	Rows rows;
 	size_t DetectedSize;
+	Cells cells;
 } PARAM;
 
 
@@ -2151,6 +2178,8 @@ Row new_row(String_View *sv, const char *start, PARAM *param) {
 #define PARAM_FORMAT_POSITION 0x2C
 PARAM load_param(String_View *sv) {
 	PARAM param = {0};
+	param.data = *sv;
+
 	if (is_dcx(sv)) {
 		TODO("Not implemented!");
 	}
@@ -2162,11 +2191,6 @@ PARAM load_param(String_View *sv) {
 	memcpy(&param.format, sv->data, sizeof(PARAM_Format));
 	param.format.BigEndian = (param.format.BigEndian == 0xFF || param.format.BigEndian == 0);
 	sv->data = start;
-
-	// TODO:
-	// Make a private copy of the file to read row data from later
-	// byte[] copy = br.GetBytes(0, (int)br.Stream.Length);
-	// RowReader = new BinaryReaderEx(BigEndian, copy);
 
 	// The strings offset in the header is highly unreliable; only use it as a last resort
 	param.actualStringsOffset = 0;
@@ -2223,6 +2247,28 @@ PARAM load_param(String_View *sv) {
 
 void free_PARAM(PARAM *param) {
 	da_free(param->rows);
+	if (param->cells.items) {
+		da_free(param->cells);
+	}
+}
+
+void PARAM_apply_paramdef(PARAM *param, CellType type) {
+	Cells cells = {0};
+	cells.type = type;
+	da_foreach(Row, row, &param->rows) {
+		if (row->DataOffset == 0) continue;
+		String_View sv = param->data;
+		sv.data += row->DataOffset;
+		Cell cell = {0};
+		switch (type) {
+		case Cell_EventLoc: {
+			cell.as.event_loc = *(EventLocPARAMDEF *)(sv.data);
+		} break;
+		default: TODO("CellType enum not implemented");
+		}
+		da_append(&cells, cell);
+	}
+	param->cells = cells;
 }
 
 int main() {
@@ -2237,6 +2283,7 @@ int main() {
 	String_View sv = sb_to_sv(sb);
 
 	PARAM param = load_param(&sv);
+	PARAM_apply_paramdef(&param, Cell_EventLoc);
 	free_PARAM(&param);
 
 	printf("Done.\n");
