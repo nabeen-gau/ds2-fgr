@@ -521,7 +521,7 @@ typedef struct {
 	Parts ConnectCollisions;
 } PartParam;
 
-typedef struct {
+typedef packed_struct {
 	int32_t NameIndex;
 	V3f Translation;
 	V3f Rotation;
@@ -529,12 +529,31 @@ typedef struct {
 } Bone;
 
 DA(Bone, Bones);
+DA(Bones, BoneGroup);
+
+typedef packed_struct {
+	int16_t PartIndex;
+	int16_t boneCount;
+	int32_t val3; // 0
+	varint bonesOffset;
+} PartPoseSt;
+
+DA(PartPoseSt, PartPoseSts);
 
 typedef struct {
-	Bones bones;
+	ParamSt param;
+	utf16_t *name;
+	PartPoseSts poses;
+	BoneGroup bones;
 } PartPoses;
 
-DA(utf16_t*, BoneNames);
+DA(utf16_t*, Names);
+
+typedef struct {
+	ParamSt param;
+	utf16_t *name;
+	Names names;
+} BoneNames;
 
 typedef packed_struct {
 	char magic[4]; // `MSB `
@@ -1254,13 +1273,6 @@ PartParam read_parts_param(String_View *sv) {
 	return parts;
 }
 
-typedef packed_struct {
-	int16_t PartIndex;
-	int16_t boneCount;
-	int32_t val3; // 0
-	varint bonesOffset;
-} PartPoseSt;
-
 Bone new_bone(String_View *sv) {
 	return *(Bone *)sv->data;
 }
@@ -1268,7 +1280,9 @@ Bone new_bone(String_View *sv) {
 PartPoses read_part_poses(String_View *sv) {
 	PartPoses pp = {0};
 	ParamSt param = read_param_ex(sv, 0);
+	pp.param = param;
     utf16_t *name = get_param_name(&param);
+	pp.name = name;
 	utf16_t *required = L"MAPSTUDIO_PARTS_POSE_ST";
 	assert(wcscmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
@@ -1276,11 +1290,15 @@ PartPoses read_part_poses(String_View *sv) {
 		const char *start = sv->data;
 		PartPoseSt pose = *(PartPoseSt *)sv->data;
 		assert(pose.val3 == 0);
+		da_append(&pp.poses, pose);
 		sv->data = start + pose.bonesOffset;
-		for (int i = 0; i < pose.boneCount; i++) {
+		Bones bones = {0};
+		for (int j = 0; j < pose.boneCount; j++) {
 			Bone bone = new_bone(sv);
-			da_append(&pp.bones, bone);
+			da_append(&bones, bone);
+			sv->data += sizeof(Bone);
 		}
+		da_append(&pp.bones, bones);
 	}
 #ifdef LOG_GENERATED_FILES
 	nob_log(INFO, "Read %zu PartPoses", pp.bones.count);
@@ -1292,13 +1310,15 @@ PartPoses read_part_poses(String_View *sv) {
 BoneNames read_bone_names(String_View *sv) {
 	BoneNames names = {0};
 	ParamSt param = read_param_ex(sv, 0);
+	names.param = param;
     utf16_t *name = get_param_name(&param);
+	names.name = name;
 	utf16_t *required = L"MAPSTUDIO_BONE_NAME_STRING";
 	assert(wcscmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
 		sv->data = get_param_entry(&param, i);
 		utf16_t *name = (utf16_t *)sv->data;
-		da_append(&names, name);
+		da_append(&names.names, name);
 	}
 #ifdef LOG_GENERATED_FILES
 	nob_log(INFO, "Read %zu BoneNames", names.count);
@@ -1345,11 +1365,15 @@ void free_parts(PartParam *param) {
 }
 
 void free_part_poses(PartPoses *param) {
+	da_free(param->poses);
+	for (size_t i=0; i<param->bones.count; i++) {
+		da_free(param->bones.items[i]);
+	}
 	da_free(param->bones);
 }
 
 void free_bone_names(BoneNames *param) {
-	da_free(*param);
+	da_free(param->names);
 }
 
 void free_entries(MSB2 *entries) {
@@ -1903,6 +1927,62 @@ void write_parts_param(String_Builder *sb, PartParam *param) {
 	sb_patch(sb, next_param_offset, sb->count);
 }
 
+void write_part_poses(String_Builder *sb, PartPoses *param) {
+	DArrz offset_positions = {0};
+	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
+
+	size_t entries_count = 0;
+
+	assert(param->poses.count == param->bones.count);
+
+	for (size_t i=0; i<param->poses.count; i++) {
+		size_t begin = sb->count;
+		assert(entries_count < offset_positions.count);
+		size_t param_pos = offset_positions.items[entries_count];
+		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+
+		PartPoseSt *poses = &param->poses.items[i];
+		Bones *bones = &param->bones.items[i];
+
+		size_t length = offsetof(PartPoseSt, bonesOffset);
+		sb_append_buf(sb, poses, length);
+
+		size_t bonesOffset = sb->count;
+		sb_reserve(sb, sizeof(varint)); // bonesOffset
+
+		sb_patch(sb, bonesOffset, sb->count - begin);
+
+		length = sizeof(Bone);
+		for (size_t j=0; j<bones->count; j++) {
+			Bone *bone = &bones->items[j];
+			sb_append_buf(sb, bone, length);
+		}
+
+		sb_pad_align(sb, sizeof(varint));
+		entries_count++;
+	}
+	sb_patch(sb, next_param_offset, sb->count);
+}
+
+void write_bone_names(String_Builder *sb, BoneNames *names) {
+	DArrz offset_positions = {0};
+	size_t next_param_offset = write_param_header(sb, &names->param, names->name, &offset_positions);
+
+	size_t entries_count = 0;
+
+	for (size_t i=0; i<names->names.count; i++) {
+		assert(entries_count < offset_positions.count);
+		size_t param_pos = offset_positions.items[entries_count];
+		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+
+		sb_append_utf16t(sb, names->names.items[i]);
+
+		sb_pad_align(sb, sizeof(varint));
+		entries_count++;
+	}
+	sb_patch(sb, next_param_offset, 0);
+}
+
 
 bool write_map(String_Builder *sb, MSB2 *entries) {
 	write_header(sb, &entries->header);
@@ -1912,13 +1992,15 @@ bool write_map(String_Builder *sb, MSB2 *entries) {
 	write_route_param(sb, &entries->routes);
 	write_layer_param(sb, &entries->layers);
 	write_parts_param(sb, &entries->parts);
+	write_part_poses(sb, &entries->part_poses);
+	write_bone_names(sb, &entries->bone_names);
 
 	// Immediate checking
 	String_View sv = sb_to_sv(*sb);
 	Header h = *(Header *)sv.data;
 	map_begin = sv.data;
 	if (!assert_header("", &h)) {
-		exit(1);
+		return false;
 	}
 	sv.data += sizeof(Header);
 
@@ -1929,8 +2011,9 @@ bool write_map(String_Builder *sb, MSB2 *entries) {
 	map.routes = read_route_param(&sv);
 	map.layers = read_layer_param(&sv);
 	map.parts = read_parts_param(&sv);
+	map.part_poses = read_part_poses(&sv);
+	map.bone_names = read_bone_names(&sv);
 
-	TODO("write_map");
 	return true;
 }
 
@@ -1947,6 +2030,11 @@ int main() {
 	String_Builder rsb = {0};
 	if (!write_map(&rsb, &map)) {
 		return 1;
+	}
+
+	assert(map_sb.count == rsb.count);
+	for (size_t i=0; i<map_sb.count; i++) {
+		assert(map_sb.items[i] == rsb.items[i]);
 	}
 
 	free_entries(&map);
