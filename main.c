@@ -399,6 +399,13 @@ typedef struct {
 	Regions Fogs;
 } PointParam;
 
+typedef struct {
+	ParamSt param;
+	utf16_t *name;
+} RouteParam;
+
+typedef RouteParam LayerParam;
+
 #define PartCollisionPatternSize 0x10
 #define PartNavmeshPatternSize 0x10
 typedef packed_struct {
@@ -428,20 +435,20 @@ typedef packed_struct {
 } __Part;
 
 typedef union {
-	struct {
+	packed_struct {
 		int16_t UnkT00;
 		byte UnkT02;
 		byte val3; // 0
 		int32_t val4; //0
 	} map_piece;
-	struct {
+	packed_struct {
 		int32_t map_object_instance_param_id;
 		int16_t UnkT04;
 		int16_t val3; // 0
 		int32_t val4; // 0
 		int32_t val5; // 0
 	} object;
-	struct {
+	packed_struct {
 		int32_t UnkT00;
 		int32_t UnkT04;
 		int32_t UnkT08;
@@ -477,14 +484,14 @@ typedef union {
 		int32_t UnkT44;
 		char pattern[PartCollisionPatternSize]; // 0x00
 	} collision;
-	struct {
+	packed_struct {
 		int32_t UnkT00;
 		int32_t UnkT04;
 		int32_t UnkT08;
 		int32_t UnkT0C;
 		char pattern[PartNavmeshPatternSize]; // 0x00
 	} navmesh;
-	struct {
+	packed_struct {
 		int32_t collision_index;
 		byte MapID;
 		int32_t UnkT08;
@@ -498,12 +505,15 @@ typedef union {
 typedef struct {
 	__Part part;
 	utf16_t* name;
+	PartType type;
 	PartTypeData type_data;
 } Part;
 
 DA(Part, Parts);
 
 typedef struct {
+	ParamSt param;
+	utf16_t *name;
 	Parts MapPieces;
 	Parts Objects;
 	Parts Collisions;
@@ -590,6 +600,8 @@ typedef struct {
 	ModelParam models;
 	EventParam events;
 	PointParam regions;
+	RouteParam routes;
+	LayerParam layers;
 	PartParam parts;
 	PartPoses part_poses;
 	BoneNames bone_names;
@@ -1134,26 +1146,33 @@ PointParam read_point_param(String_View *sv) {
 	return regions;
 }
 
-void read_route_param(String_View *sv) {
-	ParamSt param = read_param(sv);
-    utf16_t *name = get_param_name(&param);
+RouteParam read_route_param(String_View *sv) {
+	RouteParam route = {0};
+	route.param = read_param(sv);
+    utf16_t *name = get_param_name(&route.param);
+	route.name = name;
 	utf16_t *required = L"ROUTE_PARAM_ST";
 	assert(wcscmp(name, required) == 0);
-	for (int i=0; i<param.offset_count-1; i++) {
+	for (int i=0; i<route.param.offset_count-1; i++) {
 		UNREACHABLE("route params are empty in ds2");
 	}
-	sv->data = map_begin + param.next_param_offset;
+	sv->data = map_begin + route.param.next_param_offset;
+	return route;
 }
 
-void read_layer_param(String_View *sv) {
+LayerParam read_layer_param(String_View *sv) {
+	LayerParam layer = {0};
 	ParamSt param = read_param(sv);
+	layer.param = param;
     utf16_t *name = get_param_name(&param);
+	layer.name = name;
 	utf16_t *required = L"LAYER_PARAM_ST";
 	assert(wcscmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
 		UNREACHABLE("layer params are empty in ds2");
 	}
 	sv->data = map_begin + param.next_param_offset;
+	return layer;
 }
 
 PartTypeData read_part_type_data(String_View *sv, PartType type) {
@@ -1182,6 +1201,7 @@ PartTypeData read_part_type_data(String_View *sv, PartType type) {
 Part new_part(String_View *sv, PartType type) {
 	const char *start = sv->data;
 	Part part = {0};
+	part.type = type;
 	part.part = *(__Part *)sv->data;
 	assert(part.part.name_offset != 0);
 	assert(part.part.type_data_offset != 0);
@@ -1195,7 +1215,9 @@ Part new_part(String_View *sv, PartType type) {
 PartParam read_parts_param(String_View *sv) {
 	PartParam parts = {0};
 	ParamSt param = read_param(sv);
+	parts.param = param;
     utf16_t *name = get_param_name(&param);
+	parts.name = name;
 	utf16_t *required = L"PARTS_PARAM_ST";
 	assert(wcscmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
@@ -1354,8 +1376,8 @@ MSB2 load_map(const char* map_path, String_View map_sv) {
 	map.models = read_model_param(&map_sv);
 	map.events = read_event_param(&map_sv);
 	map.regions = read_point_param(&map_sv);
-	read_route_param(&map_sv);
-	read_layer_param(&map_sv);
+	map.routes = read_route_param(&map_sv);
+	map.layers = read_layer_param(&map_sv);
 	map.parts = read_parts_param(&map_sv);
 	map.part_poses = read_part_poses(&map_sv);
 	map.bone_names = read_bone_names(&map_sv);
@@ -1727,6 +1749,73 @@ void write_regions(String_Builder *sb, Regions *model, DArrz *offset_positions, 
 	}
 }
 
+void write_parts(String_Builder *sb, Parts *parts, DArrz *offset_positions, size_t *entries_count) {
+	for (size_t i=0; i<parts->count; i++) {
+		size_t begin = sb->count;
+		assert(*entries_count < offset_positions->count);
+		size_t param_pos = offset_positions->items[*entries_count];
+		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+
+		size_t name_offset = sb->count;
+		sb_reserve(sb, sizeof(varint)); // name_offset
+
+		size_t length = offsetof(__Part, id) - offsetof(__Part, type);
+		nob_sb_append_buf(sb, &parts->items[i].part.type, length);
+
+		int16_t id = (int16_t)i;
+		length = sizeof(int16_t);
+		sb_append_buf(sb, &id, length);
+
+		length = offsetof(__Part, type_data_offset) - offsetof(__Part, model_index);
+		nob_sb_append_buf(sb, &parts->items[i].part.model_index, length);
+
+		size_t type_data_offset = sb->count;
+		sb_reserve(sb, sizeof(varint)); // type_data_offset
+
+		sb_write_int64t(sb, parts->items[i].part.val22);
+
+		size_t name_start = sb->count;
+		int name_pad = 0x20;
+		sb_patch(sb, name_offset, sb->count - begin);
+		sb_append_utf16t(sb, parts->items[i].name);
+
+		for (size_t j=0; j<name_start+name_pad-sb->count; j++) {
+			sb_append(sb, 0);
+		}
+
+		sb_pad_align(sb, sizeof(varint));
+
+		sb_patch(sb, type_data_offset, sb->count - begin);
+
+		switch((PartType)parts->items[i].type) {
+		case PT_MapPiece: 
+			length = sizeof(parts->items[i].type_data.map_piece);
+			sb_append_buf(sb, &parts->items[i].type_data.map_piece, length);
+			break;
+		case PT_Object: 
+			length = sizeof(parts->items[i].type_data.object);
+			sb_append_buf(sb, &parts->items[i].type_data.object, length);
+			break;
+		case PT_Collision: 
+			length = sizeof(parts->items[i].type_data.collision);
+			sb_append_buf(sb, &parts->items[i].type_data.collision, length);
+			break;
+		case PT_Navmesh: 
+			length = sizeof(parts->items[i].type_data.navmesh);
+			sb_append_buf(sb, &parts->items[i].type_data.navmesh, length);
+			break;
+		case PT_ConnectCollision: 
+			length = sizeof(parts->items[i].type_data.connect_collision);
+			sb_append_buf(sb, &parts->items[i].type_data.connect_collision, length);
+			break;
+		default: UNREACHABLE("PartType");
+		}
+
+		sb_pad_align(sb, sizeof(varint));
+		(*entries_count)++;
+	}
+}
+
 size_t write_param_header(String_Builder *sb, ParamSt *p, utf16_t *name, DArrz *offset_positions) {
 	size_t length = offsetof(ParamSt, name_offset);
 	nob_sb_append_buf(sb, p, length);
@@ -1789,12 +1878,40 @@ void write_region_param(String_Builder *sb, PointParam *param) {
 	sb_patch(sb, next_param_offset, sb->count);
 }
 
+void write_route_param(String_Builder *sb, RouteParam *param) {
+	DArrz offset_positions = {0};
+	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
+	sb_patch(sb, next_param_offset, sb->count);
+}
+
+void write_layer_param(String_Builder *sb, LayerParam *param) {
+	DArrz offset_positions = {0};
+	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
+	sb_patch(sb, next_param_offset, sb->count);
+}
+
+void write_parts_param(String_Builder *sb, PartParam *param) {
+	DArrz offset_positions = {0};
+	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
+
+	size_t entries_count = 0;
+	write_parts(sb, &param->MapPieces, &offset_positions, &entries_count);
+	write_parts(sb, &param->Objects, &offset_positions, &entries_count);
+	write_parts(sb, &param->Collisions, &offset_positions, &entries_count);
+	write_parts(sb, &param->Navmeshes, &offset_positions, &entries_count);
+	write_parts(sb, &param->ConnectCollisions, &offset_positions, &entries_count);
+	sb_patch(sb, next_param_offset, sb->count);
+}
+
 
 bool write_map(String_Builder *sb, MSB2 *entries) {
 	write_header(sb, &entries->header);
 	write_model_param(sb, &entries->models);
 	write_event_param(sb, &entries->events);
 	write_region_param(sb, &entries->regions);
+	write_route_param(sb, &entries->routes);
+	write_layer_param(sb, &entries->layers);
+	write_parts_param(sb, &entries->parts);
 
 	// Immediate checking
 	String_View sv = sb_to_sv(*sb);
@@ -1809,6 +1926,9 @@ bool write_map(String_Builder *sb, MSB2 *entries) {
 	map.models = read_model_param(&sv);
 	map.events = read_event_param(&sv);
 	map.regions = read_point_param(&sv);
+	map.routes = read_route_param(&sv);
+	map.layers = read_layer_param(&sv);
+	map.parts = read_parts_param(&sv);
 
 	TODO("write_map");
 	return true;
