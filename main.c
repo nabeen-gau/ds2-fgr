@@ -1450,11 +1450,59 @@ void sb_write_int32t(String_Builder *sb, int32_t value) {
 	sb->count += sizeof(int32_t);
 }
 
+void sb_write_uint32t(String_Builder *sb, uint32_t value) {
+	nob_da_reserve(sb, sb->count + sizeof(value));
+	memcpy(sb->items + sb->count, &value, sizeof(value));
+	sb->count += sizeof(uint32_t);
+}
 
-void sb_patch(String_Builder *sb, size_t position, varint data) {
+
+void sb_write_int16t(String_Builder *sb, int16_t value) {
+	nob_da_reserve(sb, sb->count + sizeof(value));
+	memcpy(sb->items + sb->count, &value, sizeof(value));
+	sb->count += sizeof(int16_t);
+}
+
+void sb_write_uint16t(String_Builder *sb, uint16_t value) {
+	nob_da_reserve(sb, sb->count + sizeof(value));
+	memcpy(sb->items + sb->count, &value, sizeof(value));
+	sb->count += sizeof(uint16_t);
+}
+
+
+
+void sb_patch_varint(String_Builder *sb, size_t position, varint data) {
 	size_t cur_pos = sb->count;
 	sb->count = position;
 	sb_write_varint(sb, data);
+	sb->count = cur_pos;
+}
+
+void sb_patch_int64_t(String_Builder *sb, size_t position, int64_t data) {
+	size_t cur_pos = sb->count;
+	sb->count = position;
+	sb_write_int64t(sb, data);
+	sb->count = cur_pos;
+}
+
+void sb_patch_uint32t(String_Builder *sb, size_t position, uint32_t data) {
+	size_t cur_pos = sb->count;
+	sb->count = position;
+	sb_write_uint32t(sb, data);
+	sb->count = cur_pos;
+}
+
+void sb_patch_int64t(String_Builder *sb, size_t position, int64_t data) {
+	size_t cur_pos = sb->count;
+	sb->count = position;
+	sb_write_int64t(sb, data);
+	sb->count = cur_pos;
+}
+
+void sb_patch_int16t(String_Builder *sb, size_t position, int16_t data) {
+	size_t cur_pos = sb->count;
+	sb->count = position;
+	sb_write_int16t(sb, data);
 	sb->count = cur_pos;
 }
 
@@ -1475,6 +1523,8 @@ void sb_append_utf16t(String_Builder *sb, utf16_t *str) {
 		}
 		c++;
 	}
+
+	if (name_size == 2) return;
 
 	nob_da_reserve(sb, sb->count + name_size);
 	memcpy(sb->items + sb->count, str, name_size);
@@ -1541,7 +1591,7 @@ void write_model(String_Builder *sb, Model *model, DArrz *offset_positions, size
 		size_t begin = sb->count;
 		assert(*entries_count < offset_positions->count);
 		size_t param_pos = offset_positions->items[*entries_count];
-		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+		sb_patch_varint(sb, param_pos, (varint)sb->count); // add the location of param
 
 		size_t name_offset = sb->count;
 		sb_reserve(sb, sizeof(varint)); // name_offset
@@ -1560,15 +1610,15 @@ void write_model(String_Builder *sb, Model *model, DArrz *offset_positions, size
 		sb_reserve(sb, sizeof(varint)); // type_data_offset
 		sb_write_varint(sb, 0);
 
-		sb_patch(sb, name_offset, sb->count - begin);
+		sb_patch_varint(sb, name_offset, sb->count - begin);
 		sb_append_utf16t(sb, model->items[i].name);
 		sb_pad_align(sb, sizeof(varint));
 
 		if (model->items[i].has_type_data) {
-			sb_patch(sb, type_data_offset, sb->count - begin);
+			sb_patch_varint(sb, type_data_offset, sb->count - begin);
 			write_model_type_data(sb, model->items[i].type);
 		} else {
-			sb_patch(sb, type_data_offset, 0);
+			sb_patch_varint(sb, type_data_offset, 0);
 		}
 
 		sb_pad_align(sb, sizeof(varint));
@@ -1581,7 +1631,7 @@ void write_events(String_Builder *sb, Events *model, DArrz *offset_positions, si
 		size_t begin = sb->count;
 		assert(*entries_count < offset_positions->count);
 		size_t param_pos = offset_positions->items[*entries_count];
-		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+		sb_patch_varint(sb, param_pos, (varint)sb->count); // add the location of param
 
 		size_t name_offset = sb->count;
 		sb_reserve(sb, sizeof(varint)); // name_offset
@@ -1596,11 +1646,11 @@ void write_events(String_Builder *sb, Events *model, DArrz *offset_positions, si
 		size_t type_data_offset = sb->count;
 		sb_reserve(sb, sizeof(varint)); // type_data_offset
 
-		sb_patch(sb, name_offset, sb->count - begin);
+		sb_patch_varint(sb, name_offset, sb->count - begin);
 		sb_append_utf16t(sb, model->items[i].name);
 		sb_pad_align(sb, sizeof(varint));
 
-		sb_patch(sb, type_data_offset, sb->count - begin);
+		sb_patch_varint(sb, type_data_offset, sb->count - begin);
 		write_event_type_data(sb, &model->items[i]);
 
 		sb_pad_align(sb, sizeof(varint));
@@ -1613,7 +1663,7 @@ void write_regions(String_Builder *sb, Regions *model, DArrz *offset_positions, 
 		size_t begin = sb->count;
 		assert(*entries_count < offset_positions->count);
 		size_t param_pos = offset_positions->items[*entries_count];
-		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+		sb_patch_varint(sb, param_pos, (varint)sb->count); // add the location of param
 
 		size_t name_offset = sb->count;
 		sb_reserve(sb, sizeof(varint)); // name_offset
@@ -1644,18 +1694,18 @@ void write_regions(String_Builder *sb, Regions *model, DArrz *offset_positions, 
 		sb_write_int64t(sb, 0);
 		sb_write_int64t(sb, 0);
 
-		sb_patch(sb, name_offset, sb->count - begin);
+		sb_patch_varint(sb, name_offset, sb->count - begin);
 		sb_append_utf16t(sb, model->items[i].name);
 		sb_pad_align(sb, 4);
 
-		sb_patch(sb, unkOffsetA, sb->count - begin);
+		sb_patch_varint(sb, unkOffsetA, sb->count - begin);
 		sb_write_int32t(sb, 0);
-		sb_patch(sb, unkOffsetB, sb->count - begin);
+		sb_patch_varint(sb, unkOffsetB, sb->count - begin);
 		sb_write_int32t(sb, 0);
 		sb_pad_align(sb, sizeof(varint));
 
 		if (model->items[i].shape.has_shape_data) {
-			sb_patch(sb, shape_data_offset, sb->count - begin);
+			sb_patch_varint(sb, shape_data_offset, sb->count - begin);
 
 			switch (model->items[i].shape.type) {
 			case ST_Circle: 
@@ -1681,11 +1731,11 @@ void write_regions(String_Builder *sb, Regions *model, DArrz *offset_positions, 
 			default: UNREACHABLE("this ShapeType should not have shape data!!");
 			}
 		} else {
-			sb_patch(sb, shape_data_offset, 0);
+			sb_patch_varint(sb, shape_data_offset, 0);
 		}
 
 		if (model->items[i].has_type_data) {
-			sb_patch(sb, type_data_offset, sb->count - begin);
+			sb_patch_varint(sb, type_data_offset, sb->count - begin);
 			switch((RegionType)model->items[i].region.type) {
 			case RT_Light:
 				length = sizeof(model->items[i].type_data.light);
@@ -1716,7 +1766,7 @@ void write_regions(String_Builder *sb, Regions *model, DArrz *offset_positions, 
 			default: UNREACHABLE("this RegionType should not have type data!!");
 			}
 		} else {
-			sb_patch(sb, type_data_offset, 0);
+			sb_patch_varint(sb, type_data_offset, 0);
 		}
 
 		sb_pad_align(sb, sizeof(varint));
@@ -1729,7 +1779,7 @@ void write_parts(String_Builder *sb, Parts *parts, DArrz *offset_positions, size
 		size_t begin = sb->count;
 		assert(*entries_count < offset_positions->count);
 		size_t param_pos = offset_positions->items[*entries_count];
-		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+		sb_patch_varint(sb, param_pos, (varint)sb->count); // add the location of param
 
 		size_t name_offset = sb->count;
 		sb_reserve(sb, sizeof(varint)); // name_offset
@@ -1751,7 +1801,7 @@ void write_parts(String_Builder *sb, Parts *parts, DArrz *offset_positions, size
 
 		size_t name_start = sb->count;
 		int name_pad = 0x20;
-		sb_patch(sb, name_offset, sb->count - begin);
+		sb_patch_varint(sb, name_offset, sb->count - begin);
 		sb_append_utf16t(sb, parts->items[i].name);
 
 		for (size_t j=0; j<name_start+name_pad-sb->count; j++) {
@@ -1760,7 +1810,7 @@ void write_parts(String_Builder *sb, Parts *parts, DArrz *offset_positions, size
 
 		sb_pad_align(sb, sizeof(varint));
 
-		sb_patch(sb, type_data_offset, sb->count - begin);
+		sb_patch_varint(sb, type_data_offset, sb->count - begin);
 
 		switch((PartType)parts->items[i].type) {
 		case PT_MapPiece: 
@@ -1804,7 +1854,7 @@ size_t write_param_header(String_Builder *sb, ParamSt *p, utf16_t *name, DArrz *
 	size_t next_param_offset = sb->count;
 	sb_write(sb, p->next_param_offset);
 
-	sb_patch(sb, name_offset, (varint)sb->count);
+	sb_patch_varint(sb, name_offset, (varint)sb->count);
 	sb_append_utf16t(sb, name);
 	sb_pad_align(sb, sizeof(varint));
 	return next_param_offset;
@@ -1819,7 +1869,7 @@ void write_model_param(String_Builder *sb, ModelParam *param) {
 	write_model(sb, &param->Objects, &offset_positions, &entries_count);
 	write_model(sb, &param->Collisions, &offset_positions, &entries_count);
 	write_model(sb, &param->Navmeshes, &offset_positions, &entries_count);
-	sb_patch(sb, next_param_offset, sb->count);
+	sb_patch_varint(sb, next_param_offset, sb->count);
 }
 
 void write_event_param(String_Builder *sb, EventParam *param) {
@@ -1834,7 +1884,7 @@ void write_event_param(String_Builder *sb, EventParam *param) {
 	write_events(sb, &param->MapOffsets, &offset_positions, &entries_count);
 	write_events(sb, &param->Warps, &offset_positions, &entries_count);
 	write_events(sb, &param->CheapModes, &offset_positions, &entries_count);
-	sb_patch(sb, next_param_offset, sb->count);
+	sb_patch_varint(sb, next_param_offset, sb->count);
 }
 
 void write_region_param(String_Builder *sb, PointParam *param) {
@@ -1850,19 +1900,19 @@ void write_region_param(String_Builder *sb, PointParam *param) {
 	write_regions(sb, &param->Winds, &offset_positions, &entries_count);
 	write_regions(sb, &param->EnvLights, &offset_positions, &entries_count);
 	write_regions(sb, &param->Fogs, &offset_positions, &entries_count);
-	sb_patch(sb, next_param_offset, sb->count);
+	sb_patch_varint(sb, next_param_offset, sb->count);
 }
 
 void write_route_param(String_Builder *sb, RouteParam *param) {
 	DArrz offset_positions = {0};
 	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
-	sb_patch(sb, next_param_offset, sb->count);
+	sb_patch_varint(sb, next_param_offset, sb->count);
 }
 
 void write_layer_param(String_Builder *sb, LayerParam *param) {
 	DArrz offset_positions = {0};
 	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
-	sb_patch(sb, next_param_offset, sb->count);
+	sb_patch_varint(sb, next_param_offset, sb->count);
 }
 
 void write_parts_param(String_Builder *sb, PartParam *param) {
@@ -1875,7 +1925,7 @@ void write_parts_param(String_Builder *sb, PartParam *param) {
 	write_parts(sb, &param->Collisions, &offset_positions, &entries_count);
 	write_parts(sb, &param->Navmeshes, &offset_positions, &entries_count);
 	write_parts(sb, &param->ConnectCollisions, &offset_positions, &entries_count);
-	sb_patch(sb, next_param_offset, sb->count);
+	sb_patch_varint(sb, next_param_offset, sb->count);
 }
 
 void write_part_poses(String_Builder *sb, PartPoses *param) {
@@ -1890,7 +1940,7 @@ void write_part_poses(String_Builder *sb, PartPoses *param) {
 		size_t begin = sb->count;
 		assert(entries_count < offset_positions.count);
 		size_t param_pos = offset_positions.items[entries_count];
-		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+		sb_patch_varint(sb, param_pos, (varint)sb->count); // add the location of param
 
 		PartPoseSt *poses = &param->poses.items[i];
 		Bones *bones = &param->bones.items[i];
@@ -1901,7 +1951,7 @@ void write_part_poses(String_Builder *sb, PartPoses *param) {
 		size_t bonesOffset = sb->count;
 		sb_reserve(sb, sizeof(varint)); // bonesOffset
 
-		sb_patch(sb, bonesOffset, sb->count - begin);
+		sb_patch_varint(sb, bonesOffset, sb->count - begin);
 
 		length = sizeof(Bone);
 		for (size_t j=0; j<bones->count; j++) {
@@ -1912,7 +1962,7 @@ void write_part_poses(String_Builder *sb, PartPoses *param) {
 		sb_pad_align(sb, sizeof(varint));
 		entries_count++;
 	}
-	sb_patch(sb, next_param_offset, sb->count);
+	sb_patch_varint(sb, next_param_offset, sb->count);
 }
 
 void write_bone_names(String_Builder *sb, BoneNames *names) {
@@ -1924,14 +1974,14 @@ void write_bone_names(String_Builder *sb, BoneNames *names) {
 	for (size_t i=0; i<names->names.count; i++) {
 		assert(entries_count < offset_positions.count);
 		size_t param_pos = offset_positions.items[entries_count];
-		sb_patch(sb, param_pos, (varint)sb->count); // add the location of param
+		sb_patch_varint(sb, param_pos, (varint)sb->count); // add the location of param
 
 		sb_append_utf16t(sb, names->names.items[i]);
 
 		sb_pad_align(sb, sizeof(varint));
 		entries_count++;
 	}
-	sb_patch(sb, next_param_offset, 0);
+	sb_patch_varint(sb, next_param_offset, 0);
 }
 
 
@@ -2138,7 +2188,7 @@ typedef struct {
 	uint32_t stringsOffset;
 	int16_t Unk06;
 	int16_t ParamdefDataVersion;
-	int16_t rowCount;
+	uint16_t rowCount;
 	String ParamType;
 	Rows rows;
 	size_t DetectedSize;
@@ -2175,8 +2225,27 @@ Row new_row(String_View *sv, const char *start, PARAM *param) {
 	return row;
 }
 
+void PARAM_apply_paramdef(PARAM *param, CellType type) {
+	Cells cells = {0};
+	cells.type = type;
+	da_foreach(Row, row, &param->rows) {
+		if (row->DataOffset == 0) continue;
+		String_View sv = param->data;
+		sv.data += row->DataOffset;
+		Cell cell = {0};
+		switch (type) {
+		case Cell_EventLoc: {
+			cell.as.event_loc = *(EventLocPARAMDEF *)(sv.data);
+		} break;
+		default: TODO("CellType enum not implemented");
+		}
+		da_append(&cells, cell);
+	}
+	param->cells = cells;
+}
+
 #define PARAM_FORMAT_POSITION 0x2C
-PARAM load_param(String_View *sv) {
+PARAM load_param(String_View *sv, CellType cell_type) {
 	PARAM param = {0};
 	param.data = *sv;
 
@@ -2189,7 +2258,7 @@ PARAM load_param(String_View *sv) {
 	sv->data += PARAM_FORMAT_POSITION;
 
 	memcpy(&param.format, sv->data, sizeof(PARAM_Format));
-	param.format.BigEndian = (param.format.BigEndian == 0xFF || param.format.BigEndian == 0);
+	assert(param.format.BigEndian == 0xFF || param.format.BigEndian == 0);
 	sv->data = start;
 
 	// The strings offset in the header is highly unreliable; only use it as a last resort
@@ -2202,11 +2271,12 @@ PARAM load_param(String_View *sv) {
 	}
 	param.Unk06 = read_item(int16_t, sv);
 	param.ParamdefDataVersion = read_item(int16_t, sv);
-	param.rowCount = read_item(int16_t, sv);
+	param.rowCount = read_item(uint16_t, sv);
 	if (param.format.Format2D & FF1_OffsetParamType) {
 		assert_item(int32_t, sv, 0);
 		int64_t paramTypeOffset = read_item(int64_t, sv);
-		for (size_t i=0; i<0x14; i++) {
+#define PARAM_PATTERN_SIZE 0x14
+		for (size_t i=0; i<PARAM_PATTERN_SIZE; i++) {
 			assert_item(byte, sv, 0x00);
 		}
 		param.ParamType.type = Str_Wide;
@@ -2242,6 +2312,7 @@ PARAM load_param(String_View *sv) {
 		param.DetectedSize = -1;
 	}
 
+	PARAM_apply_paramdef(&param, cell_type);
 	return param;
 }
 
@@ -2252,38 +2323,164 @@ void free_PARAM(PARAM *param) {
 	}
 }
 
-void PARAM_apply_paramdef(PARAM *param, CellType type) {
-	Cells cells = {0};
-	cells.type = type;
-	da_foreach(Row, row, &param->rows) {
-		if (row->DataOffset == 0) continue;
-		String_View sv = param->data;
-		sv.data += row->DataOffset;
-		Cell cell = {0};
-		switch (type) {
+void write_param(String_Builder *sb, PARAM *param) {
+	assert(param->cells.items != NULL);
+
+	size_t stringsOffset = sb->count;
+	sb_reserve(sb, sizeof(int32_t)); // stringsOffset
+
+	size_t data_start;
+	if (((param->format.Format2D & FF1_Flag01) && (param->format.Format2D & FF1_IntDataOffset)) || (param->format.Format2D & FF1_LongDataOffset)) {
+		sb_write_int16t(sb, 0);
+	} else {
+		data_start = sb->count;
+		sb_reserve(sb, sizeof(uint16_t)); // data_start
+	}
+	sb_write_int16t(sb, param->Unk06);
+	sb_write_int16t(sb, param->ParamdefDataVersion);
+	sb_write_uint16t(sb, (uint16_t)param->rows.count);
+
+	size_t param_type_offset = 0;
+	if (param->format.Format2D & FF1_OffsetParamType) {
+		sb_write_int32t(sb, 0);
+		param_type_offset = sb->count;
+		sb_reserve(sb, sizeof(int64_t)); //param_type_offset
+		for (size_t i=0; i<PARAM_PATTERN_SIZE; i++) {
+			sb_append(sb, 0x00);
+		}
+		TODO("maybe add something here");
+	} else {
+		assert(param->ParamType.type == Str_Char);
+		for (size_t i=0; i<PARAM_TYPE_NAME_LENGTH; ++i) {
+			sb_append(sb, param->ParamType.as.str_char[i]);
+		}
+	}
+	size_t length = sizeof(PARAM_Format);
+	sb_append_buf(sb, &param->format, length);
+
+	if (param->format.Format2D & FF1_Flag01 && param->format.Format2D & FF1_IntDataOffset) {
+		data_start = sb->count;
+		sb_reserve(sb, sizeof(uint32_t));
+		sb_write_int32t(sb, 0);
+		sb_write_int32t(sb, 0);
+		sb_write_int32t(sb, 0);
+	} else if (param->format.Format2D & FF1_LongDataOffset) {
+		data_start = sb->count;
+		sb_reserve(sb, sizeof(int64_t));
+		sb_write_int64t(sb, 0);
+	}
+
+	DArrz row_offsets = {0};
+	DArrz name_offsets = {0};
+	for (size_t i = 0; i < param->rows.count; i++) {
+		Row *row = &param->rows.items[i];
+		sb_write_int32t(sb, row->ID);
+		if (param->format.Format2D & FF1_LongDataOffset) {
+			sb_write_int32t(sb, 0);
+			da_append(&row_offsets, sb->count);
+			sb_reserve(sb, sizeof(int64_t));
+			da_append(&name_offsets, sb->count);
+			sb_reserve(sb, sizeof(int64_t));
+		} else {
+			da_append(&row_offsets, sb->count);
+			sb_reserve(sb, sizeof(int32_t));
+			da_append(&name_offsets, sb->count);
+			sb_reserve(sb, sizeof(int32_t));
+		}
+	}
+
+	if (param->format.Format2D == FF1_Flag01) {
+		for (size_t i=0; i<0x20; i++) {
+			sb_append(sb, 0x00);
+		}
+	}
+
+	if (param->format.Format2D & FF1_Flag01 && param->format.Format2D & FF1_IntDataOffset) {
+		sb_patch_uint32t(sb, data_start, (uint32_t)sb->count);
+	} else if (param->format.Format2D & FF1_LongDataOffset) {
+		sb_patch_int64t(sb, data_start, (int64_t)sb->count);
+	} else {
+		sb_patch_int16t(sb, data_start, (int16_t)sb->count);
+	}
+
+	assert(param->rows.count == param->cells.count);
+	for (size_t i = 0; i < param->rows.count; i++) {
+		Cell *cell = &param->cells.items[i];
+
+		if (param->format.Format2D & FF1_LongDataOffset)
+			sb_patch_int64t(sb, row_offsets.items[i], (int64_t)sb->count);
+		else {
+			sb_patch_uint32t(sb, row_offsets.items[i], (uint32_t)sb->count);
+		}
+
+		switch (param->cells.type) {
 		case Cell_EventLoc: {
-			cell.as.event_loc = *(EventLocPARAMDEF *)(sv.data);
+			length = sizeof(EventLocPARAMDEF);
+			sb_append_buf(sb, cell, length);
 		} break;
 		default: TODO("CellType enum not implemented");
 		}
-		da_append(&cells, cell);
 	}
-	param->cells = cells;
+
+	sb_patch_uint32t(sb, stringsOffset, (uint32_t)sb->count);
+
+	if (param->format.Format2D & FF1_OffsetParamType) {
+		sb_patch_int64_t(sb, param_type_offset, (int64_t)sb->count);
+		assert(param->ParamType.type == Str_Wide);
+		sb_append_utf16t(sb, param->ParamType.as.str_wide);
+	}
+
+	assert(param->rows.count == name_offsets.count);
+	for (size_t i = 0; i < param->rows.count; i++) {
+		Row *row = &param->rows.items[i];
+
+		long nameOffset = 0;
+		if (row->Name.as.str_char != 0) {
+			nameOffset = sb->count;
+			if (param->format.Format2E & FF2_UnicodeRowNames)
+				sb_append_utf16t(sb, row->Name.as.str_wide);
+			else {
+				TODO("NOT Implemented WriteShiftJIS");
+			}
+		}
+
+		if (param->format.Format2D & FF1_LongDataOffset) {
+			sb_patch_int64t(sb, name_offsets.items[i], nameOffset);
+		} else {
+			sb_patch_uint32t(sb, name_offsets.items[i], (uint32_t)nameOffset);
+		}
+	}
+
+	// 0x5d1ca8: 0x00 0x00 0x00 0x00 0x98 0x8a 0x79 0x03
+	// 0x4519d8: 0x00 0x00 0x00 0x00 0xe8 0x2c 0x77 0xec
 }
 
 int main() {
 	// int ret = test_loading_all_maps();
 
 	Nob_String_Builder sb = {0};
-	const char *path = eventlocation_path("m10_02_00_00");
+	const char *path = eventlocation_path("m50_38_00_00");
 	if (!nob_read_entire_file(path, &sb)) {
 		return 1;
 	}
 	printf("Read %zu bytes from %s\n", sb.count, path);
 	String_View sv = sb_to_sv(sb);
 
-	PARAM param = load_param(&sv);
-	PARAM_apply_paramdef(&param, Cell_EventLoc);
+	PARAM param = load_param(&sv, Cell_EventLoc);
+
+	String_Builder wsb = {0};
+	write_param(&wsb, &param);
+
+	for (size_t i=0; i<wsb.count; i++) {
+		if(wsb.items[i] != sb.items[i]) asm("int3");
+	}
+	if (wsb.count != sb.count) asm("int3");
+
+	String_View wsv = sb_to_sv(wsb);
+	PARAM param_reloaded = load_param(&wsv, Cell_EventLoc);
+
+
+	free_PARAM(&param_reloaded);
 	free_PARAM(&param);
 
 	printf("Done.\n");
