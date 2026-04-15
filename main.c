@@ -7,6 +7,10 @@
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
+#define HT_IMPLEMENTATION
+#include "ht.h"
+
+
 // #define LOG_GENERATED_FILES
 
 // [          FILE        ]
@@ -1376,7 +1380,7 @@ void free_bone_names(BoneNames *param) {
 	da_free(param->names);
 }
 
-void free_entries(MSB2 *entries) {
+void free_map(MSB2 *entries) {
 	free_models(&entries->models);
 	free_events(&entries->events);
 	free_regions(&entries->regions);
@@ -1492,6 +1496,14 @@ void sb_patch_uint32t(String_Builder *sb, size_t position, uint32_t data) {
 	sb->count = cur_pos;
 }
 
+void sb_patch_int32t(String_Builder *sb, size_t position, int32_t data) {
+	size_t cur_pos = sb->count;
+	sb->count = position;
+	sb_write_int32t(sb, data);
+	sb->count = cur_pos;
+}
+
+
 void sb_patch_int64t(String_Builder *sb, size_t position, int64_t data) {
 	size_t cur_pos = sb->count;
 	sb->count = position;
@@ -1523,8 +1535,6 @@ void sb_append_utf16t(String_Builder *sb, utf16_t *str) {
 		}
 		c++;
 	}
-
-	if (name_size == 2) return;
 
 	nob_da_reserve(sb, sb->count + name_size);
 	memcpy(sb->items + sb->count, str, name_size);
@@ -1582,7 +1592,6 @@ void sb_append_float(String_Builder *sb, float value) {
 	size_t length = sizeof(float);
 	sb_append_buf(sb, &value, length);
 }
-
 
 DA(size_t, DArrz);
 #define sb_pad sb_reserve
@@ -1870,6 +1879,7 @@ void write_model_param(String_Builder *sb, ModelParam *param) {
 	write_model(sb, &param->Collisions, &offset_positions, &entries_count);
 	write_model(sb, &param->Navmeshes, &offset_positions, &entries_count);
 	sb_patch_varint(sb, next_param_offset, sb->count);
+	da_free(offset_positions);
 }
 
 void write_event_param(String_Builder *sb, EventParam *param) {
@@ -1885,6 +1895,7 @@ void write_event_param(String_Builder *sb, EventParam *param) {
 	write_events(sb, &param->Warps, &offset_positions, &entries_count);
 	write_events(sb, &param->CheapModes, &offset_positions, &entries_count);
 	sb_patch_varint(sb, next_param_offset, sb->count);
+	da_free(offset_positions);
 }
 
 void write_region_param(String_Builder *sb, PointParam *param) {
@@ -1901,18 +1912,21 @@ void write_region_param(String_Builder *sb, PointParam *param) {
 	write_regions(sb, &param->EnvLights, &offset_positions, &entries_count);
 	write_regions(sb, &param->Fogs, &offset_positions, &entries_count);
 	sb_patch_varint(sb, next_param_offset, sb->count);
+	da_free(offset_positions);
 }
 
 void write_route_param(String_Builder *sb, RouteParam *param) {
 	DArrz offset_positions = {0};
 	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
 	sb_patch_varint(sb, next_param_offset, sb->count);
+	da_free(offset_positions);
 }
 
 void write_layer_param(String_Builder *sb, LayerParam *param) {
 	DArrz offset_positions = {0};
 	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
 	sb_patch_varint(sb, next_param_offset, sb->count);
+	da_free(offset_positions);
 }
 
 void write_parts_param(String_Builder *sb, PartParam *param) {
@@ -1926,6 +1940,7 @@ void write_parts_param(String_Builder *sb, PartParam *param) {
 	write_parts(sb, &param->Navmeshes, &offset_positions, &entries_count);
 	write_parts(sb, &param->ConnectCollisions, &offset_positions, &entries_count);
 	sb_patch_varint(sb, next_param_offset, sb->count);
+	da_free(offset_positions);
 }
 
 void write_part_poses(String_Builder *sb, PartPoses *param) {
@@ -1963,6 +1978,7 @@ void write_part_poses(String_Builder *sb, PartPoses *param) {
 		entries_count++;
 	}
 	sb_patch_varint(sb, next_param_offset, sb->count);
+	da_free(offset_positions);
 }
 
 void write_bone_names(String_Builder *sb, BoneNames *names) {
@@ -1982,6 +1998,7 @@ void write_bone_names(String_Builder *sb, BoneNames *names) {
 		entries_count++;
 	}
 	sb_patch_varint(sb, next_param_offset, 0);
+	da_free(offset_positions);
 }
 
 
@@ -2015,7 +2032,7 @@ bool write_map(String_Builder *sb, MSB2 *entries) {
 	map.part_poses = read_part_poses(&sv);
 	map.bone_names = read_bone_names(&sv);
 
-	free_entries(&map);
+	free_map(&map);
 
 	return true;
 }
@@ -2051,33 +2068,36 @@ int test_loading_all_maps() {
 		map_path("m50_37_00_00"),
 		map_path("m50_38_00_00"),
 	};
+	String_Builder sb = {0};
+	String_Builder rsb = {0};
 	for (size_t i=0; i<ARRAY_LEN(map_names); i++) {
+		sb.count = 0;
+		rsb.count = 0;
 		printf("==============================\n");
-		Nob_String_Builder map_sb = {0};
 		const char *map_path = map_names[i];
-		if (!nob_read_entire_file(map_path, &map_sb)) {
+		if (!nob_read_entire_file(map_path, &sb)) {
 			return 1;
 		}
-		printf("Read %zu bytes from %s\n", map_sb.count, map_path);
-		String_View map_sv = sb_to_sv(map_sb);
+		printf("Read %zu bytes from %s\n", sb.count, map_path);
+		String_View sv = sb_to_sv(sb);
 
-		MSB2 map = load_map(map_path, map_sv);
+		MSB2 map = load_map(map_path, sv);
 
-		String_Builder rsb = {0};
 		if (!write_map(&rsb, &map)) {
 			return 1;
 		}
 
-		assert(map_sb.count == rsb.count);
-		for (size_t i=0; i<map_sb.count; i++) {
-			assert(map_sb.items[i] == rsb.items[i]);
+		assert(sb.count == rsb.count);
+		for (size_t i=0; i<sb.count; i++) {
+			assert(sb.items[i] == rsb.items[i]);
 		}
 
-		free_entries(&map);
-		da_free(map_sb);
+		free_map(&map);
 		printf("Done %s.\n", map_names[i]);
 		printf("==============================\n");
 	}
+	da_free(sb);
+	da_free(rsb);
 	return 0;
 }
 
@@ -2326,6 +2346,10 @@ void free_PARAM(PARAM *param) {
 void write_param(String_Builder *sb, PARAM *param) {
 	assert(param->cells.items != NULL);
 
+	Ht(const char *, uint32_t) ht = {
+        .hasheq = ht_cstr_hasheq,
+    };
+
 	size_t stringsOffset = sb->count;
 	sb_reserve(sb, sizeof(int32_t)); // stringsOffset
 
@@ -2433,33 +2457,35 @@ void write_param(String_Builder *sb, PARAM *param) {
 	assert(param->rows.count == name_offsets.count);
 	for (size_t i = 0; i < param->rows.count; i++) {
 		Row *row = &param->rows.items[i];
+		size_t offset = name_offsets.items[i];
 
-		long nameOffset = 0;
 		if (row->Name.as.str_char != 0) {
-			nameOffset = sb->count;
-			if (param->format.Format2E & FF2_UnicodeRowNames)
-				sb_append_utf16t(sb, row->Name.as.str_wide);
-			else {
+			if (param->format.Format2E & FF2_UnicodeRowNames) {
+				uint32_t *data = ht_find(&ht, row->Name.as.str_char);
+				if (data == NULL) {
+					*ht_put(&ht, row->Name.as.str_char) = (uint32_t)sb->count;
+					sb_patch_int64_t(sb, offset, (int64_t)sb->count);
+					sb_append_utf16t(sb, row->Name.as.str_wide);
+				} else {
+					sb_patch_int64_t(sb, offset, (int64_t)(*data));
+				}
+			} else {
 				TODO("NOT Implemented WriteShiftJIS");
 			}
 		}
-
-		if (param->format.Format2D & FF1_LongDataOffset) {
-			sb_patch_int64t(sb, name_offsets.items[i], nameOffset);
-		} else {
-			sb_patch_uint32t(sb, name_offsets.items[i], (uint32_t)nameOffset);
-		}
 	}
+	sb_pad_align(sb, 16);
 
-	// 0x5d1ca8: 0x00 0x00 0x00 0x00 0x98 0x8a 0x79 0x03
-	// 0x4519d8: 0x00 0x00 0x00 0x00 0xe8 0x2c 0x77 0xec
+	da_free(name_offsets);
+	da_free(row_offsets);
+	ht_free(&ht);
 }
 
 int main() {
-	// int ret = test_loading_all_maps();
+	// return test_loading_all_maps();
 
 	Nob_String_Builder sb = {0};
-	const char *path = eventlocation_path("m50_38_00_00");
+	const char *path = eventlocation_path("m10_02_00_00");
 	if (!nob_read_entire_file(path, &sb)) {
 		return 1;
 	}
@@ -2472,7 +2498,7 @@ int main() {
 	write_param(&wsb, &param);
 
 	for (size_t i=0; i<wsb.count; i++) {
-		if(wsb.items[i] != sb.items[i]) asm("int3");
+		if(wsb.items[i] != sb.items[i] && i<(size_t)param.actualStringsOffset) asm("int3");
 	}
 	if (wsb.count != sb.count) asm("int3");
 
@@ -2482,6 +2508,8 @@ int main() {
 
 	free_PARAM(&param_reloaded);
 	free_PARAM(&param);
+	da_free(sb);
+	da_free(wsb);
 
 	printf("Done.\n");
     return 0;
