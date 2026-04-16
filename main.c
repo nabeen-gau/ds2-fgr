@@ -1391,6 +1391,7 @@ void free_map(MSB2 *entries) {
 
 #define map_path(name) "./map/" name "/" name ".msb"
 #define eventlocation_path(name) "./Param/eventlocation_" name ".param"
+#define eventparam_path(name) "./Param/eventparam_" name ".param"
 
 MSB2 load_map(const char* map_path, String_View map_sv) {
 	Header h = *(Header *)map_sv.data;
@@ -2073,7 +2074,6 @@ int test_loading_all_maps() {
 	for (size_t i=0; i<ARRAY_LEN(map_names); i++) {
 		sb.count = 0;
 		rsb.count = 0;
-		printf("==============================\n");
 		const char *map_path = map_names[i];
 		if (!nob_read_entire_file(map_path, &sb)) {
 			return 1;
@@ -2093,8 +2093,6 @@ int test_loading_all_maps() {
 		}
 
 		free_map(&map);
-		printf("Done %s.\n", map_names[i]);
-		printf("==============================\n");
 	}
 	da_free(sb);
 	da_free(rsb);
@@ -2185,13 +2183,21 @@ typedef packed_struct {
 	uint32_t Unk2C;
 } EventLocPARAMDEF;
 
+typedef packed_struct {
+	int32_t event_id;
+	int32_t flag_id;
+	uint8_t  Unk08, Unk09, Unk0A, Unk0B, Unk0C, Unk0D, Unk0E, Unk0F;
+} EventParamPARAMDEF;
+
 typedef enum {
 	Cell_EventLoc,
+	Cell_EventParam,
 } CellType;
 
 typedef struct {
 	union {
 		EventLocPARAMDEF event_loc;
+		EventParamPARAMDEF event_param;
 	} as;
 } Cell;
 typedef struct {
@@ -2254,9 +2260,12 @@ void PARAM_apply_paramdef(PARAM *param, CellType type) {
 		sv.data += row->DataOffset;
 		Cell cell = {0};
 		switch (type) {
-		case Cell_EventLoc: {
-			cell.as.event_loc = *(EventLocPARAMDEF *)(sv.data);
-		} break;
+			case Cell_EventLoc:
+				cell.as.event_loc = *(EventLocPARAMDEF *)(sv.data);
+			break;
+			case Cell_EventParam:
+				cell.as.event_param = *(EventParamPARAMDEF *)(sv.data);
+			break;
 		default: TODO("CellType enum not implemented");
 		}
 		da_append(&cells, cell);
@@ -2438,12 +2447,14 @@ void write_param(String_Builder *sb, PARAM *param) {
 		}
 
 		switch (param->cells.type) {
-		case Cell_EventLoc: {
+		case Cell_EventLoc:
 			length = sizeof(EventLocPARAMDEF);
-			sb_append_buf(sb, cell, length);
-		} break;
+		case Cell_EventParam:
+			length = sizeof(EventParamPARAMDEF);
+		break;
 		default: TODO("CellType enum not implemented");
 		}
+		sb_append_buf(sb, cell, length);
 	}
 
 	sb_patch_uint32t(sb, stringsOffset, (uint32_t)sb->count);
@@ -2481,29 +2492,97 @@ void write_param(String_Builder *sb, PARAM *param) {
 	ht_free(&ht);
 }
 
-int main() {
-	// return test_loading_all_maps();
+int test_loading_all_eventlocations() {
+	const char *paths[] = {
+		eventlocation_path("m10_02_00_00"),
+		eventlocation_path("m10_04_00_00"),
+		eventlocation_path("m10_10_00_00"),
+		eventlocation_path("m10_14_00_00"),
+		eventlocation_path("m10_15_00_00"),
+		eventlocation_path("m10_16_00_00"),
+		eventlocation_path("m10_17_00_00"),
+		eventlocation_path("m10_18_00_00"),
+		eventlocation_path("m10_19_00_00"),
+		eventlocation_path("m10_23_00_00"),
+		eventlocation_path("m10_25_00_00"),
+		eventlocation_path("m10_27_00_00"),
+		eventlocation_path("m10_29_00_00"),
+		eventlocation_path("m10_30_00_00"),
+		eventlocation_path("m10_31_00_00"),
+		eventlocation_path("m10_32_00_00"),
+		eventlocation_path("m10_33_00_00"),
+		eventlocation_path("m10_34_00_00"),
+		eventlocation_path("m20_10_00_00"),
+		eventlocation_path("m20_11_00_00"),
+		eventlocation_path("m20_21_00_00"),
+		eventlocation_path("m20_24_00_00"),
+		eventlocation_path("m20_26_00_00"),
+		eventlocation_path("m40_03_00_00"),
+		eventlocation_path("m50_35_00_00"),
+		eventlocation_path("m50_36_00_00"),
+		eventlocation_path("m50_37_00_00"),
+		eventlocation_path("m50_38_00_00"),
+	};
 
-	Nob_String_Builder sb = {0};
-	const char *path = eventlocation_path("m10_02_00_00");
+	String_Builder sb = {0};
+	String_Builder wsb = {0};
+	for (size_t i=0; i<ARRAY_LEN(paths); i++) {
+		sb.count = 0;
+		wsb.count = 0;
+
+		const char *path = paths[i];
+		if (!nob_read_entire_file(path, &sb)) {
+			return 1;
+		}
+		printf("Read %zu bytes from %s\n", sb.count, path);
+		String_View sv = sb_to_sv(sb);
+
+		PARAM param = load_param(&sv, Cell_EventLoc);
+
+		write_param(&wsb, &param);
+
+		for (size_t j=0; j<wsb.count; j++) {
+			if(wsb.items[j] != sb.items[j] && j<(size_t)param.actualStringsOffset) asm("int3");
+		}
+		if (wsb.count != sb.count) asm("int3");
+
+		String_View wsv = sb_to_sv(wsb);
+		PARAM param_reloaded = load_param(&wsv, Cell_EventLoc);
+
+
+		free_PARAM(&param_reloaded);
+		free_PARAM(&param);
+	}
+	da_free(sb);
+	da_free(wsb);
+
+	return 0;
+}
+
+int main() {
+	int ret = 0;
+	// ret += test_loading_all_maps();
+	// ret += test_loading_all_eventlocations();
+	String_Builder sb = {0};
+	String_Builder wsb = {0};
+	const char *path = eventparam_path("m10_02_00_00");
 	if (!nob_read_entire_file(path, &sb)) {
 		return 1;
 	}
 	printf("Read %zu bytes from %s\n", sb.count, path);
 	String_View sv = sb_to_sv(sb);
 
-	PARAM param = load_param(&sv, Cell_EventLoc);
+	PARAM param = load_param(&sv, Cell_EventParam);
 
-	String_Builder wsb = {0};
 	write_param(&wsb, &param);
 
-	for (size_t i=0; i<wsb.count; i++) {
-		if(wsb.items[i] != sb.items[i] && i<(size_t)param.actualStringsOffset) asm("int3");
+	for (size_t j=0; j<wsb.count; j++) {
+		if(wsb.items[j] != sb.items[j] && j<(size_t)param.actualStringsOffset) asm("int3");
 	}
 	if (wsb.count != sb.count) asm("int3");
 
 	String_View wsv = sb_to_sv(wsb);
-	PARAM param_reloaded = load_param(&wsv, Cell_EventLoc);
+	PARAM param_reloaded = load_param(&wsv, Cell_EventParam);
 
 
 	free_PARAM(&param_reloaded);
@@ -2512,5 +2591,5 @@ int main() {
 	da_free(wsb);
 
 	printf("Done.\n");
-    return 0;
+	return ret;
 }
