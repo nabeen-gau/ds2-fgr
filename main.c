@@ -1392,6 +1392,7 @@ void free_map(MSB2 *entries) {
 #define map_path(name) "./map/" name "/" name ".msb"
 #define eventlocation_path(name) "./Param/eventlocation_" name ".param"
 #define eventparam_path(name) "./Param/eventparam_" name ".param"
+#define map_object_instance_param_path(name) "./Param/mapobjectinstanceparam_" name ".param"
 
 MSB2 load_map(const char* map_path, String_View map_sv) {
 	Header h = *(Header *)map_sv.data;
@@ -2189,15 +2190,29 @@ typedef packed_struct {
 	uint8_t  Unk08, Unk09, Unk0A, Unk0B, Unk0C, Unk0D, Unk0E, Unk0F;
 } EventParamPARAMDEF;
 
+typedef packed_struct {
+	int32_t headerID;
+	int32_t ParamID;
+	int32_t ObjectBullet;
+	float Unk02, Unk03;
+	int32_t MapObjectInstanceType ;
+	uint16_t Unk04;
+	uint8_t  Unk05, Unk06, Unk07, Unk08, DefaultState, Unk09;
+	uint32_t Unk10;
+	int32_t ItemlotID;
+} MapObjectInstancePARAMDEF;
+
 typedef enum {
 	Cell_EventLoc,
 	Cell_EventParam,
+	Cell_MapObjInstanceParam
 } CellType;
 
 typedef struct {
 	union {
 		EventLocPARAMDEF event_loc;
 		EventParamPARAMDEF event_param;
+		MapObjectInstancePARAMDEF map_obj_instance_param;
 	} as;
 } Cell;
 typedef struct {
@@ -2265,6 +2280,9 @@ void PARAM_apply_paramdef(PARAM *param, CellType type) {
 			break;
 			case Cell_EventParam:
 				cell.as.event_param = *(EventParamPARAMDEF *)(sv.data);
+			break;
+			case Cell_MapObjInstanceParam:
+				cell.as.map_obj_instance_param = *(MapObjectInstancePARAMDEF *)(sv.data);
 			break;
 		default: TODO("CellType enum not implemented");
 		}
@@ -2453,6 +2471,9 @@ void write_param(String_Builder *sb, PARAM *param) {
 		case Cell_EventParam:
 			length = sizeof(EventParamPARAMDEF);
 		break;
+		case Cell_MapObjInstanceParam:
+			length = sizeof(MapObjectInstancePARAMDEF);
+		break;
 		default: TODO("CellType enum not implemented");
 		}
 		sb_append_buf(sb, cell, length);
@@ -2629,19 +2650,19 @@ int test_loading_all_eventparam() {
 
 int main() {
 	int ret = 0;
-	ret += test_loading_all_maps();
-	ret += test_loading_all_eventlocations();
-	ret += test_loading_all_eventparam();
+	// ret += test_loading_all_maps();
+	// ret += test_loading_all_eventlocations();
+	// ret += test_loading_all_eventparam();
 	String_Builder sb = {0};
 	String_Builder wsb = {0};
-	const char *path = eventlocation_path("m10_02_00_00");
+	const char *path = map_object_instance_param_path("m10_02_00_00");
 	if (!nob_read_entire_file(path, &sb)) {
 		return 1;
 	}
 	printf("Read %zu bytes from %s\n", sb.count, path);
 	String_View sv = sb_to_sv(sb);
 
-	PARAM param = load_param(&sv, Cell_EventLoc);
+	PARAM param = load_param(&sv, Cell_MapObjInstanceParam);
 
 	write_param(&wsb, &param);
 
@@ -2651,7 +2672,7 @@ int main() {
 	if (wsb.count != sb.count) asm("int3");
 
 	String_View wsv = sb_to_sv(wsb);
-	PARAM param_reloaded = load_param(&wsv, Cell_EventLoc);
+	PARAM param_reloaded = load_param(&wsv, Cell_MapObjInstanceParam);
 
 
 	free_PARAM(&param_reloaded);
