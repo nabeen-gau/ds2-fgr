@@ -2449,6 +2449,7 @@ void write_param(String_Builder *sb, PARAM *param) {
 		switch (param->cells.type) {
 		case Cell_EventLoc:
 			length = sizeof(EventLocPARAMDEF);
+		break;
 		case Cell_EventParam:
 			length = sizeof(EventParamPARAMDEF);
 		break;
@@ -2559,20 +2560,88 @@ int test_loading_all_eventlocations() {
 	return 0;
 }
 
-int main() {
-	int ret = 0;
-	// ret += test_loading_all_maps();
-	// ret += test_loading_all_eventlocations();
+int test_loading_all_eventparam() {
+	const char *paths[] = {
+		eventparam_path("m10_02_00_00"),
+		eventparam_path("m10_04_00_00"),
+		eventparam_path("m10_10_00_00"),
+		eventparam_path("m10_14_00_00"),
+		eventparam_path("m10_15_00_00"),
+		eventparam_path("m10_16_00_00"),
+		eventparam_path("m10_17_00_00"),
+		eventparam_path("m10_18_00_00"),
+		eventparam_path("m10_19_00_00"),
+		eventparam_path("m10_23_00_00"),
+		eventparam_path("m10_25_00_00"),
+		eventparam_path("m10_27_00_00"),
+		eventparam_path("m10_29_00_00"),
+		eventparam_path("m10_30_00_00"),
+		eventparam_path("m10_31_00_00"),
+		eventparam_path("m10_32_00_00"),
+		eventparam_path("m10_33_00_00"),
+		eventparam_path("m10_34_00_00"),
+		eventparam_path("m20_10_00_00"),
+		eventparam_path("m20_11_00_00"),
+		eventparam_path("m20_21_00_00"),
+		eventparam_path("m20_24_00_00"),
+		eventparam_path("m20_26_00_00"),
+		eventparam_path("m40_03_00_00"),
+		eventparam_path("m50_35_00_00"),
+		eventparam_path("m50_36_00_00"),
+		eventparam_path("m50_37_00_00"),
+		eventparam_path("m50_38_00_00"),
+	};
+
 	String_Builder sb = {0};
 	String_Builder wsb = {0};
-	const char *path = eventparam_path("m10_02_00_00");
+	for (size_t i=0; i<ARRAY_LEN(paths); i++) {
+		sb.count = 0;
+		wsb.count = 0;
+
+		const char *path = paths[i];
+		if (!nob_read_entire_file(path, &sb)) {
+			return 1;
+		}
+		printf("Read %zu bytes from %s\n", sb.count, path);
+		String_View sv = sb_to_sv(sb);
+
+		PARAM param = load_param(&sv, Cell_EventParam);
+
+		write_param(&wsb, &param);
+
+		for (size_t j=0; j<wsb.count; j++) {
+			if(wsb.items[j] != sb.items[j] && j<(size_t)param.actualStringsOffset) asm("int3");
+		}
+		if (wsb.count != sb.count) asm("int3");
+
+		String_View wsv = sb_to_sv(wsb);
+		PARAM param_reloaded = load_param(&wsv, Cell_EventParam);
+
+
+		free_PARAM(&param_reloaded);
+		free_PARAM(&param);
+	}
+	da_free(sb);
+	da_free(wsb);
+
+	return 0;
+}
+
+int main() {
+	int ret = 0;
+	ret += test_loading_all_maps();
+	ret += test_loading_all_eventlocations();
+	ret += test_loading_all_eventparam();
+	String_Builder sb = {0};
+	String_Builder wsb = {0};
+	const char *path = eventlocation_path("m10_02_00_00");
 	if (!nob_read_entire_file(path, &sb)) {
 		return 1;
 	}
 	printf("Read %zu bytes from %s\n", sb.count, path);
 	String_View sv = sb_to_sv(sb);
 
-	PARAM param = load_param(&sv, Cell_EventParam);
+	PARAM param = load_param(&sv, Cell_EventLoc);
 
 	write_param(&wsb, &param);
 
@@ -2582,7 +2651,7 @@ int main() {
 	if (wsb.count != sb.count) asm("int3");
 
 	String_View wsv = sb_to_sv(wsb);
-	PARAM param_reloaded = load_param(&wsv, Cell_EventParam);
+	PARAM param_reloaded = load_param(&wsv, Cell_EventLoc);
 
 
 	free_PARAM(&param_reloaded);
