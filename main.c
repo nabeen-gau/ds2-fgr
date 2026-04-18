@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define NOB_DA_INIT_CAP 32
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
@@ -1393,6 +1394,7 @@ void free_map(MSB2 *entries) {
 #define eventlocation_path(name) "./Param/eventlocation_" name ".param"
 #define eventparam_path(name) "./Param/eventparam_" name ".param"
 #define map_object_instance_param_path(name) "./Param/mapobjectinstanceparam_" name ".param"
+#define esd_path(name) "./ezstate/event_" name ".esd"
 
 MSB2 load_map(const char* map_path, String_View map_sv) {
 	Header h = *(Header *)map_sv.data;
@@ -2581,7 +2583,7 @@ int test_loading_all_eventlocations() {
 	return 0;
 }
 
-int test_loading_all_eventparam() {
+int test_loading_all_eventparams() {
 	const char *paths[] = {
 		eventparam_path("m10_02_00_00"),
 		eventparam_path("m10_04_00_00"),
@@ -2648,38 +2650,427 @@ int test_loading_all_eventparam() {
 	return 0;
 }
 
+int test_loading_all_mapobjinstanceparams() {
+	const char *paths[] = {
+		map_object_instance_param_path("m10_02_00_00"),
+		map_object_instance_param_path("m10_04_00_00"),
+		map_object_instance_param_path("m10_10_00_00"),
+		map_object_instance_param_path("m10_14_00_00"),
+		map_object_instance_param_path("m10_15_00_00"),
+		map_object_instance_param_path("m10_16_00_00"),
+		map_object_instance_param_path("m10_17_00_00"),
+		map_object_instance_param_path("m10_18_00_00"),
+		map_object_instance_param_path("m10_19_00_00"),
+		map_object_instance_param_path("m10_23_00_00"),
+		map_object_instance_param_path("m10_25_00_00"),
+		map_object_instance_param_path("m10_27_00_00"),
+		map_object_instance_param_path("m10_29_00_00"),
+		map_object_instance_param_path("m10_30_00_00"),
+		map_object_instance_param_path("m10_31_00_00"),
+		map_object_instance_param_path("m10_32_00_00"),
+		map_object_instance_param_path("m10_33_00_00"),
+		map_object_instance_param_path("m10_34_00_00"),
+		map_object_instance_param_path("m20_10_00_00"),
+		map_object_instance_param_path("m20_11_00_00"),
+		map_object_instance_param_path("m20_21_00_00"),
+		map_object_instance_param_path("m20_24_00_00"),
+		map_object_instance_param_path("m20_26_00_00"),
+		map_object_instance_param_path("m40_03_00_00"),
+		map_object_instance_param_path("m50_35_00_00"),
+		map_object_instance_param_path("m50_36_00_00"),
+		map_object_instance_param_path("m50_37_00_00"),
+		map_object_instance_param_path("m50_38_00_00"),
+	};
+
+	String_Builder sb = {0};
+	String_Builder wsb = {0};
+	for (size_t i=0; i<ARRAY_LEN(paths); i++) {
+		sb.count = 0;
+		wsb.count = 0;
+
+		const char *path = paths[i];
+		if (!nob_read_entire_file(path, &sb)) {
+			return 1;
+		}
+		printf("Read %zu bytes from %s\n", sb.count, path);
+		String_View sv = sb_to_sv(sb);
+
+		PARAM param = load_param(&sv, Cell_MapObjInstanceParam);
+
+		write_param(&wsb, &param);
+
+		for (size_t j=0; j<wsb.count; j++) {
+			if(wsb.items[j] != sb.items[j] && j<(size_t)param.actualStringsOffset) asm("int3");
+		}
+		if (wsb.count != sb.count) asm("int3");
+
+		String_View wsv = sb_to_sv(wsb);
+		PARAM param_reloaded = load_param(&wsv, Cell_MapObjInstanceParam);
+
+
+		free_PARAM(&param_reloaded);
+		free_PARAM(&param);
+	}
+	da_free(sb);
+	da_free(wsb);
+
+	return 0;
+}
+
+bool sv_cmp(String_View a, String_View b) {
+	if (a.count != b.count) return false;
+	for (size_t i=0; i<a.count; i++) {
+		if (a.data[i] != b.data[i]) return false;
+	}
+	return true;
+}
+
+bool sv_str_cmp(String_View sv, const char *str) {
+	if (sv.count != strlen(str)) return false;
+	for (size_t i=0; i<sv.count; i++) {
+		if (sv.data[i] != str[i]) return false;
+	}
+	return true;
+}
+
+
+
+typedef packed_struct {
+	int32_t a;
+	int32_t dark_souls_count; // 1, 2 or 3
+	int32_t dark_souls_count_repeat;
+	int32_t b; // 0x54
+	int32_t data_size;
+	int32_t c; // 6
+	int32_t d; // 0x48
+	int32_t e; // 1;
+	int32_t stateGroupSize; // 0x20
+	int32_t stateGroupCount;
+	int32_t stateSize; // 0x48
+	int32_t stateCount;
+	int32_t f; // 0x38
+	int32_t conditionCount;
+	int32_t g; // 0x18
+	int32_t commandCallCount;
+	int32_t h; // 0x10
+	int32_t commandArgCount;
+	int32_t conditionOffsetsOffset;
+	int32_t conditionOffsetsCount;
+	int32_t nameBlockOffset;
+	int32_t nameLength;
+	int32_t unkOffset1;
+	int32_t i; // 0
+	int32_t unkOffset2;
+	int32_t j; // 0
+} ESD_HEADER;
+
+ESD_HEADER esd_header(String_View *sv) {
+	ESD_HEADER header = *(ESD_HEADER *)sv->data;
+	assert(header.dark_souls_count == 1 ||header.dark_souls_count == 2 ||header.dark_souls_count == 3);
+	assert(header.dark_souls_count_repeat == header.dark_souls_count_repeat);
+	assert(header.b == 0x54);
+	assert(header.c == 6);
+	assert(header.d == 0x48);
+	assert(header.e == 1);
+	assert(header.stateGroupSize == 0x20);
+	assert(header.stateSize == 0x48);
+	assert(header.f == 0x38);
+	assert(header.g == 0x18);
+	assert(header.h == 0x10);
+	assert(header.i == 0);
+	assert(header.j == 0);
+	sv->count -= sizeof(ESD_HEADER);
+	sv->data += sizeof(ESD_HEADER);
+	return header;
+}
+
+typedef packed_struct {
+	int32_t a; // 1
+	int32_t Unk70;
+	int32_t Unk74;
+	int32_t Unk78;
+	int32_t Unk7C;
+	int32_t b; // 0
+	varint stateGroupsOffset;
+	varint stateGroupCount; // =header.stateGroupCount
+	varint nameOffset;
+	varint nameLength; // = header.nameLength
+	varint unkNull; // -1
+	varint unkNull2; // -1
+} ESD_DATA;
+
+#define sv_read(sv, type) *(type *)sv_chop_left((sv), sizeof(type)).data;
+
+DA(varint, DArrlld);
+
+typedef packed_struct {
+	varint ID;
+	varint conditionOffsetsOffset;
+	varint conditionOffsetCount;
+	varint entryCommandsOffset;
+	varint entryCommandCount;
+	varint exitCommandsOffset;
+	varint exitCommandCount;
+	varint whileCommandsOffset;
+	varint whileCommandCount;
+} StateHeader;
+
+typedef packed_struct {
+	varint argOffset;
+	varint argSize;
+} ArgumentHeader;
+
+typedef struct {
+	ArgumentHeader header;
+	String_View arg;
+} Argument;
+
+DA(Argument, Arguments);
+
+typedef packed_struct {
+	int32_t CommandBank; // 1, 5, 6 or 7
+	int32_t CommandID;
+	varint argsOffset;
+	varint argsCount;
+} CommandCallHeader;
+
+typedef struct {
+	CommandCallHeader header;
+	Arguments arguments;
+} CommandCall;
+
+CommandCall new_command_call(String_View *sv, const char *data_start) {
+	CommandCall cc = {0};
+	cc.header = sv_read(sv, CommandCallHeader);
+	assert(cc.header.CommandBank == 1 || cc.header.CommandBank == 5 || cc.header.CommandBank == 6 || cc.header.CommandBank == 7);
+	String_View copy = *sv;
+	sv->data = data_start + cc.header.argsOffset;
+	for (size_t i=0; i<(size_t)cc.header.argsCount; i++) {
+		Argument arg = {0};
+		arg.header = sv_read(sv, ArgumentHeader);
+		arg.arg.data = data_start + arg.header.argOffset;
+		arg.arg.count = arg.header.argSize;
+		da_append(&cc.arguments, arg);
+	}
+
+	*sv = copy;
+	return cc;
+}
+
+DA(CommandCall, Commands);
+
+typedef struct {
+	StateHeader header;
+	DArrlld conditionOffsets;
+	Commands entryScript;
+	Commands exitScript;
+	Commands whileScript;
+} State;
+
+State new_state(String_View *sv, const char *data_start) {
+	State state = {0};
+	state.header = sv_read(sv, StateHeader);
+	String_View saved = *sv;
+	// read condition offsets
+	sv->data = data_start + state.header.conditionOffsetsOffset;
+	da_reserve(&state.conditionOffsets, (size_t)state.header.conditionOffsetCount);
+	for (size_t i=0; i<(size_t)state.header.conditionOffsetCount; i++) {
+		varint val = sv_read(sv, varint);
+		da_append(&state.conditionOffsets, val);
+	}
+	// read entry script
+	sv->data = data_start + state.header.entryCommandsOffset;
+	da_reserve(&state.entryScript, (size_t)state.header.entryCommandCount);
+	for (size_t i=0; i<(size_t)state.header.entryCommandCount; i++) {
+		CommandCall entry = new_command_call(sv, data_start);
+		da_append(&state.entryScript, entry);
+	}
+	// read exit script
+	sv->data = data_start + state.header.exitCommandsOffset;
+	da_reserve(&state.exitScript, (size_t)state.header.exitCommandCount);
+	for (size_t i=0; i<(size_t)state.header.exitCommandCount; i++) {
+		CommandCall exit = new_command_call(sv, data_start);
+		da_append(&state.exitScript, exit);
+	}
+	// read while script
+	sv->data = data_start + state.header.whileCommandsOffset;
+	da_reserve(&state.whileScript, (size_t)state.header.whileCommandCount);
+	for (size_t i=0; i<(size_t)state.header.whileCommandCount; i++) {
+		CommandCall whil3 = new_command_call(sv, data_start);
+		da_append(&state.whileScript, whil3);
+	}
+	*sv = saved;
+	return state;
+}
+
+typedef packed_struct {
+	varint stateOffset;
+	varint passCommandsOffset;
+	varint passCommandCount;
+	varint conditionOffsetsOffset;
+	varint conditionOffsetCount;
+	varint evaluatorOffset;
+	varint evaluatorLength;
+} ConditionHeader;
+
+typedef struct {
+	ConditionHeader header;
+	Commands passScript;
+	DArrlld conditionOffsets;
+	String_View evaluator;
+} Condition;
+
+Condition new_condition(String_View *sv, const char *data_start) {
+	Condition c = {0};
+	c.header = sv_read(sv, ConditionHeader);
+	String_View saved = *sv;
+	sv->data = data_start + c.header.passCommandsOffset;
+	// read condition offsets
+	sv->data = data_start + c.header.conditionOffsetsOffset;
+	da_reserve(&c.conditionOffsets, (size_t)c.header.conditionOffsetCount);
+	for (size_t i=0; i<(size_t)c.header.conditionOffsetCount; i++) {
+		varint val = sv_read(sv, varint);
+		da_append(&c.conditionOffsets, val);
+	}
+	// read pass script
+	sv->data = data_start + c.header.passCommandsOffset;
+	da_reserve(&c.passScript, (size_t)c.header.passCommandCount);
+	for (size_t i=0; i<(size_t)c.header.passCommandCount; i++) {
+		CommandCall pass = new_command_call(sv, data_start);
+		da_append(&c.passScript, pass);
+	}
+	c.evaluator.data = data_start + c.header.evaluatorOffset;
+	c.evaluator.count = c.header.evaluatorLength;
+	*sv = saved;
+	return c;
+}
+
+typedef Ht(varint, DArrlld) StateGroupOffsets;
+typedef Ht(long, State) States;
+typedef Ht(long, Condition) Conditions;
+
+typedef struct {
+	ESD_HEADER header;
+	ESD_DATA data;
+	utf16_t *name;
+	StateGroupOffsets stateGroupOffsets;
+	States states;
+	Conditions conditions;
+} ESD;
+
+ESD read_esd(String_View sv) {
+	ESD esd = {0};
+	const char *ESD_MAGIC = "fsSL";
+	String_View magic = sv_chop_left(&sv, strlen(ESD_MAGIC));
+	assert(sv_str_cmp(magic, ESD_MAGIC) && "Only Scholar version is supported!!");
+	esd.header = esd_header(&sv);
+	const char *data_start = sv.data;
+
+	esd.data = sv_read(&sv, ESD_DATA);
+	assert(esd.data.a == 1);
+	assert(esd.data.b == 0);
+	assert(esd.data.stateGroupCount == esd.header.stateGroupCount);
+	assert(esd.data.nameLength == esd.header.nameLength);
+	assert(esd.data.unkNull == -1);
+	assert(esd.data.unkNull2 == -1);
+
+	if (esd.header.nameLength > 0) {
+		esd.name = (utf16_t *)(data_start+esd.data.nameOffset);
+	}
+
+	
+	for (size_t i=0; i<(size_t)esd.data.stateGroupCount; i++) {
+		varint id = sv_read(&sv, varint);
+		long stateSize = esd.header.stateSize;
+
+		// read state group
+		varint statesOffset = sv_read(&sv, varint);
+		varint stateCount = sv_read(&sv, varint);
+		varint statesOffset2 = sv_read(&sv, varint);
+		assert(statesOffset == statesOffset2);
+		DArrlld stateOffsets = {0};
+		for (size_t j=0; j<(size_t)stateCount; j++) {
+			da_append(&stateOffsets, statesOffset + j*stateSize);
+		}
+		if (stateCount > 1) {
+			String_View state0Bytes = sv; 
+			state0Bytes.data = data_start + statesOffset;
+			state0Bytes.count = stateSize;
+			String_View copy = sv;
+			sv.data = data_start + statesOffset + stateSize*stateCount;
+			{
+				for (size_t k=0; k<(size_t)stateSize; k++) {
+					byte b = sv_read(&sv, byte);
+					assert(b == (byte)state0Bytes.data[k]);
+				}
+			}
+			sv = copy;
+		}
+		// read state group end
+
+		if (ht_find(&esd.stateGroupOffsets, id) != NULL) {
+			assert(false && "Duplicate state group ID");
+		}
+		*ht_put(&esd.stateGroupOffsets, id) = stateOffsets;
+	}
+
+	long stateCount = esd.header.stateCount;
+
+	for (size_t i = 0; i < (size_t)stateCount; i++) {
+		*ht_put(&esd.states, sv.data - data_start) = new_state(&sv, data_start);
+	}
+
+	for (size_t i=0; i < (size_t)esd.header.conditionCount; i++) {
+		*ht_put(&esd.conditions, sv.data - data_start) = new_condition(&sv, data_start);
+	}
+
+	return esd;
+}
+
+void free_commands(Commands *commands) {
+	da_foreach(CommandCall, scr, commands) {
+		da_free(scr->arguments);
+	}
+	free(commands->items);
+}
+
+void free_esd(ESD *esd) {
+    ht_foreach(value, &esd->stateGroupOffsets) {
+		free(value->items);
+    }
+	ht_free(&esd->stateGroupOffsets);
+    ht_foreach(value, &esd->states) {
+		da_free(value->conditionOffsets);
+		free_commands(&value->entryScript);
+		free_commands(&value->exitScript);
+		free_commands(&value->whileScript);
+    }
+	ht_free(&esd->states);
+	ht_foreach(value, &esd->conditions) {
+		free_commands(&value->passScript);
+		da_free(value->conditionOffsets);
+	}
+	ht_free(&esd->conditions);
+}
+
 int main() {
 	int ret = 0;
 	// ret += test_loading_all_maps();
 	// ret += test_loading_all_eventlocations();
-	// ret += test_loading_all_eventparam();
+	// ret += test_loading_all_eventparams();
+	// ret += test_loading_all_mapobjinstanceparams();
 	String_Builder sb = {0};
 	String_Builder wsb = {0};
-	const char *path = map_object_instance_param_path("m10_02_00_00");
+	const char *path = esd_path("m10_18_00_00");
 	if (!nob_read_entire_file(path, &sb)) {
 		return 1;
 	}
 	printf("Read %zu bytes from %s\n", sb.count, path);
 	String_View sv = sb_to_sv(sb);
 
-	PARAM param = load_param(&sv, Cell_MapObjInstanceParam);
+	ESD esd = read_esd(sv);
 
-	write_param(&wsb, &param);
-
-	for (size_t j=0; j<wsb.count; j++) {
-		if(wsb.items[j] != sb.items[j] && j<(size_t)param.actualStringsOffset) asm("int3");
-	}
-	if (wsb.count != sb.count) asm("int3");
-
-	String_View wsv = sb_to_sv(wsb);
-	PARAM param_reloaded = load_param(&wsv, Cell_MapObjInstanceParam);
-
-
-	free_PARAM(&param_reloaded);
-	free_PARAM(&param);
+	free_esd(&esd);
 	da_free(sb);
-	da_free(wsb);
-
-	printf("Done.\n");
 	return ret;
 }
