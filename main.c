@@ -44,6 +44,7 @@ const char* map_begin = NULL;
 #define read_utf_16(sv) (utf16_t *)(sv)->data;
 
 #define DA(type, name) typedef struct {type *items; size_t count; size_t capacity;} name
+#define DA2(type, name) typedef struct {struct type *items; size_t count; size_t capacity;} name
 
 #define assert_item(type, sv, val)\
     do {\
@@ -2859,12 +2860,44 @@ CommandCall new_command_call(String_View *sv, const char *data_start) {
 
 DA(CommandCall, Commands);
 
+typedef packed_struct {
+	varint stateOffset;
+	varint passCommandsOffset;
+	varint passCommandCount;
+	varint conditionOffsetsOffset;
+	varint conditionOffsetCount;
+	varint evaluatorOffset;
+	varint evaluatorLength;
+} ConditionHeader;
+
+typedef enum {
+	State_None=0,
+	State_Value,
+} StateType;
+
+struct Condition;
+
+typedef struct {
+	ConditionHeader header;
+	Commands passScript;
+	DArrlld conditionOffsets;
+	String_View evaluator;
+	StateType type;
+	varint targetState;
+
+	size_t subconditionsCount;
+	size_t subconditionsCapacity;
+	struct Condition *subconditions;
+} Condition;
+DA(Condition, DACondition);
+
 typedef struct {
 	StateHeader header;
 	DArrlld conditionOffsets;
 	Commands entryScript;
 	Commands exitScript;
 	Commands whileScript;
+	DACondition conditions;
 } State;
 
 State new_state(String_View *sv, const char *data_start) {
@@ -2903,28 +2936,10 @@ State new_state(String_View *sv, const char *data_start) {
 	return state;
 }
 
-typedef packed_struct {
-	varint stateOffset;
-	varint passCommandsOffset;
-	varint passCommandCount;
-	varint conditionOffsetsOffset;
-	varint conditionOffsetCount;
-	varint evaluatorOffset;
-	varint evaluatorLength;
-} ConditionHeader;
-
-typedef struct {
-	ConditionHeader header;
-	Commands passScript;
-	DArrlld conditionOffsets;
-	String_View evaluator;
-} Condition;
-
 Condition new_condition(String_View *sv, const char *data_start) {
 	Condition c = {0};
 	c.header = sv_read(sv, ConditionHeader);
 	String_View saved = *sv;
-	sv->data = data_start + c.header.passCommandsOffset;
 	// read condition offsets
 	sv->data = data_start + c.header.conditionOffsetsOffset;
 	da_reserve(&c.conditionOffsets, (size_t)c.header.conditionOffsetCount);
@@ -2945,9 +2960,9 @@ Condition new_condition(String_View *sv, const char *data_start) {
 	return c;
 }
 
-typedef Ht(varint, DArrlld) StateGroupOffsets;
-typedef Ht(long, State) States;
-typedef Ht(long, Condition) Conditions;
+typedef Ht(varint, DArrlld) StateGroupOffsets; // key = group_id
+typedef Ht(long, State) States; // key = offset
+typedef Ht(long, Condition) Conditions; // key = offset
 
 typedef struct {
 	ESD_HEADER header;
@@ -2958,9 +2973,45 @@ typedef struct {
 	Conditions conditions;
 } ESD;
 
+typedef Ht(varint, varint) Dictlldlld;
+
+void define_target_state(ESD *esd, Condition *cond, Dictlldlld *stateIDs) {
+	varint *state_id = ht_find(stateIDs, cond->header.stateOffset);
+	if (cond->header.stateOffset == -2) return;
+	if (cond->header.stateOffset == -1) {
+		cond->type = State_None;
+	} else if (state_id != NULL) {
+		cond->type = State_Value;
+		cond->targetState = *state_id;
+	} else {
+		assert(false && "condition target state not found");
+	}
+	cond->header.stateOffset = -2;
+	da_foreach(varint, offset, &cond->conditionOffsets) {
+		Condition *subcondition = ht_find(&esd->conditions, *offset);
+		assert(subcondition && "Invalid offset");
+
+		if (cond->subconditions == NULL) {
+			cond->subconditionsCapacity = NOB_DA_INIT_CAP;
+			cond->subconditions = malloc(cond->subconditionsCapacity*sizeof(Condition));
+		} else if (cond->subconditionsCount >= cond->subconditionsCapacity) {
+			cond->subconditionsCapacity *= 2;
+			cond->subconditions = realloc(cond->subconditions, cond->subconditionsCapacity*sizeof(Condition));
+		}
+		Condition *ref = (Condition *)&cond->subconditions;
+		ref[cond->subconditionsCount++] = *subcondition;
+	}
+	// cond->conditionOffsets = NULL; // TODO: ESD.cs:1003
+	for (size_t i=0; i<cond->subconditionsCount; i++) {
+		varint offset = cond->conditionOffsets.items[i];
+		Condition *subcond = ht_find(&esd->conditions, offset);
+		define_target_state(esd, subcond, stateIDs);
+	}
+}
+
+const char *ESD_MAGIC = "fsSL";
 ESD read_esd(String_View sv) {
 	ESD esd = {0};
-	const char *ESD_MAGIC = "fsSL";
 	String_View magic = sv_chop_left(&sv, strlen(ESD_MAGIC));
 	assert(sv_str_cmp(magic, ESD_MAGIC) && "Only Scholar version is supported!!");
 	esd.header = esd_header(&sv);
@@ -3024,6 +3075,41 @@ ESD read_esd(String_View sv) {
 		*ht_put(&esd.conditions, sv.data - data_start) = new_condition(&sv, data_start);
 	}
 
+	ht_foreach(state, &esd.states) {
+		da_foreach(varint, offset, &state->conditionOffsets) {
+			Condition *cond = ht_find(&esd.conditions, *offset);
+			da_append(&state->conditions, *cond);
+		}
+	}
+
+
+	Dictlldlld stateIDs = {0}; // offset, state_id
+	ht_foreach (stateOffsets, &esd.stateGroupOffsets) {
+		varint stateGroupID = ht_key(&esd.stateGroupOffsets, stateOffsets);
+		da_foreach(varint, offset, stateOffsets) {
+			State *state = ht_find(&esd.states, *offset);
+			*ht_put(&stateIDs, *offset) = state->header.ID;
+		}
+	}
+	ht_foreach (stateOffsets, &esd.stateGroupOffsets) {
+		ht_foreach(st, &esd.states) {
+			da_foreach(Condition, cond, &st->conditions) {
+				define_target_state(&esd, cond, &stateIDs);
+			}
+		}
+	}
+	ht_free(&stateIDs);
+
+	// stateIDs = (offset, state_id)
+	// groupedStateOffsets = (group_id, (offset, state_id))
+	//                                  ^
+	//                                  stateIDs
+	//
+	// stateGroup = (state_id, State)
+	// stateGroups = (group_id, (state_id, State))
+	//                          ^
+	//                          stateGroup
+
 	return esd;
 }
 
@@ -3039,18 +3125,462 @@ void free_esd(ESD *esd) {
 		free(value->items);
     }
 	ht_free(&esd->stateGroupOffsets);
-    ht_foreach(value, &esd->states) {
-		da_free(value->conditionOffsets);
-		free_commands(&value->entryScript);
-		free_commands(&value->exitScript);
-		free_commands(&value->whileScript);
+    ht_foreach(state, &esd->states) {
+		da_free(state->conditionOffsets);
+		free_commands(&state->entryScript);
+		free_commands(&state->exitScript);
+		free_commands(&state->whileScript);
+
+		da_free(state->conditions);
     }
 	ht_free(&esd->states);
-	ht_foreach(value, &esd->conditions) {
-		free_commands(&value->passScript);
-		da_free(value->conditionOffsets);
+	ht_foreach(cond, &esd->conditions) {
+		free_commands(&cond->passScript);
+		da_free(cond->conditionOffsets);
+		free(cond->subconditions);
+		cond->subconditionsCount = 0;
+		cond->subconditionsCapacity = 0;
 	}
 	ht_free(&esd->conditions);
+}
+
+int compare_varint(const void *a, const void *b) {
+    varint val_a = *(varint *)a;
+    varint val_b = *(varint *)b;
+    if (val_a < val_b) return -1;
+    if (val_a > val_b) return 1;
+    return 0;
+}
+
+DA(DArrz, DArrzs);
+typedef Ht(varint, State) StateDict;
+typedef Ht(varint, StateDict) StateGroups;
+typedef Ht(varint, size_t) Dictlldz;
+
+void write_command_calls(String_Builder *sb, size_t data_start, Dictlldz *entryCommOffs, Dictlldz *exitCommOffs, Dictlldz *whileCommOffs, varint state_id, StateDict *state_dict, Commands *commands, DArrz *argsOffsets) {
+	size_t length = 0;
+	State *state = ht_find(state_dict, state_id);
+	assert(state && "Invalid state_id");
+	size_t *entry_offset = ht_find(entryCommOffs, state_id);
+	assert(entry_offset && "Invalid state_id");
+	size_t *exit_offset = ht_find(exitCommOffs, state_id);
+	assert(exit_offset && "Invalid state_id");
+	size_t *while_offset = ht_find(whileCommOffs, state_id);
+	assert(while_offset && "Invalid state_id");
+
+	if (state->entryScript.count == 0) {
+		sb_patch_varint(sb, *entry_offset, -1);
+	} else {
+		sb_patch_varint(sb, *entry_offset, sb->count - data_start);
+		da_foreach(CommandCall, cc, &state->entryScript) {
+			size_t argsOffset = sb->count + offsetof(CommandCallHeader, argsOffset);
+			da_append(argsOffsets, argsOffset);
+			length = sizeof(CommandCallHeader);
+			sb_append_buf(sb, &cc->header, length);
+			da_append(commands, *cc);
+		}
+	}
+
+	if (state->exitScript.count == 0) {
+		sb_patch_varint(sb, *exit_offset, -1);
+	} else {
+		sb_patch_varint(sb, *exit_offset, sb->count - data_start);
+		da_foreach(CommandCall, cc, &state->exitScript) {
+			length = sizeof(CommandCallHeader);
+			sb_append_buf(sb, &cc->header, length);
+			da_append(commands, *cc);
+		}
+	}
+
+	if (state->whileScript.count == 0) {
+		sb_patch_varint(sb, *while_offset, -1);
+	} else {
+		sb_patch_varint(sb, *while_offset, sb->count - data_start);
+		da_foreach(CommandCall, cc, &state->whileScript) {
+			length = sizeof(CommandCallHeader);
+			sb_append_buf(sb, &cc->header, length);
+			da_append(commands, *cc);
+		}
+	}
+}
+
+void write_command_calls2(String_Builder *sb, Condition *cond, size_t data_start, DArrz *passCommOffs, varint state_id, Commands *commands, DArrz *argsOffsets) {
+	size_t pass_offset = passCommOffs->items[state_id];
+	size_t length = 0;
+	if (passCommOffs->count == 0) {
+		sb_patch_varint(sb, pass_offset, -1);
+	} else {
+		sb_patch_varint(sb, pass_offset, sb->count - data_start);
+		da_foreach(CommandCall, cc, &cond->passScript) {
+			size_t argsOffset = sb->count + offsetof(CommandCallHeader, argsOffset);
+			da_append(argsOffsets, argsOffset);
+			length = sizeof(CommandCallHeader);
+			sb_append_buf(sb, &cc->header, length);
+			da_append(commands, *cc);
+		}
+	}
+}
+
+typedef Ht(Condition *, varint) CondDict;
+void write_esd(String_Builder *sb, ESD *esd) {
+	sb_append_buf(sb, ESD_MAGIC, strlen(ESD_MAGIC));
+	size_t data_size = sb->count + offsetof(ESD_HEADER, data_size);
+	size_t conditionCount = sb->count + offsetof(ESD_HEADER, conditionCount);
+	size_t commandCallCount = sb->count + offsetof(ESD_HEADER, commandCallCount);
+	size_t commandArgCount = sb->count + offsetof(ESD_HEADER, commandArgCount);
+	size_t conditionOffsetsOffset = sb->count + offsetof(ESD_HEADER, conditionOffsetsOffset);
+	size_t conditionOffsetsCount = sb->count + offsetof(ESD_HEADER, conditionOffsetsCount);
+	size_t nameBlockOffset = sb->count + offsetof(ESD_HEADER, nameBlockOffset);
+	size_t unkOffset1 = sb->count + offsetof(ESD_HEADER, unkOffset1);
+	size_t unkOffset2 = sb->count + offsetof(ESD_HEADER, unkOffset2);
+	size_t length = sizeof(ESD_HEADER);
+	sb_append_buf(sb, &esd->header, length);
+	size_t data_start = sb->count;
+	size_t stateGroupsOffset = sb->count + offsetof(ESD_DATA, stateGroupsOffset);
+	size_t nameOffset = sb->count + offsetof(ESD_DATA, nameOffset);
+	length = sizeof(ESD_DATA);
+	sb_append_buf(sb, &esd->data, length);
+	DArrlld stateGroupIDs = {0};
+	ht_foreach(value, &esd->stateGroupOffsets) {
+		da_append(&stateGroupIDs, ht_key(&esd->stateGroupOffsets, value));
+	}
+	qsort(stateGroupIDs.items, stateGroupIDs.count, sizeof(*stateGroupIDs.items), compare_varint);
+	// stateIDs = (offset, state_id)
+	//		offset -> stateGroupOffsets[group_id]
+	//		state_id -> states.values().header.ID
+	//
+	// groupedStateOffsets = (group_id, (offset, state_id))
+	//                                  ^
+	//                                  stateIDs
+	//		group_id -> stateGroupOffsets.keys()
+	//
+	// stateGroup = (state_id, State)
+	//		state_id -> states.values().header.ID
+	//
+	// stateGroups = (group_id, (state_id, State))
+	//                          ^
+	//                          stateGroup
+	//		group_id -> stateGroupOffsets.keys()
+	//
+	// ==================================================
+	// stateGroupIDs = list(group_id) @sorted
+	//		stateGroupIDs = stateGroup.keys()
+	//		group_id -> stateGroupOffsets.keys()
+	//
+	// stateIDs = (group_id, list(state_id) @sorted)
+	//		group_id -> stateGroupIDs
+	//		list(state_id) -> stateGroups[group_id].keys()
+	//
+	StateGroups stateGroups = {0}; // group_id, (state_id, state)
+	Ht(varint, DArrlld) stateIDs = {0}; // (group_id, list(state_id))
+	ht_foreach(state_offsets, &esd->stateGroupOffsets) {
+		varint group_id = ht_key(&esd->stateGroupOffsets, state_offsets);
+		DArrlld ids = {0};
+		StateDict dict = {0};
+		da_foreach(varint, offset, state_offsets) {
+			State *state = ht_find(&esd->states, *offset);
+			assert(state && temp_sprintf("ERROR: invalid state group id: %lld", group_id));
+			da_append(&ids, state->header.ID);
+
+			*ht_put(&dict, state->header.ID) = *state;
+		}
+		qsort(ids.items, ids.count, sizeof(*ids.items), compare_varint);
+		*ht_put(&stateIDs, group_id) = ids;
+		*ht_put(&stateGroups, group_id) = dict;
+	}
+
+	DArrz stateOffset1s = {0};
+	DArrz stateOffset2s = {0};
+	if (esd->stateGroupOffsets.count == 0) {
+		sb_patch_varint(sb, stateGroupsOffset, -1);
+	} else {
+		sb_patch_varint(sb, stateGroupsOffset, sb->count - data_start);
+		length = sizeof(*stateOffset1s.items);
+		for (size_t i=0; i<stateGroupIDs.count; i++) {
+			varint group_id = stateGroupIDs.items[i];
+			sb_write_varint(sb, group_id);
+			da_append(&stateOffset1s, sb->count);
+			sb_write_varint(sb, 0); // reserve
+			DArrlld *state_group = ht_find(&esd->stateGroupOffsets, group_id);
+			if (state_group) {
+				sb_write_varint(sb, state_group->count);
+			} else {
+				assert(false && temp_sprintf("ERROR: invalid state group id: %lld", group_id));
+			}
+			da_append(&stateOffset2s, sb->count);
+			sb_write_varint(sb, 0); // reserve
+		}
+	}
+
+	/// group_id, (state_id, offset)
+	Ht(varint, Dictlldz) resCondOffs = {0}; 
+	Ht(varint, Dictlldz) resEntryCommOffs = {0};
+	Ht(varint, Dictlldz) resExitCommOffs = {0};
+	Ht(varint, Dictlldz) resWhileCommOffs = {0};
+	DArrz weirdStateOffsetFrom = {0};
+	DArrz weirdStateOffsetTo = {0};
+	Ht(varint, Dictlldlld) stateOffsets = {0}; // group_id, (state_id, offset)
+	for (size_t i=0; i<stateGroupIDs.count; i++) {
+		varint group_id = stateGroupIDs.items[i];
+		sb_patch_varint(sb, stateOffset1s.items[i], sb->count - data_start);
+		sb_patch_varint(sb, stateOffset2s.items[i], sb->count - data_start);
+		size_t first_state_offset = sb->count;
+		DArrlld *ids = ht_find(&stateIDs, group_id);
+		assert(ids && "Invalid group id");
+
+		StateDict *dict = ht_find(&stateGroups, group_id);
+		assert(dict && "Invalid group id");
+
+		Dictlldz condOffs = {0};
+	 	Dictlldz entryCommOffs = {0};
+	 	Dictlldz exitCommOffs = {0};
+	 	Dictlldz whileCommOffs = {0};
+		Dictlldlld groupStateOffsets = {0};
+		da_foreach(varint, stateID, ids) {
+			State *state = ht_find(dict, *stateID);
+			*ht_put(&groupStateOffsets, state->header.ID) = sb->count - data_start;
+			size_t conditionOffsetsOffset = sb->count + offsetof(StateHeader, conditionOffsetsOffset);
+			*ht_put(&condOffs, state->header.ID) = conditionOffsetsOffset;
+			size_t entryCommandsOffset = sb->count + offsetof(StateHeader, entryCommandsOffset);
+			*ht_put(&entryCommOffs, state->header.ID) = entryCommandsOffset;
+			size_t exitCommandsOffset = sb->count + offsetof(StateHeader, exitCommandsOffset);
+			*ht_put(&exitCommOffs, state->header.ID) = exitCommandsOffset;
+			size_t whileCommandsOffset = sb->count + offsetof(StateHeader, whileCommandsOffset);
+			*ht_put(&whileCommOffs, state->header.ID) = whileCommandsOffset;
+
+			length = sizeof(StateHeader);
+			sb_append_buf(sb, &state->header, length); // NOTE: ensure that the header has updated sizes
+		}
+		*ht_put(&resCondOffs, group_id) = condOffs;
+		*ht_put(&resEntryCommOffs, group_id) = entryCommOffs;
+		*ht_put(&resExitCommOffs, group_id) = exitCommOffs;
+		*ht_put(&resWhileCommOffs, group_id) = whileCommOffs;
+		*ht_put(&stateOffsets, group_id) = groupStateOffsets;
+
+		if (dict->count > 1) {
+			da_append(&weirdStateOffsetFrom, first_state_offset);
+			da_append(&weirdStateOffsetTo, sb->count);
+			for (size_t j=0; j<(size_t)esd->header.stateSize; j++) {
+				sb_append(sb, 0);
+			}
+		}
+	}
+
+	// collect all the conditions
+	Ht(varint, DACondition) conditions = {0}; // key = group_id
+	for (size_t i=0; i<stateGroupIDs.count; i++) {
+		varint group_id = stateGroupIDs.items[i];
+		DACondition cond_list = {0};
+
+		StateDict *dict = ht_find(&stateGroups, group_id);
+		assert(dict && "invalid group id");
+
+		ht_foreach(state, dict) {
+			da_foreach(varint, offset, &state->conditionOffsets) {
+				Condition *cond = ht_find(&esd->conditions, *offset);
+				assert(cond && "invalid offset");
+				da_append(&cond_list, *cond);
+			}
+		}
+		*ht_put(&conditions, group_id) = cond_list;
+	}
+
+	size_t condition_count = 0;
+	ht_foreach(cond_list, &conditions) {
+		condition_count += cond_list->count;
+	}
+
+	sb_patch_int32t(sb, conditionCount, condition_count);
+	CondDict conditionOffsets = {0};
+	Ht(size_t, DArrz) resPassCommOffs = {0};
+	Ht(size_t, DArrz) resCondOffs2 = {0};
+	Ht(size_t, DArrz) resEvalOffs = {0};
+	ht_foreach(state_dict, &stateOffsets) {
+		varint group_id = ht_key(&stateOffsets, state_dict);
+		DACondition *conds = ht_find(&conditions, group_id);
+		assert(conds && "Invalid group_id");
+		DArrz passCommOffs = {0};
+		DArrz condOffs = {0};
+		DArrz evalOffs = {0};
+		for (size_t i=0; i<conds->count; i++) {
+			Condition *cond = &conds->items[i];
+			*ht_put(&conditionOffsets, cond) = sb->count - data_start;
+			switch (cond->type) {
+				case State_None: 
+					sb_write_varint(sb, -1);
+					break;
+				case State_Value: {
+					varint *target_offset = ht_find(state_dict, cond->targetState);
+					assert(target_offset && "invalid state id");
+					sb_write_varint(sb, *target_offset);
+					break;
+				}
+				default: UNREACHABLE("State_Type");
+			}
+			da_append(&passCommOffs, sb->count);
+			sb_reserve(sb, sizeof(varint));
+			sb_write_varint(sb, (varint)cond->passScript.count);
+
+			da_append(&condOffs, sb->count);
+			sb_reserve(sb, sizeof(varint));
+			sb_write_varint(sb, (varint)cond->subconditionsCount);
+
+			da_append(&evalOffs, sb->count);
+			sb_reserve(sb, sizeof(varint));
+			sb_write_varint(sb, (varint)cond->evaluator.count); // NOTE: this may be necessary to be computed
+		}
+		*ht_put(&resPassCommOffs, group_id) = passCommOffs;
+		*ht_put(&resCondOffs2, group_id) = condOffs;
+		*ht_put(&resEvalOffs, group_id) = evalOffs;
+	}
+
+	Commands commands = {0};
+	DArrz argsOffsets = {0};
+	da_foreach(varint, group_id, &stateGroupIDs) {
+		DArrlld *stateIDGroup = ht_find(&stateIDs, *group_id);
+		assert(stateIDGroup && "Invalid group_id");
+		StateDict *state_dict = ht_find(&stateGroups, *group_id);
+		assert(state_dict && "Invalid group_id");
+		Dictlldz *entryCommOffs = ht_find(&resEntryCommOffs, *group_id);
+		assert(entryCommOffs && "Invalid group_id");
+		assert(entryCommOffs->count == stateIDGroup->count);
+		Dictlldz *exitCommOffs = ht_find(&resExitCommOffs, *group_id);
+		assert(exitCommOffs && "Invalid group_id");
+		assert(exitCommOffs->count == stateIDGroup->count);
+		Dictlldz *whileCommOffs = ht_find(&resWhileCommOffs, *group_id);
+		assert(whileCommOffs && "Invalid group_id");
+		assert(whileCommOffs->count == stateIDGroup->count);
+		for (size_t i=0; i<stateIDGroup->count; i++) {
+			varint state_id = stateIDGroup->items[i];
+			write_command_calls(sb, data_start, entryCommOffs, exitCommOffs, whileCommOffs, state_id, state_dict, &commands, &argsOffsets);
+		}
+		DArrz *passCommOffs = ht_find(&resPassCommOffs, *group_id);
+		assert(passCommOffs && "Invalid group_id");
+		DACondition *conds = ht_find(&conditions, *group_id);
+		assert(passCommOffs->count == conds->count);
+		assert(conds && "Invalid group_id");
+		for (size_t i=0; i<conds->count; i++) {
+			Condition *cond = &conds->items[i];
+			write_command_calls2(sb, cond, data_start, passCommOffs, i, &commands, &argsOffsets);
+		}
+	}
+	sb_patch_int32t(sb, commandCallCount, commands.count);
+	size_t command_arg_count = 0;
+	da_foreach(CommandCall, cc, &commands) {
+		command_arg_count += cc->arguments.count;
+	}
+	sb_patch_int32t(sb, commandArgCount, (int32_t)command_arg_count);
+	assert(commands.count == argsOffsets.count);
+	DArrzs byteCodeOffsets = {0};
+	for (size_t i=0; i<commands.count; i++) {
+		CommandCall *cc = &commands.items[i];
+		sb_patch_varint(sb, argsOffsets.items[i], sb->count - data_start);
+		DArrz byteCodeOffset = {0};
+		for (size_t j=0; j<cc->arguments.count; j++) {
+			Argument *arg = &cc->arguments.items[j];
+			da_append(&byteCodeOffset, sb->count);
+			sb_reserve(sb, sizeof(varint));
+			sb_write_varint(sb, (varint)arg->header.argSize);
+		}
+		da_append(&byteCodeOffsets, byteCodeOffset);
+	}
+
+	sb_patch_int32t(sb, conditionOffsetsOffset, (int32_t)(sb->count - data_start));
+
+#define dict_get2(dict, key1, key2, val)\
+	do {\
+		__typeof__((dict)->default_value) *_dict = ht_find(dict, (key1));\
+		assert(_dict && "Invalid key1");\
+		val = ht_find(_dict, (key2));\
+		assert(val && "Invalid key2");\
+	} while (0)
+
+	int condition_offsets_count = 0;
+	da_foreach(varint, groupID, &stateGroupIDs) {
+		DArrlld *stateID_s = ht_find(&stateIDs, *groupID);
+		assert(stateID_s != NULL && "Invalid groupID");
+		DACondition *conds = ht_find(&conditions, *groupID);
+		assert(conds && "Invalid key");
+		da_foreach(varint, stateID, stateID_s) {
+			State *state; dict_get2(&stateGroups, *groupID, *stateID, state);
+			size_t *cond_offs; dict_get2(&resCondOffs, *groupID, *stateID, cond_offs);
+			sb_patch_varint(sb, *cond_offs, (varint)(sb->count - data_start));
+			da_foreach (Condition, cond, &state->conditions) {
+				// conditionOffsets <- conditions;
+				// cond <- state.conditions <- stateGroups[groupID][stateID].conditions
+				varint *offs = ht_find(&conditionOffsets, cond);
+				assert(offs && "Invalid condition");
+				sb_write_varint(sb, (varint)(*offs));
+			}
+			condition_offsets_count += state->conditions.count;
+		}
+		DACondition *condition_s = ht_find(&conditions, *groupID);
+		assert(condition_s != NULL && "Invalid groupID");
+		for (size_t i=0; i<condition_s->count; i++) {
+			Condition *cond = &condition_s->items[i];
+			varint *offs = ht_find(&conditionOffsets, cond);
+			assert(offs && "Key error");
+			if (cond->subconditionsCount == 0) {
+				sb_patch_varint(sb, *offs, -1);
+			} else {
+				sb_patch_varint(sb, *offs, sb->count - data_start);
+				for (size_t j=0; j<cond->subconditionsCount; j++) {
+					Condition *subcond = &((Condition *)cond->subconditions)[j];
+					varint *offs = ht_find(&conditionOffsets, subcond);
+					assert(offs && "Invalid condition");
+					sb_write_varint(sb, (varint)(*offs));
+				}
+			}
+			condition_offsets_count += cond->subconditionsCount;
+		}
+	}
+	sb_patch_int32t(sb, conditionOffsetsCount, condition_offsets_count);
+	TODO("ESD.cs:489");
+
+	da_foreach(DArrz, arr, &byteCodeOffsets) {
+		da_free(*arr);
+	}
+	da_free(byteCodeOffsets);
+
+	da_free(argsOffsets);
+	da_free(commands);
+#define ht_double_free2(ht) \
+	do {\
+		ht_foreach(value, (ht)) {\
+			free(value->items);\
+		}\
+	ht_free(ht);\
+	}while(0)
+
+	ht_double_free2(&resPassCommOffs);
+	ht_double_free2(&resCondOffs2);
+	ht_double_free2(&resEvalOffs);
+
+	ht_double_free2(&conditions);
+
+	da_free(weirdStateOffsetTo);
+	da_free(weirdStateOffsetFrom);
+
+#define ht_double_free(ht) \
+	do {\
+		ht_foreach(value, (ht)) {\
+			ht_free(value);\
+		}\
+	ht_free(ht);\
+	}while(0)
+
+	ht_double_free(&stateOffsets);
+
+	ht_double_free(&resCondOffs);
+	ht_double_free(&resEntryCommOffs);
+	ht_double_free(&resExitCommOffs);
+	ht_double_free(&resWhileCommOffs);
+	ht_double_free(&stateGroups);
+
+	ht_double_free2(&stateIDs);
+	da_free(stateOffset1s);
+	da_free(stateOffset2s);
+	da_free(stateGroupIDs);
 }
 
 int main() {
@@ -3070,7 +3600,27 @@ int main() {
 
 	ESD esd = read_esd(sv);
 
+	ht_foreach(val, &esd.states) {
+		da_foreach(CommandCall, cc, &val->entryScript) {
+			da_foreach(Argument, arg, &cc->arguments) {
+				printf("    %lld\n", arg->header.argOffset);
+			}
+			printf("--------------------------------\n");
+		}
+		printf("________________________________\n");
+	}
+
+	asm("int3");
+
+
+	write_esd(&wsb, &esd);
+
+	for (size_t i=0; i<wsb.count; i++) {
+		if (sb.items[i] != wsb.items[i]) asm("int3");
+	}
+
 	free_esd(&esd);
 	da_free(sb);
+	da_free(wsb);
 	return ret;
 }
