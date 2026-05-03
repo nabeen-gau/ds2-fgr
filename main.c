@@ -60,7 +60,12 @@ const char* map_begin = NULL;
 #define assert_val_ret(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); return false;}
 #define assert_val(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); assert(false);}
 
+#ifdef _MSC_VER
+#define packed_struct struct
+#define asm(val) (void)val
+#else
 #define packed_struct struct __attribute__((packed))
+#endif
 
 #define VERSION 5
 
@@ -2827,14 +2832,381 @@ DA(Command, DACommand);
 
 DA(void *, DAOpaque);
 
+// reference from https://gist.github.com/JKAnderson/e3fd38d4efd5f3350e13a613319b8bed
+typedef enum {
+	EzNumber = 0x7F, // from 0x00 to 0x7f | 0
+	EzF32 = 0x80, // | 0
+	EzF64 = 0x81, // | 0
+	EzS32 = 0x82, // | 0
+	EzUnk1 = 0x83,
+	EzFuncCall1 = 0x84, // from 0x84 to 0x8b | 1-8 | 1
+	EzFuncCall2 = 0x85, // from 0x84 to 0x8b | 1-8 | 2
+	EzFuncCall3 = 0x86, // from 0x84 to 0x8b | 1-8 | 3
+	EzFuncCall4 = 0x87, // from 0x84 to 0x8b | 1-8 | 4
+	EzFuncCall5 = 0x88, // from 0x84 to 0x8b | 1-8 | 5
+	EzFuncCall6 = 0x89, // from 0x84 to 0x8b | 1-8 | 6
+	EzFuncCall7 = 0x8a, // from 0x84 to 0x8b | 1-8 | 7
+	EzFuncCall8 = 0x8b, // from 0x84 to 0x8b | 1-8 | 8
+	EzAdd = 0x8c, // | 2
+	EzNeg = 0x8e, // | 1
+	EzMul = 0x8f, // | 2
+	EzDiv = 0x90, // | 2
+	EzLt = 0x91, // | 2
+	EzGt = 0x92, // | 2
+	EzLte = 0x93, // | 2
+	EzGte = 0x94, // | 2
+	EzEq = 0x95, // | 2
+	EzNeq = 0x96, // | 2
+	EzAbs = 0x97, // | 1
+	EzAnd = 0x98, // | 2
+	EzOr = 0x99, // | 2
+	EzNot = 0x9a, // | 1
+	EzLt0 = 0x9b, // | 1
+	EzGt0 = 0x9c, // | 1
+	EzLte0 = 0x9d, // | 1
+	EzGte0 = 0x9e, // | 1
+	EzEq0 = 0x9f, // | 1
+	EzFin = 0xa1, // | 0
+	EzUnk2 = 0xa2,
+	EzUnk3 = 0xa3,
+	EzUnk4 = 0xa4,
+	EzCstr = 0xa5, // | 0
+	EzTry = 0xa6, // | 1
+	EzSetReg0 = 0xa7, // from 0xa7 - 0xae | 1
+	EzSetReg1 = 0xa8, // from 0xa7 - 0xae | 1
+	EzSetReg2 = 0xa9, // from 0xa7 - 0xae | 1
+	EzSetReg3 = 0xaa, // from 0xa7 - 0xae | 1
+	EzSetReg4 = 0xab, // from 0xa7 - 0xae | 1
+	EzSetReg5 = 0xac, // from 0xa7 - 0xae | 1
+	EzSetReg6 = 0xad, // from 0xa7 - 0xae | 1
+	EzSetReg7 = 0xae, // from 0xa7 - 0xae | 1
+	EzGetReg0 = 0xaf, // from 0xaf - 0xb6 | 0
+	EzGetReg1 = 0xb0, // from 0xaf - 0xb6 | 0
+	EzGetReg2 = 0xb1, // from 0xaf - 0xb6 | 0
+	EzGetReg3 = 0xb2, // from 0xaf - 0xb6 | 0
+	EzGetReg4 = 0xb3, // from 0xaf - 0xb6 | 0
+	EzGetReg5 = 0xb4, // from 0xaf - 0xb6 | 0
+	EzGetReg6 = 0xb5, // from 0xaf - 0xb6 | 0
+	EzGetReg7 = 0xb6, // from 0xaf - 0xb6 | 0
+	EzAssert = 0xb7, // | 1
+	EzGetArg = 0xb8, // get machine argument | 1
+	EzGetRet = 0xb9, // | 0
+	EzRetVal = 0xba, // | 0
+	EzEnd = 0xff, // from 0xbb - 0xff, represents the constant 0x7fffffff (return value of machine)
+} EzType;
+
+bool ez_is_unop(EzType type) {
+	return (type == EzNeg || type == EzAbs);
+}
+
+bool ez_is_binop(EzType type) {
+	if (ez_is_unop(type)) return false;
+	return type >= EzAdd && type <= EzOr;
+}
+
+bool ez_is_funcall(EzType type) {
+	return type >= EzFuncCall1 && type <= EzFuncCall8;
+}
+
 typedef struct {
-	const char *data;
+	size_t lhs_idx;
+	size_t rhs_idx;
+} Binop;
+
+typedef struct {
+	DArrz arg_idx;
+	int id;
+} FunCall;
+
+typedef enum {
+	CH_NONE = 0,
+	CH_ABORT,
+	CH_TRY,
+} ConditionHandle;
+
+typedef struct {
+	EzType type;
+	ConditionHandle cond_handle;
+	union {
+		int8_t number;
+		float f32;
+		double f64;
+		int32_t s32;
+		Binop binop;
+		size_t arg_idx;
+		FunCall fun_call;
+		struct { 
+			uint8_t reg_index;
+			int arg_idx;
+		} regist;
+	} as;
+} EzExprType;
+
+DA(EzExprType, DAEzExpr);
+
+typedef struct {
+	DAEzExpr exprs;
+	DArrz stack;
+} Expression;
+
+void free_funcall(FunCall *f) {
+	da_free(f->arg_idx);
+}
+
+void dealloc_funcalls(Expression *e) {
+	da_foreach(EzExprType, expr, &e->exprs) {
+		if (ez_is_funcall(expr->type)) {
+			free_funcall(&expr->as.fun_call);
+		}
+	}
+}
+
+void dealloc_expression(Expression *e) {
+	dealloc_funcalls(e);
+	da_free(e->exprs);
+	da_free(e->stack);
+}
+
+typedef struct {
+	const unsigned char *items;
 	size_t count;
 } Evaluator;
 
+size_t expr_pop_arg(Expression *e) {
+	assert(e->stack.count > 0 && "stack is empty");
+	size_t idx = e->stack.items[e->stack.count-1];
+	e->stack.count--;
+	return idx;
+}
+
+void darrz_reverse(DArrz *arr) {
+	if (arr == NULL || arr->count <= 1 || arr->items == NULL) return;
+	size_t l = 0;
+	size_t r = arr->count - 1;
+	while (l < r) {
+		size_t value = arr->items[l];
+		arr->items[l] = arr->items[r];
+		arr->items[r] = value;
+		l++;
+		r--;
+	}
+}
+
+void expr_pop_args(Expression *e, FunCall *f, size_t n) {
+	for (size_t i=0; i<n; i++) {
+		da_append(&f->arg_idx, expr_pop_arg(e));
+	}
+	darrz_reverse(&f->arg_idx);
+}
+
+void *ez_get_val(EzExprType *e) {
+	size_t offset = offsetof(EzExprType, as);
+	return (void *)e + offset;
+}
+
+EzExprType* expr_peek(Expression *e) {
+	return &e->exprs.items[e->stack.items[e->stack.count-1]];
+}
+
+#define ez_get(type, expr) *(type *)ez_get_val((expr));
+
+void parse_expression(const Evaluator *e, Expression *expression) {
+	for (size_t i=0; i<e->count; i++) {
+		const unsigned char b = e->items[i];
+		EzType type = (EzType)b;
+		EzExprType expr = {0};
+		if (b <= EzNumber) {
+			expr.type = EzNumber;
+			expr.as.number = (int8_t)(b - 64);
+		} else if (ez_is_unop(type)) {
+			expr.type = type;
+			expr.as.arg_idx = expr_pop_arg(expression);
+		} else if (ez_is_binop(type)) {
+			expr.type = type;
+			expr.as.binop.rhs_idx = expr_pop_arg(expression);
+			expr.as.binop.lhs_idx = expr_pop_arg(expression);
+		} else if (b >= EzSetReg0 && b <= EzSetReg7) {
+			expr.type = type;
+			expr.as.regist.reg_index = (uint8_t)(b - EzSetReg0);
+			expr.as.regist.arg_idx = expr_pop_arg(expression);
+		} else if (b >= EzGetReg0 && b <= EzGetReg7) {
+			expr.type = type;
+			expr.as.regist.reg_index = (uint8_t)(b - EzGetReg0);
+			expr.as.regist.arg_idx = -1;
+		} else {
+			expr.type = type;
+			size_t n = 0;
+			switch (type) {
+				case EzF32: {
+					assert(i < e->count - sizeof(float));
+					float val = *(float *)(e->items+i+1);
+					i += sizeof(float);
+					expr.as.f32 = val;
+				} break;
+				case EzF64: {
+					assert(i < e->count - sizeof(double));
+					double val = *(double *)(e->items+i+1);
+					i += sizeof(double);
+					expr.as.f64 = val;
+				} break;
+				case EzS32: {
+					assert(i < e->count - sizeof(int32_t));
+					int32_t val = *(int32_t *)(e->items+i+1);
+					i += sizeof(int32_t);
+					expr.as.s32 = val;
+			    } break;
+				case EzAssert: {
+				    EzExprType *expn = expr_peek(expression);
+					expn->cond_handle = CH_ABORT;
+					continue;
+				} break;
+				case EzTry: {
+				    EzExprType *expn = expr_peek(expression);
+					expn->cond_handle = CH_TRY;
+					continue;
+			    } break;
+				case EzFuncCall8: n++;
+				case EzFuncCall7: n++;
+				case EzFuncCall6: n++;
+				case EzFuncCall5: n++;
+				case EzFuncCall4: n++;
+				case EzFuncCall3: n++;
+				case EzFuncCall2: n++;
+				case EzFuncCall1: {
+					FunCall f = {0};
+					expr_pop_args(expression, &f, n);
+					EzExprType *expn = &expression->exprs.items[expr_pop_arg(expression)];
+					f.id = ez_get(int, expn);
+					expr.as.fun_call = f;
+				} break;
+				case EzGetArg:
+					expr.as.arg_idx = expr_pop_arg(expression);
+					break;
+				case EzRetVal:
+				case EzGetRet:
+					break;
+				case EzFin:
+					assert(i == e->count - 1 && "End of expression before the end of data");
+					break;
+				default:
+					TODO("EzType not implemented");
+			}
+		}
+		da_append(&expression->stack, expression->exprs.count);
+		da_append(&expression->exprs, expr);
+	}
+}
+
+void print_expr(const Expression *e, EzExprType *expr);
+void print_binop(const Expression *e, EzExprType *expr, const char *sep) {
+	size_t id = expr->as.binop.lhs_idx;
+	printf("(");
+	print_expr(e, &e->exprs.items[id]);
+	printf(")");
+	printf(" %s ", sep);
+	id = expr->as.binop.rhs_idx;
+	printf("(");
+	print_expr(e, &e->exprs.items[id]);
+	printf(")");
+}
+
+void print_funcall(const Expression *e, EzExprType *expr) {
+	printf("func%zu_%d(", expr->as.fun_call.arg_idx.count, expr->as.fun_call.id);
+	for (size_t i=0; i<expr->as.fun_call.arg_idx.count; i++) {
+		if (i != 0) printf(" , ");
+		EzExprType *arg = &e->exprs.items[expr->as.fun_call.arg_idx.items[i]];
+		print_expr(e, arg);
+	}
+	printf(")");
+}
+
+void print_expr(const Expression *e, EzExprType *expr) {
+	switch (expr->cond_handle) {
+		case CH_NONE: break;
+		case CH_TRY: printf("try "); break;
+		case CH_ABORT: printf("assert "); break;
+		default: UNREACHABLE("expr.cond_handle");
+	}
+	switch (expr->type) {
+		case EzF32: printf("%f", expr->as.f32); break;
+		case EzF64: printf("%f", expr->as.f64); break;
+		case EzS32: printf("%d", expr->as.s32); break;
+		case EzSetReg0:
+		case EzSetReg1:
+		case EzSetReg2:
+		case EzSetReg3:
+		case EzSetReg4:
+		case EzSetReg5:
+		case EzSetReg6:
+		case EzSetReg7:
+			printf("set_register%d(", expr->as.regist.reg_index);
+			print_expr(e, &e->exprs.items[expr->as.regist.arg_idx]);
+			printf(")");
+			break;
+		case EzGetReg0:
+		case EzGetReg1:
+		case EzGetReg2:
+		case EzGetReg3:
+		case EzGetReg4:
+		case EzGetReg5:
+		case EzGetReg6:
+		case EzGetReg7:
+			printf("get_register%d(", expr->as.regist.reg_index);
+			printf(")");
+			break;
+		case EzLte: print_binop(e, expr, "<="); break;
+		case EzGte: print_binop(e, expr, ">="); break;
+		case EzLt: print_binop(e, expr, "<"); break;
+		case EzGt: print_binop(e, expr, ">"); break;
+		case EzAnd: print_binop(e, expr, "&&"); break;
+		case EzOr: print_binop(e, expr, "||"); break;
+		case EzAdd: print_binop(e, expr, "+"); break;
+		case EzMul: 
+			print_binop(e, expr, "x"); 
+			break;
+		case EzDiv: print_binop(e, expr, "x"); break;
+		case EzGetArg: 
+			printf("GetArg("); 
+			print_expr(e, &e->exprs.items[expr->as.arg_idx]);
+			printf(")");
+			break;
+		case EzFuncCall8:
+		case EzFuncCall7:
+		case EzFuncCall6:
+		case EzFuncCall5:
+		case EzFuncCall4:
+		case EzFuncCall3:
+		case EzFuncCall2:
+		case EzFuncCall1: print_funcall(e, expr); break;
+		case EzEq: print_binop(e, expr, "=="); break;
+		case EzNeq: print_binop(e, expr, "!="); break;
+		case EzNumber:
+			printf("(%d)", expr->as.number);
+			break;
+		case EzFin:
+			break;
+		case EzGetRet:
+			printf("CallResult()");
+			break;
+		case EzRetVal:
+			printf("0x7fffffff");
+			break;
+		default: TODO("print expression (expression type)");
+	}
+}
+
+void print_expression(const Expression *e) {
+	assert(e->stack.count == 2);
+	for (size_t i=0; i<e->stack.count; i++) {
+		size_t id = e->stack.items[i];
+		EzExprType *expr = &e->exprs.items[id];
+		print_expr(e, expr);
+	}
+}
+
 typedef struct {
 	varint target_state_offset;
-	void *target_state;
+	size_t target_state_id;
 	DArrz pass_commands_ids;
 	DArrz sub_conditions_ids;
 	Evaluator evaluator;
@@ -2862,7 +3234,7 @@ typedef Ht(varint, size_t) Dictlldz;
 
 typedef struct {
 	DAStateGroup state_groups;
-	const char *name;
+	wchar_t *name;
 	int32_t Unk70;
 	int32_t Unk74;
 	int32_t Unk78;
@@ -2876,6 +3248,91 @@ typedef struct {
 
 	size_t duplicate_states_count;
 } ESD;
+
+void print_condition(ESD *esd, const Condition *c, Expression *e) {
+	parse_expression(&c->evaluator, e);
+	print_expression(e);
+	dealloc_funcalls(e);
+	e->stack.count = 0;
+	e->exprs.count = 0;
+	if (c->target_state_offset > 0) {
+		State *ts = &esd->states.items[c->target_state_id];
+		printf(" goto State %lld\n", ts->id);
+	}
+}
+
+void print_command(ESD *esd, const Command *c) {
+	printf("        fun_call_%d(", c->command_id);
+	size_t i=0;
+	Expression e = {0};
+	da_foreach(size_t, aid, &c->args_ids) {
+		if (i!=0) printf(", ");
+		Evaluator *arg = (Evaluator *)&esd->args.items[*aid];
+		parse_expression(arg, &e);
+		print_expression(&e);
+		dealloc_funcalls(&e);
+		e.stack.count = 0;
+		e.exprs.count = 0;
+		i++;
+	}
+	da_free(e.exprs);
+	da_free(e.stack);
+	printf(")\n");
+}
+
+void print_state(ESD *esd, State *state) {
+	printf("    State_%lld:\n", state->id);
+	da_foreach(size_t, ci, &state->entry_commands_ids) {
+		Command *command = &esd->commands.items[*ci];
+		print_command(esd, command);
+	}
+	Expression e = {0};
+	da_foreach(size_t, cid, &state->conditions_id) {
+		printf("        if ");
+		const Condition *c = &esd->conditions.items[*cid];
+		print_condition(esd, c, &e);
+		da_foreach(size_t, pcid, &c->pass_commands_ids) {
+			const Command *pc = &esd->commands.items[*pcid];
+			assert (pc->command_id == -1);
+			printf(" return ");
+			Expression e = {0};
+			size_t i=0;
+			da_foreach(size_t, pcai, &pc->args_ids) {
+				if (i!=0) printf(", ");
+				Evaluator *arg = (Evaluator *)&esd->args.items[*pcai];
+				parse_expression(arg, &e);
+				print_expression(&e);
+				dealloc_funcalls(&e);
+				e.stack.count = 0;
+				e.exprs.count = 0;
+				i++;
+			}
+			da_free(e.exprs);
+			da_free(e.stack);
+			printf("\n");
+		}
+		da_foreach(size_t, scid, &c->sub_conditions_ids) {
+			const Condition *sc = &esd->conditions.items[*scid];
+			if (sc->target_state_offset > 0) {
+				State *ts = &esd->states.items[sc->target_state_id];
+				printf(" goto State %lld\n", ts->id);
+			}
+		}
+	}
+	// if (state->conditions_id.count == 0) printf("\n");
+	da_free(e.exprs);
+	da_free(e.stack);
+	// dealloc_expression(&e);
+}
+
+void print_state_group(ESD *esd, StateGroup *sg) {
+	printf("StateGroup_%lld {\n", sg->id);
+	da_foreach(size_t, id, &sg->states_ids) {
+		State *state = &esd->states.items[*id];
+		print_state(esd, state);
+	}
+	printf("}\n\n");
+}
 
 void free_condition(Condition *condition) {
 	da_free(condition->pass_commands_ids);
@@ -2989,7 +3446,7 @@ Condition read_condition(String_View *sv, ESD *esd, const char *data_start) {
 	}
 	offset = info.evaluatorOffset;
 	if (offset > 0) {
-		cond.evaluator.data = data_start + offset;
+		cond.evaluator.items = (unsigned char *)(data_start + offset);
 		cond.evaluator.count = info.evaluatorLength;
 	}
 	return cond;
@@ -3002,8 +3459,8 @@ State read_state(String_View *sv, ESD *esd, const char *data_start, StateHeader 
 	da_init(&state.conditions_id, info->conditionOffsetCount);
 	for (size_t j=0; j<(size_t)info->conditionOffsetCount; j++) {
 		varint offset = sv_read(sv, varint);
-		String_View saved = *sv;
 		if (offset < 0) continue;
+		String_View saved = *sv;
 		sv->data = data_start + offset;
 		size_t *index_ref = ht_find(&esd->dict_cond, offset);
 		if (index_ref == NULL) {
@@ -3063,23 +3520,52 @@ StateGroup read_state_group(String_View* sv, ESD *esd, const char *data_start, i
 	return sg;
 }
 
+#define STATE_SIZE 0x48
+
+typedef struct {
+	varint id;
+	varint offset;
+	varint count;
+	varint pad;
+} StateGroupFile;
+
+typedef struct {
+	StateGroupFile *items;
+	size_t count;
+} StateGroups;
+
 ESD read_esd(String_View sv) {
 	ESD esd = {0};
-	Dictlldz ht = {0};
+	Dictlldz ht = {0}; // offset, state_index
 
 	String_View magic = sv_chop_left(&sv, strlen(ESD_MAGIC));
 	assert(sv_str_cmp(magic, ESD_MAGIC) && nob_temp_sprintf("Expected `%s` got `"SV_Fmt"`", ESD_MAGIC, SV_Arg(magic)));
 
 	ESD_HEADER esd_header = sv_read(&sv, ESD_HEADER);
+	assert(esd_header.stateSize = STATE_SIZE);
 	const char *data_start = sv.data;
 
+	DArrz condition_offsets = {
+		.items = (size_t *)(data_start + esd_header.conditionOffsetsOffset),
+		.count = esd_header.conditionOffsetsCount,
+		.capacity = 0,
+	};
+	UNUSED(condition_offsets);
+
 	if (esd_header.nameLength > 0) {
-		esd.name = data_start + esd_header.nameBlockOffset;
+		esd.name = (wchar_t *)(data_start + esd_header.nameBlockOffset);
 	} else {
 		esd.name = NULL;
 	}
 
 	ESD_DATA ed = sv_read(&sv, ESD_DATA);
+
+	StateGroups sgs = {
+		.items = (StateGroupFile *)(data_start + ed.stateGroupsOffset),
+		.count = ed.stateGroupCount,
+	};
+	UNUSED(sgs);
+
 	esd.Unk70 = ed.Unk70;
 	esd.Unk74 = ed.Unk74;
 	esd.Unk78 = ed.Unk78;
@@ -3103,7 +3589,9 @@ ESD read_esd(String_View sv) {
 			size_t *state_id_ref = ht_find(&ht, cond->target_state_offset);
 			assert(state_id_ref && "key error");
 			assert(esd.states.count > *state_id_ref);
-			cond->target_state = &esd.states.items[*state_id_ref];
+			cond->target_state_id = *state_id_ref;
+		} else {
+			cond->target_state_id = -1;
 		}
 	}
 
@@ -3113,6 +3601,7 @@ ESD read_esd(String_View sv) {
 }
 
 typedef Ht(const char *, size_t) Dictstrzu;
+typedef Ht(size_t, size_t) Dictzuzu;
 
 void sb_reserve_ex(String_Builder *sb, size_t bytes) {
 	da_reserve(sb, sb->count + bytes);
@@ -3120,13 +3609,19 @@ void sb_reserve_ex(String_Builder *sb, size_t bytes) {
 }
 
 // ensures sb has enough memory to add 'bytes' and advances the current position
-void ht_reserve(String_Builder *sb, Dictstrzu *res, const char *name, size_t bytes) {
+// returns false if the key already exists;
+bool ht_reserve(String_Builder *sb, Dictstrzu *res, const char *name, size_t bytes) {
+	size_t *val = ht_find(res, name);
+	if (val != NULL) {
+		return false;
+	}
 	*ht_put(res, name) = sb->count;
 	sb_reserve_ex(sb, bytes);
+	return true;
 }
 
-void ht_reserve_varint(String_Builder *sb, Dictstrzu *res, const char *name) {
-	ht_reserve(sb, res, name, sizeof(varint));
+bool ht_reserve_varint(String_Builder *sb, Dictstrzu *res, const char *name) {
+	return ht_reserve(sb, res, name, sizeof(varint));
 }
 
 bool ht_unreserve(String_Builder *sb, Dictstrzu *res, const char *name, void *buf, size_t bytes) {
@@ -3136,7 +3631,7 @@ bool ht_unreserve(String_Builder *sb, Dictstrzu *res, const char *name, void *bu
 	sb->count = *position;
 	sb_append_buf(sb, buf, bytes);
 	sb->count = head;
-	ht_delete(res, position);
+	// ht_delete(res, position);
 	return true;
 }
 
@@ -3144,9 +3639,13 @@ bool ht_unreserve_varint(String_Builder *sb, Dictstrzu *res, const char *name, v
 	return ht_unreserve(sb, res, name, &value, sizeof(varint));
 }
 
+bool ht_unreserve_int32_t(String_Builder *sb, Dictstrzu *res, const char *name, int32_t value) {
+	return ht_unreserve(sb, res, name, &value, sizeof(int32_t));
+}
+
+
 
 #define DARK_SOULS_COUNT 2
-#define STATE_SIZE 0x48
 void write_esd_header(String_Builder *sb, ESD *esd, Dictstrzu *res) {
 	sb_write_int32t(sb, 1);
 	sb_write_int32t(sb, DARK_SOULS_COUNT);
@@ -3163,20 +3662,20 @@ void write_esd_header(String_Builder *sb, ESD *esd, Dictstrzu *res) {
 	da_foreach(StateGroup, sg, &esd->state_groups) {
 		count += sg->states_ids.count;
 	}
-	sb_write_int32t(sb, count);
+	sb_write_int32t(sb, count + esd->duplicate_states_count);
 	sb_write_int32t(sb, 0x38);
-	ht_reserve(sb, res, "ConditionCount", sizeof(int32_t));
+	sb_write_int32t(sb, esd->conditions.count); // ht_reserve(sb, res, "ConditionCount", sizeof(int32_t));
 	sb_write_int32t(sb, 0x18);
-	ht_reserve(sb, res, "CommandCallCount", sizeof(int32_t));
+	sb_write_int32t(sb, esd->commands.count); // ht_reserve(sb, res, "CommandCallCount", sizeof(int32_t));
 	sb_write_int32t(sb, 0x10);
-	ht_reserve(sb, res, "CommandArgCount", sizeof(int32_t));
+	sb_write_int32t(sb, esd->args.count); // ht_reserve(sb, res, "CommandArgCount", sizeof(int32_t));
 	ht_reserve(sb, res, "ConditionOffsetsOffset", sizeof(int32_t));
 	ht_reserve(sb, res, "ConditionOffsetsCount", sizeof(int32_t));
 	ht_reserve(sb, res, "NameBlockOffset", sizeof(int32_t));
 	if (esd->name == NULL) {
 		sb_write_int32t(sb, 0);
 	} else {
-		sb_write_int32t(sb, strlen(esd->name)+1);
+		sb_write_int32t(sb, wcslen(esd->name)+1);
 	}
 	ht_reserve(sb, res, "UnkOffset1", sizeof(int32_t));
 	sb_write_int32t(sb, 0);
@@ -3197,7 +3696,7 @@ void write_esd_data_header(String_Builder *sb, ESD *esd, Dictstrzu *res) {
 	if (esd->name == NULL) {
 		sb_write_varint(sb, 0);
 	} else {
-		sb_write_varint(sb, strlen(esd->name)+1);
+		sb_write_varint(sb, wcslen(esd->name)+1);
 	}
 	sb_write_varint(sb, -1);
 	sb_write_varint(sb, -1);
@@ -3222,6 +3721,74 @@ void write_state_info(String_Builder *sb, varint group_id, State *state, Dictstr
 	sb_write_varint(sb, state->while_commands_ids.count);
 }
 
+void write_condition_info(String_Builder *sb, Dictstrzu *res, const Condition *condition, size_t id, const Dictzuzu *state_offsets) {
+	if (condition->target_state_id < 0 || condition->target_state_offset < 0) {
+		sb_write_varint(sb, -1);
+	} else {
+		const size_t *offset = ht_find(state_offsets, condition->target_state_id);
+		assert(offset && "Invalid state id");
+		sb_write_varint(sb, *offset);
+	}
+	if (ht_reserve_varint(sb, res, temp_sprintf("PassCommandsOffset:%zu", id))) {
+		sb_write_varint(sb, condition->pass_commands_ids.count);
+	}
+	if (ht_reserve_varint(sb, res, temp_sprintf("ConditionOffsetsOffset:%zu", id))) {
+		sb_write_varint(sb, condition->sub_conditions_ids.count);
+	}
+	if (ht_reserve_varint(sb, res, temp_sprintf("EvaluatorOffset:%zu", id))) {
+		sb_write_varint(sb, condition->evaluator.count);
+	}
+}
+
+void write_command(String_Builder *sb, Command *c, Dictstrzu *res, size_t id) {
+	sb_write_int32t(sb, c->command_bank);
+	sb_write_int32t(sb, c->command_id);
+	ht_reserve_varint(sb, res, temp_sprintf("ArgsOffset:%zu", id));
+	sb_write_varint(sb, c->args_ids.count);
+}
+
+void write_state_commands(String_Builder *sb, ESD *esd, Dictstrzu *res, size_t data_start, const State *state, size_t group_id) {
+	if (state->entry_commands_ids.count == 0) {
+		assert(ht_unreserve_varint(sb, res, temp_sprintf("StateEntryCommOffset:%lld:%lld", group_id, state->id), -1));
+	} else {
+		assert(ht_unreserve_varint(sb, res, temp_sprintf("StateEntryCommOffset:%lld:%lld", group_id, state->id), sb->count - data_start));
+		da_foreach(size_t, id, &state->entry_commands_ids) {
+			Command *c = &esd->commands.items[*id];
+			write_command(sb, c, res, *id);
+		}
+	}
+	if (state->exit_commands_ids.count == 0) {
+		assert(ht_unreserve_varint(sb, res, temp_sprintf("StateExitCommOffset:%lld:%lld", group_id, state->id), -1));
+	} else {
+		assert(ht_unreserve_varint(sb, res, temp_sprintf("StateExitCommOffset:%lld:%lld", group_id, state->id), sb->count - data_start));
+		da_foreach(size_t, id, &state->exit_commands_ids) {
+			Command *c = &esd->commands.items[*id];
+			write_command(sb, c, res, *id);
+		}
+	}
+	if (state->while_commands_ids.count == 0) {
+		assert(ht_unreserve_varint(sb, res, temp_sprintf("StateWhileCommOffset:%lld:%lld", group_id, state->id), -1));
+	} else {
+		assert(ht_unreserve_varint(sb, res, temp_sprintf("StateWhileCommOffset:%lld:%lld", group_id, state->id), sb->count - data_start));
+		da_foreach(size_t, id, &state->while_commands_ids) {
+			Command *c = &esd->commands.items[*id];
+			write_command(sb, c, res, *id);
+		}
+	}
+}
+
+void write_condition(String_Builder *sb, ESD *esd, Dictstrzu *res, const Condition *c, size_t id, size_t data_start) {
+	if (c->pass_commands_ids.count == 0) {
+		assert(ht_unreserve_varint(sb, res, temp_sprintf("PassCommandsOffset:%zu", id), -1));
+	} else {
+		assert(ht_unreserve_varint(sb, res, temp_sprintf("PassCommandsOffset:%zu", id), sb->count - data_start));
+		da_foreach(size_t, id, &c->pass_commands_ids) {
+			Command *c = &esd->commands.items[*id];
+			write_command(sb, c, res, *id);
+		}
+	}
+}
+
 typedef struct {
 	size_t from;
 	size_t to;
@@ -3238,20 +3805,22 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	size_t data_start = sb->count;
 	write_esd_data_header(sb, esd, &res);
 	if (esd->state_groups.count == 0) {
-		ht_unreserve_varint(sb, &res, "StateGroupsOffset", -1);
+		assert(ht_unreserve_varint(sb, &res, "StateGroupsOffset", -1));
 	} else {
-		ht_unreserve_varint(sb, &res, "StateGroupsOffset", sb->count - data_start);
+		assert(ht_unreserve_varint(sb, &res, "StateGroupsOffset", sb->count - data_start));
 	}
 	da_foreach(StateGroup, sg, &esd->state_groups) {
 		write_state_group_info(sb, sg, &res);
 	}
 	DAPair weird_pairs = {0};
+	Dictzuzu state_offsets = {0};
 	da_foreach(StateGroup, sg, &esd->state_groups) {
-		ht_unreserve_varint(sb, &res, temp_sprintf("StateGroupOffset:%lld:1", sg->id), sb->count - data_start);
-		ht_unreserve_varint(sb, &res, temp_sprintf("StateGroupOffset:%lld:2", sg->id), sb->count - data_start);
+		assert(ht_unreserve_varint(sb, &res, temp_sprintf("StateGroupOffset:%lld:1", sg->id), sb->count - data_start));
+		assert(ht_unreserve_varint(sb, &res, temp_sprintf("StateGroupOffset:%lld:2", sg->id), sb->count - data_start));
 		size_t first_state = sb->count;
 		da_foreach(size_t, state_id, &sg->states_ids) {
 			assert(*state_id < esd->states.count);
+			*ht_put(&state_offsets, *state_id) = sb->count - data_start;
 			State *state = &esd->states.items[*state_id];
 			write_state_info(sb, sg->id, state, &res);
 		}
@@ -3261,9 +3830,152 @@ void write_esd(String_Builder *sb, ESD *esd) {
 			sb_reserve_ex(sb, STATE_SIZE);
 		}
 	}
-	ht_free(&res);
+
+	Dictzuzu condition_offsets = {0};
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, state_id, &sg->states_ids) {
+			State *state = &esd->states.items[*state_id];
+			da_foreach(size_t, cond_id, &state->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cond_id];
+				*ht_put(&condition_offsets, *cond_id) = sb->count - data_start;
+				write_condition_info(sb, &res, cond, *cond_id, &state_offsets);
+			}
+		}
+	}
+
+	// NOTE: in c# impl this is written by grouping together each group's state's & condition's
+	// commands at the same place. Here, all the commands are written sequentially
+	da_foreach(const StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, state_index, &sg->states_ids) {
+			const State *state = &esd->states.items[*state_index];
+			write_state_commands(sb, esd, &res, data_start, state, sg->id);
+		}
+	}
+	// ht_foreach(value, &res) {
+	// 	const char *key = ht_key(&res, value);
+	// 	printf("%s = %zu\n", key , *value);
+	// }
+	da_foreach(const StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, state_id, &sg->states_ids) {
+			const State *state = &esd->states.items[*state_id];
+			da_foreach(size_t, cond_id, &state->conditions_id) {
+				const Condition *c = &esd->conditions.items[*cond_id];
+				write_condition(sb, esd, &res, c, *cond_id, data_start);
+			}
+		}
+	}
+	for (size_t i=0; i<esd->commands.count; i++) {
+		const Command *c = &esd->commands.items[i];
+		assert(ht_unreserve_varint(sb, &res, temp_sprintf("ArgsOffset:%zu", i), sb->count - data_start));
+		da_foreach(size_t, id, &c->args_ids) {
+			Arg *arg = &esd->args.items[*id];
+			ht_reserve_varint(sb, &res, temp_sprintf("ByteCodeOffset:%lld:%lld", i, *id));
+			sb_write_varint(sb, arg->count);
+		}
+	}
+
+	assert(ht_unreserve_varint(sb, &res, "ConditionOffsetsOffset", sb->count - data_start));
+	int condition_offsets_count = 0;
+	// NOTE: in c# impl this is written by grouping together each group's state's & condition's
+	// commands at the same place. Here, all the commands are written sequentially
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, state_index, &sg->states_ids) {
+			const State *state = &esd->states.items[*state_index];
+			assert(ht_unreserve_varint(sb, &res, temp_sprintf("StateCondOffset:%lld:%lld", sg->id, state->id), sb->count - data_start));
+			da_foreach(size_t, cond_id, &state->conditions_id) {
+				size_t *offset = ht_find(&condition_offsets, *cond_id);
+				assert(offset && "Invalid key");
+				sb_write_varint(sb, *offset);
+			}
+			condition_offsets_count += state->conditions_id.count;
+		}
+	}
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, state_id, &sg->states_ids) {
+			const State *state = &esd->states.items[*state_id];
+			da_foreach(size_t, cond_id, &state->conditions_id) { // NOTE: maybe this does not give all the conditions from the state [also same another loop is present above]
+				const Condition *c = &esd->conditions.items[*cond_id];
+				if (c->sub_conditions_ids.count == 0) {
+					assert(ht_unreserve_varint(sb, &res, temp_sprintf("ConditionOffsetsOffset:%zu", *cond_id), -1));
+				} else {
+					assert(ht_unreserve_varint(sb, &res, temp_sprintf("ConditionOffsetsOffset:%zu", *cond_id), sb->count - data_start));
+				}
+				da_foreach(size_t, sc_id, &c->sub_conditions_ids) {
+					size_t *sc_offset = ht_find(&condition_offsets, *sc_id);
+					if (sc_offset) {
+						sb_write_varint(sb, *sc_offset);
+					} else  {
+						sb_write_varint(sb, -1);
+					}
+				}
+				condition_offsets_count += c->sub_conditions_ids.count;
+			}
+		}
+	}
+	assert(ht_unreserve_int32_t(sb, &res, "ConditionOffsetsCount", condition_offsets_count));
+
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, state_id, &sg->states_ids) {
+			const State *state = &esd->states.items[*state_id];
+			da_foreach(size_t, cond_id, &state->conditions_id) {
+				assert(ht_unreserve_varint(sb, &res, temp_sprintf("EvaluatorOffset:%zu", *cond_id), sb->count - data_start));
+				const Condition *c = &esd->conditions.items[*cond_id];
+				for (size_t i=0; i<c->evaluator.count; i++) {
+					sb_append(sb, c->evaluator.items[i]);
+				}
+			}
+		}
+	}
+
+	for (size_t i=0; i<esd->commands.count; i++) {
+		const Command *c = &esd->commands.items[i];
+		da_foreach(size_t, arg_id, &c->args_ids) {
+			assert(ht_unreserve_varint(sb, &res, temp_sprintf("ByteCodeOffset:%lld:%lld", i, *arg_id), sb->count - data_start));
+			const Arg *arg = &esd->args.items[*arg_id];
+			da_foreach(uint8_t, val, arg) {
+				sb_append(sb, *val);
+			}
+		}
+	}
+	assert(ht_unreserve_int32_t(sb, &res, "NameBlockOffset", sb->count - data_start));
+	if (esd->name == NULL) {
+		sb_write_varint(sb, -1);
+	} else {
+		sb_pad_align(sb, 2);
+		assert(ht_unreserve_int32_t(sb, &res, "NameOffset", sb->count - data_start));
+		sb_append_utf16t(sb, esd->name);
+	}
+	assert(ht_unreserve_int32_t(sb, &res, "UnkOffset1", sb->count - data_start));
+	assert(ht_unreserve_int32_t(sb, &res, "UnkOffset2", sb->count - data_start));
+	assert(ht_unreserve_int32_t(sb, &res, "DataSize", sb->count - data_start));
+	sb_pad_align(sb, 0x10);
+
+	da_foreach(Pair, p, &weird_pairs) {
+		for (size_t i=0; i<STATE_SIZE; i++) {
+			sb->items[p->to] = sb->items[p->from];
+		}
+	}
+
+	ht_free(&condition_offsets);
+	ht_free(&state_offsets);
 	da_free(weird_pairs);
+	// if (res.count != 0) asm("int3");
+	ht_free(&res);
 	temp_rewind(mark);
+}
+
+void test_all_expressions(ESD *esd) {
+	Expression e = {0};
+	da_foreach(Condition, c, &esd->conditions) {
+		parse_expression(&c->evaluator, &e);
+		print_expression(&e);
+		dealloc_funcalls(&e);
+		e.stack.count = 0;
+		e.exprs.count = 0;
+	}
+	da_free(e.exprs);
+	da_free(e.stack);
+	// dealloc_expression(&e);
 }
 
 int main() {
@@ -3283,15 +3995,29 @@ int main() {
 
 	ESD esd = read_esd(sv);
 
-	// write_esd(&wsb, &esd);
-	//
-	// for (size_t i=0; i<wsb.count; i++) {
-	// 	if (sb.items[i] != wsb.items[i]) asm("int3");
-	// }
-	// asm("int3");
+	// print_state_group(&esd, &esd.state_groups.items[50]);
+	for (size_t i=0; i<esd.state_groups.count; i++) {
+		print_state_group(&esd, &esd.state_groups.items[i]);
+	}
+
+	// test_all_expressions(&esd);
+	write_esd(&wsb, &esd);
+
+	String_View wsv = sb_to_sv(sb);
+	ESD wesd = read_esd(wsv);
+	free_esd(&wesd);
+
+	for (size_t i=0; i<wsb.count; i++) {
+		if (sb.items[i] != wsb.items[i]) asm("int3");
+	}
+	asm("int3");
 
 	free_esd(&esd);
 	da_free(sb);
 	da_free(wsb);
 	return ret;
 }
+
+// incorrect
+// data_size -> will be correct if others will be correct
+// conditionOffsetsOffset - ^
