@@ -3233,19 +3233,19 @@ DA(StateGroup, DAStateGroup);
 typedef Ht(varint, size_t) Dictlldz;
 
 typedef struct {
-	DAStateGroup state_groups;
 	wchar_t *name;
 	int32_t Unk70;
 	int32_t Unk74;
 	int32_t Unk78;
 	int32_t Unk7C;
 
-	Dictlldz dict_cond; // [varint (offset), size_t (index)]
-	DACondition conditions;
+	DAStateGroup state_groups;
 	DAState states;
+	DACondition conditions;
 	DACommand commands;
 	DAArg args;
 
+	Dictlldz dict_cond; // [varint (offset), size_t (index)]
 	size_t duplicate_states_count;
 } ESD;
 
@@ -3545,13 +3545,6 @@ ESD read_esd(String_View sv) {
 	assert(esd_header.stateSize = STATE_SIZE);
 	const char *data_start = sv.data;
 
-	DArrz condition_offsets = {
-		.items = (size_t *)(data_start + esd_header.conditionOffsetsOffset),
-		.count = esd_header.conditionOffsetsCount,
-		.capacity = 0,
-	};
-	UNUSED(condition_offsets);
-
 	if (esd_header.nameLength > 0) {
 		esd.name = (wchar_t *)(data_start + esd_header.nameBlockOffset);
 	} else {
@@ -3559,12 +3552,6 @@ ESD read_esd(String_View sv) {
 	}
 
 	ESD_DATA ed = sv_read(&sv, ESD_DATA);
-
-	StateGroups sgs = {
-		.items = (StateGroupFile *)(data_start + ed.stateGroupsOffset),
-		.count = ed.stateGroupCount,
-	};
-	UNUSED(sgs);
 
 	esd.Unk70 = ed.Unk70;
 	esd.Unk74 = ed.Unk74;
@@ -3996,12 +3983,13 @@ int main() {
 	ESD esd = read_esd(sv);
 
 	// print_state_group(&esd, &esd.state_groups.items[50]);
-	for (size_t i=0; i<esd.state_groups.count; i++) {
-		print_state_group(&esd, &esd.state_groups.items[i]);
-	}
+	// for (size_t i=0; i<esd.state_groups.count; i++) {
+	// 	print_state_group(&esd, &esd.state_groups.items[i]);
+	// }
 
 	// test_all_expressions(&esd);
 	write_esd(&wsb, &esd);
+	if (!write_entire_file("out.esd", wsb.items, wsb.count)) return 1;
 
 	String_View wsv = sb_to_sv(sb);
 	ESD wesd = read_esd(wsv);
