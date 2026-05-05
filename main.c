@@ -2781,7 +2781,7 @@ typedef packed_struct {
 	varint nameLength; // = header.nameLength
 	varint unkNull; // -1
 	varint unkNull2; // -1
-} ESD_DATA;
+} StateGroupHeader;
 
 #define sv_read(sv, type) *(type *)sv_chop_left((sv), sizeof(type)).data;
 
@@ -3181,7 +3181,7 @@ void print_expr(const Expression *e, EzExprType *expr) {
 		case EzEq: print_binop(e, expr, "=="); break;
 		case EzNeq: print_binop(e, expr, "!="); break;
 		case EzNumber:
-			printf("(%d)", expr->as.number);
+			printf("%d", expr->as.number);
 			break;
 		case EzFin:
 			break;
@@ -3206,7 +3206,7 @@ void print_expression(const Expression *e) {
 
 typedef struct {
 	varint target_state_offset;
-	size_t target_state_id;
+	int target_state_id;
 	DArrz pass_commands_ids;
 	DArrz sub_conditions_ids;
 	Evaluator evaluator;
@@ -3246,19 +3246,16 @@ typedef struct {
 	DAArg args;
 
 	Dictlldz dict_cond; // [varint (offset), size_t (index)]
+	Dictlldz dict_state; // [varint (offset), size_t (index)]
 	size_t duplicate_states_count;
 } ESD;
 
-void print_condition(ESD *esd, const Condition *c, Expression *e) {
+void print_condition(const Condition *c, Expression *e) {
 	parse_expression(&c->evaluator, e);
 	print_expression(e);
 	dealloc_funcalls(e);
 	e->stack.count = 0;
 	e->exprs.count = 0;
-	if (c->target_state_offset > 0) {
-		State *ts = &esd->states.items[c->target_state_id];
-		printf(" goto State %lld\n", ts->id);
-	}
 }
 
 void print_command(ESD *esd, const Command *c) {
@@ -3288,9 +3285,14 @@ void print_state(ESD *esd, State *state) {
 	}
 	Expression e = {0};
 	da_foreach(size_t, cid, &state->conditions_id) {
-		printf("        if ");
+		printf("        if (");
 		const Condition *c = &esd->conditions.items[*cid];
-		print_condition(esd, c, &e);
+		print_condition(c, &e);
+		printf(")");
+		if (c->target_state_offset > 0) {
+			State *ts = &esd->states.items[c->target_state_id];
+			printf(" goto State %lld\n", ts->id);
+		}
 		da_foreach(size_t, pcid, &c->pass_commands_ids) {
 			const Command *pc = &esd->commands.items[*pcid];
 			assert (pc->command_id == -1);
@@ -3367,6 +3369,7 @@ void free_esd(ESD *esd) {
 		da_free(*arg);
 	}
 	da_free(esd->args);
+	ht_free(&esd->dict_state);
 }
 
 #define da_alloc(da, n)\
@@ -3522,19 +3525,7 @@ StateGroup read_state_group(String_View* sv, ESD *esd, const char *data_start, i
 
 #define STATE_SIZE 0x48
 
-typedef struct {
-	varint id;
-	varint offset;
-	varint count;
-	varint pad;
-} StateGroupFile;
-
-typedef struct {
-	StateGroupFile *items;
-	size_t count;
-} StateGroups;
-
-ESD read_esd(String_View sv) {
+ESD read_esd_old(String_View sv) {
 	ESD esd = {0};
 	Dictlldz ht = {0}; // offset, state_index
 
@@ -3551,7 +3542,7 @@ ESD read_esd(String_View sv) {
 		esd.name = NULL;
 	}
 
-	ESD_DATA ed = sv_read(&sv, ESD_DATA);
+	StateGroupHeader ed = sv_read(&sv, StateGroupHeader);
 
 	esd.Unk70 = ed.Unk70;
 	esd.Unk74 = ed.Unk74;
@@ -3965,6 +3956,194 @@ void test_all_expressions(ESD *esd) {
 	// dealloc_expression(&e);
 }
 
+typedef packed_struct {
+    varint id;
+    varint offset;
+    varint count;
+    varint offset_dup;
+} StateGroupFile;
+
+typedef packed_struct {
+	char magic[4];
+	ESD_HEADER header;
+	StateGroupHeader data;
+	StateGroupFile *sg;
+	StateHeader *sh;
+	ConditionHeader *ch;
+	CommandCallHeader *cch;
+	ArgumentHeader *arg;
+	varint *condition_offsets;
+	uint8_t *binary;
+} ESDFile;
+
+ESDFile read_esd_file(String_View sv) {
+	ESDFile esd = {0};
+	size_t length = offsetof(ESDFile, sg);
+	memcpy(&esd, sv.data, length);
+	sv.data += length;
+	esd.sg = (void *)sv.data;
+	sv.data += sizeof(StateGroupFile)*esd.header.stateGroupCount;
+	esd.sh = (void *)sv.data;
+	sv.data += sizeof(StateHeader)*esd.header.stateCount;
+	esd.ch = (void *)sv.data;
+	sv.data += sizeof(ConditionHeader)*esd.header.conditionCount;
+	esd.cch = (void *)sv.data;
+	sv.data += sizeof(CommandCallHeader)*esd.header.commandCallCount;
+	esd.arg = (void *)sv.data;
+	sv.data += sizeof(ArgumentHeader)*esd.header.commandArgCount;
+	esd.condition_offsets = (void *)sv.data;
+	sv.data += sizeof(varint)*esd.header.conditionOffsetsCount;
+	esd.binary = (void *)sv.data;
+	return esd;
+}
+
+static inline void *get_from_offset(ESDFile *esd, size_t offset) {
+	size_t header_size = sizeof(StateGroupHeader);
+	return (void *)((char *)esd->sg - header_size + offset);
+}
+
+#define esd_file_get(esd, type, offset_at) (type *)get_from_offset((esd), (offset_at))
+
+Arg rarg(ESDFile *esd_file, size_t offset) {
+	ArgumentHeader *header = esd_file_get(esd_file, ArgumentHeader, offset);
+	Arg arg = {0};
+	da_init(&arg, header->argSize);
+	for (int i=0; i<header->argSize; i++) {
+		da_append(&arg, *esd_file_get(esd_file, uint8_t, header->argOffset+i));
+	}
+	return arg;
+}
+
+Command rcomm(ESD *esd, ESDFile *esd_file, size_t offset) {
+	CommandCallHeader *header = esd_file_get(esd_file, CommandCallHeader, offset);
+	Command comm = {0};
+	comm.command_bank = header->CommandBank;
+	comm.command_id = header->CommandID;
+	da_init(&comm.args_ids, header->argsCount);
+	for (int i=0; i<header->argsCount; i++) {
+		assert(header->argsOffset > 0);
+		size_t arg_offset = header->argsOffset + i*sizeof(ArgumentHeader);
+		Arg arg = rarg(esd_file, arg_offset);
+		da_append(&comm.args_ids, esd->args.count);
+		da_append(&esd->args, arg);
+	}
+	return comm;
+}
+
+// returns the condition id of the saved condition if it already exists
+// creates a new condition if it does not exist
+size_t check_and_read_cond(ESD *esd, ESDFile *esd_file, size_t cond_offset);
+
+Condition rcond(ESD *esd, ESDFile *esd_file, size_t offset) {
+	ConditionHeader *header = esd_file_get(esd_file, ConditionHeader, offset);
+	Condition cond = {0};
+	cond.target_state_offset = header->stateOffset;
+	cond.target_state_id = -1;
+	da_init(&cond.pass_commands_ids, header->passCommandCount);
+	for (int i=0; i<header->passCommandCount; i++) {
+		size_t comm_offset = header->passCommandsOffset + i*sizeof(CommandCallHeader);
+		Command comm = rcomm(esd, esd_file, comm_offset);
+		da_append(&cond.pass_commands_ids, esd->commands.count);
+		da_append(&esd->commands, comm);
+	}
+	da_init(&cond.sub_conditions_ids, header->conditionOffsetCount);
+	for (int i=0; i<header->conditionOffsetCount; i++) {
+		varint cond_offset_offset = *esd_file_get(esd_file, varint, header->conditionOffsetsOffset);
+		assert(cond_offset_offset > 0);
+		size_t cond_offset = (size_t)(cond_offset_offset + i*sizeof(ConditionHeader));
+		size_t sub_cond_id = check_and_read_cond(esd, esd_file, cond_offset);
+		da_append(&cond.sub_conditions_ids, sub_cond_id);
+	}
+	if (header->evaluatorOffset > 0) {
+		cond.evaluator.items = get_from_offset(esd_file, header->evaluatorOffset);
+		cond.evaluator.count = header->evaluatorLength;
+	}
+	return cond;
+}
+
+size_t check_and_read_cond(ESD *esd, ESDFile *esd_file, size_t cond_offset) {
+	size_t *idx = ht_find(&esd->dict_cond, cond_offset);
+	if (idx != NULL) return *idx;
+	Condition cond = rcond(esd, esd_file, cond_offset);
+	size_t index = esd->conditions.count;
+	*ht_put(&esd->dict_cond, cond_offset) = index;
+	da_append(&esd->conditions, cond);
+	return index;
+}
+
+State rst(ESD *esd, ESDFile *esd_file, size_t offset) {
+	StateHeader *header = esd_file_get(esd_file, StateHeader, offset);
+	State state = {0};
+	state.id = header->ID;
+	da_init(&state.conditions_id, header->conditionOffsetCount);
+	for (int i=0; i<header->conditionOffsetCount; i++) {
+		varint cond_offset = *esd_file_get(esd_file, varint, header->conditionOffsetsOffset + i*sizeof(varint));
+		assert(cond_offset > 0);
+		size_t cond_id = check_and_read_cond(esd, esd_file, (size_t)cond_offset);
+		da_append(&state.conditions_id, cond_id);
+	}
+	da_init(&state.entry_commands_ids, header->entryCommandCount);
+	for (int i=0; i<header->entryCommandCount; i++) {
+		size_t comm_offset = header->entryCommandsOffset + i*sizeof(CommandCallHeader);
+		Command comm = rcomm(esd, esd_file, comm_offset);
+		da_append(&state.entry_commands_ids, esd->commands.count);
+		da_append(&esd->commands, comm);
+	}
+	da_init(&state.exit_commands_ids, header->exitCommandCount);
+	for (int i=0; i<header->exitCommandCount; i++) {
+		size_t comm_offset = header->exitCommandsOffset + i*sizeof(CommandCallHeader);
+		Command comm = rcomm(esd, esd_file, comm_offset);
+		da_append(&state.exit_commands_ids, esd->commands.count);
+		da_append(&esd->commands, comm);
+	}
+	da_init(&state.while_commands_ids, header->whileCommandCount);
+	for (int i=0; i<header->whileCommandCount; i++) {
+		size_t comm_offset = header->whileCommandsOffset + i*sizeof(CommandCallHeader);
+		Command comm = rcomm(esd, esd_file, comm_offset);
+		da_append(&state.while_commands_ids, esd->commands.count);
+		da_append(&esd->commands, comm);
+	}
+	*ht_put(&esd->dict_state, offset) = esd->states.count;
+	return state;
+}
+
+StateGroup rsg(ESD *esd, ESDFile *esd_file, size_t i) {
+	StateGroupFile *sgf = &esd_file->sg[i];
+	StateGroup sg = {0};
+	sg.id = sgf->id;
+	assert(sgf->offset == sgf->offset_dup);
+	da_init(&sg.states_ids, sgf->count);
+	for (int i=0; i<sgf->count; i++) {
+		size_t state_offset = sgf->offset + esd_file->header.stateSize*i;
+		State s = rst(esd, esd_file, state_offset);
+		da_append(&sg.states_ids, esd->states.count);
+		da_append(&esd->states, s);
+	}
+	return sg;
+}
+
+ESD read_esd(String_View sv) {
+	ESD esd = {0};
+	ESDFile esd_file = read_esd_file(sv);
+	da_init(&esd.state_groups, esd_file.header.stateGroupCount);
+	da_init(&esd.states, esd_file.header.stateCount);
+	da_init(&esd.conditions, esd_file.header.conditionCount);
+	da_init(&esd.commands, esd_file.header.commandCallCount);
+	da_init(&esd.args, esd_file.header.commandArgCount);
+	for (int i=0; i<esd_file.header.stateGroupCount; i++) {
+		StateGroup sg = rsg(&esd, &esd_file, i);
+		da_append(&esd.state_groups, sg);
+	}
+	for (size_t i=0; i<esd.conditions.count; i++) {
+		Condition *cond = &esd.conditions.items[i];
+		if (cond->target_state_offset <= 0) continue;
+		size_t *state_id = ht_find(&esd.dict_state, cond->target_state_offset);
+		assert(state_id);
+		cond->target_state_id = *state_id;
+	}
+	return esd;
+}
+
 int main() {
 	int ret = 0;
 	// ret += test_loading_all_maps();
@@ -3981,28 +4160,31 @@ int main() {
 	String_View sv = sb_to_sv(sb);
 
 	ESD esd = read_esd(sv);
+	ESD esd2 = read_esd_old(sv);
+
 
 	// print_state_group(&esd, &esd.state_groups.items[50]);
-	// for (size_t i=0; i<esd.state_groups.count; i++) {
-	// 	print_state_group(&esd, &esd.state_groups.items[i]);
-	// }
+	for (size_t i=0; i<esd.state_groups.count; i++) {
+		print_state_group(&esd, &esd.state_groups.items[i]);
+	}
+	free_esd(&esd2);
 
 	// test_all_expressions(&esd);
-	write_esd(&wsb, &esd);
-	if (!write_entire_file("out.esd", wsb.items, wsb.count)) return 1;
+	// write_esd(&wsb, &esd);
+	// if (!write_entire_file("out.esd", wsb.items, wsb.count)) return 1;
 
-	String_View wsv = sb_to_sv(sb);
-	ESD wesd = read_esd(wsv);
-	free_esd(&wesd);
-
-	for (size_t i=0; i<wsb.count; i++) {
-		if (sb.items[i] != wsb.items[i]) asm("int3");
-	}
-	asm("int3");
+	// String_View wsv = sb_to_sv(sb);
+	// ESD wesd = read_esd(wsv);
+	// free_esd(&wesd);
+	//
+	// for (size_t i=0; i<wsb.count; i++) {
+	// 	if (sb.items[i] != wsb.items[i]) asm("int3");
+	// }
 
 	free_esd(&esd);
 	da_free(sb);
 	da_free(wsb);
+	asm("int3");
 	return ret;
 }
 
