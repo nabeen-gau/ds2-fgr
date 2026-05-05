@@ -3234,6 +3234,8 @@ typedef Ht(varint, size_t) Dictlldz;
 
 typedef struct {
 	wchar_t *name;
+	size_t nameLength;
+
 	int32_t Unk70;
 	int32_t Unk74;
 	int32_t Unk78;
@@ -3380,6 +3382,7 @@ void free_esd(ESD *esd) {
 	} while (0)
 
 const char *ESD_MAGIC = "fsSL";
+#define ESD_MAGIC_LENGTH  4
 
 Arg read_arg(String_View *sv, size_t size) {
 	Arg arg = {0};
@@ -3773,7 +3776,7 @@ typedef struct {
 } Pair;
 DA(Pair, DAPair);
 
-void write_esd(String_Builder *sb, ESD *esd) {
+void write_esd_old(String_Builder *sb, ESD *esd) {
     size_t mark = temp_save();
 	Dictstrzu res = {
 		.hasheq = ht_cstr_hasheq,
@@ -4057,6 +4060,9 @@ Condition rcond(ESD *esd, ESDFile *esd_file, size_t offset) {
 	if (header->evaluatorOffset > 0) {
 		cond.evaluator.items = get_from_offset(esd_file, header->evaluatorOffset);
 		cond.evaluator.count = header->evaluatorLength;
+	} else {
+		cond.evaluator.items = NULL;
+		cond.evaluator.count = 0;
 	}
 	return cond;
 }
@@ -4122,9 +4128,22 @@ StateGroup rsg(ESD *esd, ESDFile *esd_file, size_t i) {
 	return sg;
 }
 
+void read_esd_info(const ESDFile *esd_file, ESD *esd) {
+	size_t size = sizeof(StateGroupHeader);
+	if (esd_file->data.nameOffset > 0) {
+		esd->name = (void *)((char *)esd_file->sg - size + esd_file->data.nameOffset);
+		esd->nameLength = esd_file->data.nameLength;
+	}
+	esd->Unk70 = esd_file->data.Unk70;
+	esd->Unk74 = esd_file->data.Unk74;
+	esd->Unk78 = esd_file->data.Unk78;
+	esd->Unk7C = esd_file->data.Unk7C;
+}
+
 ESD read_esd(String_View sv) {
 	ESD esd = {0};
 	ESDFile esd_file = read_esd_file(sv);
+	read_esd_info(&esd_file, &esd);
 	da_init(&esd.state_groups, esd_file.header.stateGroupCount);
 	da_init(&esd.states, esd_file.header.stateCount);
 	da_init(&esd.conditions, esd_file.header.conditionCount);
@@ -4134,6 +4153,7 @@ ESD read_esd(String_View sv) {
 		StateGroup sg = rsg(&esd, &esd_file, i);
 		da_append(&esd.state_groups, sg);
 	}
+	// populate the target states that is not initialized when creating the conditions
 	for (size_t i=0; i<esd.conditions.count; i++) {
 		Condition *cond = &esd.conditions.items[i];
 		if (cond->target_state_offset <= 0) continue;
@@ -4142,6 +4162,487 @@ ESD read_esd(String_View sv) {
 		cond->target_state_id = *state_id;
 	}
 	return esd;
+}
+
+void weh(String_Builder *sb, const ESD *esd) {
+	sb_append_cstr(sb, ESD_MAGIC);
+	sb_write_int32t(sb, 1);
+	sb_write_int32t(sb, 2);
+	sb_write_int32t(sb, 2);
+	sb_write_int32t(sb, 0x54);
+	sb_reserve(sb, sizeof(int32_t)); // data_size
+	sb_write_int32t(sb, 6);
+	sb_write_int32t(sb, 0x48);
+	sb_write_int32t(sb, 1);
+	sb_write_int32t(sb, 0x20);
+	sb_write_int32t(sb, esd->state_groups.count);
+	sb_write_int32t(sb, STATE_SIZE);
+	sb_reserve(sb, sizeof(int32_t)); // state_count-x
+	sb_write_int32t(sb, 0x38);
+	sb_write_int32t(sb, esd->conditions.count);
+	sb_write_int32t(sb, 0x18);
+	sb_write_int32t(sb, esd->commands.count);
+	sb_write_int32t(sb, 0x10);
+	sb_write_int32t(sb, esd->args.count);
+	sb_reserve(sb, sizeof(int32_t)); // conditionOffsetsOffset
+	sb_reserve(sb, sizeof(int32_t)); // conditionOffsetCount
+	sb_reserve(sb, sizeof(int32_t)); // nameBlockOffset
+	sb_reserve(sb, sizeof(int32_t)); // nameLength
+	sb_reserve(sb, sizeof(int32_t)); // unkOffset1
+	sb_write_int32t(sb, 0);
+	sb_reserve(sb, sizeof(int32_t)); // unkOffset2
+	sb_write_int32t(sb, 0);
+}
+
+void wsgh(String_Builder *sb, const ESD *esd) {
+	sb_write_int32t(sb, 1);
+	sb_write_int32t(sb, esd->Unk70);
+	sb_write_int32t(sb, esd->Unk74);
+	sb_write_int32t(sb, esd->Unk78);
+	sb_write_int32t(sb, esd->Unk7C);
+	sb_write_int32t(sb, 0);
+	sb_reserve(sb, sizeof(varint)); // stateGroupsOffset-x
+	sb_write_varint(sb, esd->state_groups.count);
+	sb_reserve(sb, sizeof(varint)); // nameOffset
+	sb_reserve(sb, sizeof(varint)); // nameLength
+	sb_write_varint(sb, -1);
+	sb_write_varint(sb, -1);
+}
+
+#define sb_offset(sb) (sb)->count - sizeof(ESD_HEADER) - ESD_MAGIC_LENGTH
+#define sb_base(sb) (sb)->items + ESD_MAGIC_LENGTH + sizeof(ESD_HEADER)
+
+void wst(String_Builder *sb, const State *s) {
+	sb_write_varint(sb, s->id);
+	sb_write_varint(sb, -1); // sb_reserve(sb, sizeof(varint)); // conditionOffsetsOffset
+	sb_write_varint(sb, s->conditions_id.count);
+	sb_write_varint(sb, -1); // sb_reserve(sb, sizeof(varint)); // entryCommandsOffset
+	sb_write_varint(sb, s->entry_commands_ids.count);
+	sb_write_varint(sb, -1); // sb_reserve(sb, sizeof(varint)); // exitCommandsOffset
+	sb_write_varint(sb, s->exit_commands_ids.count);
+	sb_write_varint(sb, -1); // sb_reserve(sb, sizeof(varint)); // whileCommandsOffset
+	sb_write_varint(sb, s->while_commands_ids.count);
+}
+
+void wcomm(String_Builder *sb, const Command *comm) {
+	sb_write_int32t(sb, comm->command_bank);
+	sb_write_int32t(sb, comm->command_id);
+	sb_reserve(sb, sizeof(varint)); // argsOffset
+	sb_write_varint(sb, comm->args_ids.count);
+}
+
+void wcond(String_Builder *sb, const Condition *cond, varint state_offset) {
+	// const Condition *cond = &esd->conditions.items[i];
+	// sb_reserve(sb, sizeof(varint)); // stateOffset (target)
+	sb_write_varint(sb, state_offset);
+	sb_write_varint(sb, -1); // sb_reserve(sb, sizeof(varint)); // passCommandsOffset
+	// sb_reserve(sb, sizeof(varint)); // passCommandsCount
+	sb_write_varint(sb, cond->pass_commands_ids.count);
+	sb_write_varint(sb, -1); // sb_reserve(sb, sizeof(varint)); // conditionOffsetsOffset
+	// sb_reserve(sb, sizeof(varint)); // conditionOffsetsCount
+	sb_write_varint(sb, cond->sub_conditions_ids.count);
+	sb_write_varint(sb, -1); // sb_reserve(sb, sizeof(varint)); // evaluatorOffset
+	// sb_reserve(sb, sizeof(varint)); // evaluatorLength
+	sb_write_varint(sb, cond->evaluator.count);
+}
+
+void write_esd(String_Builder *sb, ESD *esd) {
+	weh(sb, esd);
+	wsgh(sb, esd);
+	void *dst =  sb_base(sb) + offsetof(StateGroupHeader, stateGroupsOffset);
+	size_t size = sizeof(varint);
+	size_t src = sb_offset(sb);
+	memcpy(dst, &src, size);
+
+	// write state groups
+	for (size_t i=0; i<esd->state_groups.count; i++) {
+		const StateGroup *sg = &esd->state_groups.items[i];
+		sb_write_varint(sb, sg->id);
+		sb_reserve(sb, sizeof(varint)); // stateOffset
+		sb_write_varint(sb, sg->states_ids.count);
+		sb_reserve(sb, sizeof(varint)); // stateOffsetDup
+	}
+
+	// write states
+	size_t state_count = 0;
+	size_t state_zero_id = 0;
+	DArrz state_offsets = {0};
+	for (size_t i=0; i<esd->states.count; i++) {
+		const State *s = &esd->states.items[i];
+		if (s->id == 0) {
+			state_zero_id = i;
+		}
+		da_append(&state_offsets, sb_offset(sb));
+		wst(sb, s);
+		state_count++;
+		if (i == 0 || s->id == 0) continue;
+		if (i < esd->states.count - 1) {
+			if (esd->states.items[i+1].id != 0) continue;
+		}
+		s = &esd->states.items[state_zero_id];
+		wst(sb, s);
+		state_count++;
+	}
+
+	// write state count to header
+	dst =  sb->items + ESD_MAGIC_LENGTH + offsetof(ESD_HEADER, stateCount);
+	size = sizeof(int32_t);
+	src = state_count;
+	memcpy(dst, &src, size);
+
+	// back patch the state offsets
+	for (size_t i=0; i<esd->state_groups.count; i++) {
+		const StateGroup *sg = &esd->state_groups.items[i];
+		if (sg->states_ids.count == 0) continue;
+		size_t idx = sg->states_ids.items[0];
+		assert(idx < state_offsets.count);
+		size_t offset = state_offsets.items[idx];
+
+		dst =  sb_base(sb) + sizeof(StateGroupHeader) + offsetof(StateGroupFile, offset) + i*sizeof(StateGroupFile);
+		size = sizeof(varint);
+		src = offset;
+		memcpy(dst, &src, size);
+		dst =  sb_base(sb) + sizeof(StateGroupHeader) + offsetof(StateGroupFile, offset_dup) + i*sizeof(StateGroupFile);
+		memcpy(dst, &src, size);
+	}
+
+	// write conditions
+	size_t condition_count = 0;
+	ht_reset(&esd->dict_cond);
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cid];
+				size_t *found = ht_find(&esd->dict_cond, *cid);
+				if (found == NULL) {
+					*ht_put(&esd->dict_cond, *cid) = sb_offset(sb);
+					if (cond->target_state_id >= 0) {
+						wcond(sb, cond, state_offsets.items[cond->target_state_id]);
+					} else {
+						wcond(sb, cond, -1);
+					}
+					condition_count++;
+				}
+			}
+		}
+	}
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cid];
+				da_foreach(size_t, scid, &cond->sub_conditions_ids) {
+					Condition *scond = &esd->conditions.items[*scid];
+					size_t *found = ht_find(&esd->dict_cond, *scid);
+					if (found == NULL) {
+						*ht_put(&esd->dict_cond, *scid) = sb_offset(sb);
+						if (scond->target_state_id >= 0) {
+							wcond(sb, scond, state_offsets.items[scond->target_state_id]);
+						} else {
+							wcond(sb, scond, -1);
+						}
+						condition_count++;
+					}
+				}
+			}
+		}
+	}
+	assert(condition_count == esd->conditions.count);
+
+	// write commands
+	size_t commands_count = 0;
+	Dictzuzu entry_commands_offsets = {0};
+	Dictzuzu exit_commands_offsets = {0};
+	Dictzuzu while_commands_offsets = {0};
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, ecid, &s->entry_commands_ids) {
+				Command *comm = &esd->commands.items[*ecid];
+				*ht_put(&entry_commands_offsets, *ecid) = sb_offset(sb);
+				wcomm(sb, comm);
+				commands_count++;
+			}
+			da_foreach(size_t, ecid, &s->exit_commands_ids) {
+				Command *comm = &esd->commands.items[*ecid];
+				*ht_put(&exit_commands_offsets, *ecid) = sb_offset(sb);
+				wcomm(sb, comm);
+				commands_count++;
+			}
+			da_foreach(size_t, ecid, &s->while_commands_ids) {
+				Command *comm = &esd->commands.items[*ecid];
+				*ht_put(&while_commands_offsets, *ecid) = sb_offset(sb);
+				wcomm(sb, comm);
+				commands_count++;
+			}
+		}
+	}
+	Dictzuzu pass_commands_offsets = {0};
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cid];
+				da_foreach(size_t, pcid, &cond->pass_commands_ids) {
+					Command *comm = &esd->commands.items[*pcid];
+					*ht_put(&pass_commands_offsets, *pcid) = sb_offset(sb);
+					wcomm(sb, comm);
+					commands_count++;
+				}
+			}
+		}
+	}
+	assert(commands_count == esd->commands.count);
+
+	// back patch commands offsets
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			size_t state_offset = state_offsets.items[*sid];
+			dst =  sb_base(sb) + state_offset + offsetof(StateHeader, entryCommandsOffset);
+			size = sizeof(varint);
+			da_foreach(size_t, ecid, &s->entry_commands_ids) {
+				memcpy(dst, ht_find(&entry_commands_offsets, *ecid), size);
+			}
+			dst =  sb_base(sb) + state_offset + offsetof(StateHeader, exitCommandsOffset);
+			da_foreach(size_t, ecid, &s->exit_commands_ids) {
+				memcpy(dst, ht_find(&exit_commands_offsets, *ecid), size);
+			}
+			dst =  sb_base(sb) + state_offset + offsetof(StateHeader, whileCommandsOffset);
+			da_foreach(size_t, ecid, &s->while_commands_ids) {
+				memcpy(dst, ht_find(&while_commands_offsets, *ecid), size);
+			}
+		}
+	}
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cid];
+				size_t *condition_offset = ht_find(&esd->dict_cond, *cid);
+				assert(condition_offset);
+				dst =  sb_base(sb) + (*condition_offset) + offsetof(ConditionHeader, passCommandsOffset);
+				size = sizeof(varint);
+				da_foreach(size_t, pcid, &cond->pass_commands_ids) {
+					memcpy(dst, ht_find(&pass_commands_offsets, *pcid), size);
+				}
+			}
+		}
+	}
+
+
+	// write args
+	size_t args_count = 0;
+	Dictzuzu args_offsets = {0};
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, ecid, &s->entry_commands_ids) {
+				Command *comm = &esd->commands.items[*ecid];
+				da_foreach(size_t, aid, &comm->args_ids) {
+					Arg *arg = &esd->args.items[*aid];
+					sb_reserve(sb, sizeof(varint)); // argOffset
+					sb_write_varint(sb, arg->count);
+					args_count++;
+				}
+			}
+			da_foreach(size_t, ecid, &s->exit_commands_ids) {
+				Command *comm = &esd->commands.items[*ecid];
+				da_foreach(size_t, aid, &comm->args_ids) {
+					Arg *arg = &esd->args.items[*aid];
+					sb_reserve(sb, sizeof(varint)); // argOffset
+					sb_write_varint(sb, arg->count);
+					args_count++;
+				}
+			}
+			da_foreach(size_t, ecid, &s->while_commands_ids) {
+				Command *comm = &esd->commands.items[*ecid];
+				da_foreach(size_t, aid, &comm->args_ids) {
+					Arg *arg = &esd->args.items[*aid];
+					sb_reserve(sb, sizeof(varint)); // argOffset
+					sb_write_varint(sb, arg->count);
+					args_count++;
+				}
+			}
+		}
+	}
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cid];
+				da_foreach(size_t, pcid, &cond->pass_commands_ids) {
+					Command *comm = &esd->commands.items[*pcid];
+					da_foreach(size_t, aid, &comm->args_ids) {
+						Arg *arg = &esd->args.items[*aid];
+						sb_reserve(sb, sizeof(varint)); // argOffset
+						sb_write_varint(sb, arg->count);
+						args_count++;
+					}
+				}
+			}
+		}
+	}
+	assert(args_count == esd->args.count);
+
+	// back patch args
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, ecid, &s->entry_commands_ids) {
+				size_t *offset = ht_find(&entry_commands_offsets, *ecid);
+				assert(offset);
+				dst =  sb_base(sb) + (*offset) + offsetof(CommandCallHeader, argsOffset);
+				size = sizeof(varint);
+				memcpy(dst, offset, size);
+			}
+			da_foreach(size_t, ecid, &s->exit_commands_ids) {
+				size_t *offset = ht_find(&exit_commands_offsets, *ecid);
+				assert(offset);
+				dst =  sb_base(sb) + (*offset) + offsetof(CommandCallHeader, argsOffset);
+				size = sizeof(varint);
+				memcpy(dst, offset, size);
+			}
+			da_foreach(size_t, ecid, &s->while_commands_ids) {
+				size_t *offset = ht_find(&while_commands_offsets, *ecid);
+				assert(offset);
+				dst =  sb_base(sb) + (*offset) + offsetof(CommandCallHeader, argsOffset);
+				size = sizeof(varint);
+				memcpy(dst, offset, size);
+			}
+		}
+	}
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cid];
+				da_foreach(size_t, pcid, &cond->pass_commands_ids) {
+					size_t *offset = ht_find(&pass_commands_offsets, *pcid);
+					assert(offset);
+					dst =  sb_base(sb) + (*offset) + offsetof(CommandCallHeader, argsOffset);
+					size = sizeof(varint);
+					memcpy(dst, offset, size);
+				}
+			}
+		}
+	}
+
+	// write conditions offsets
+	Dictzuzu condition_offset_offsets = {0};
+	size_t condition_offsets_offsets_count = 0;
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				size_t *offset = ht_find(&esd->dict_cond, *cid);
+				assert(offset);
+				*ht_put(&condition_offset_offsets, *cid) = sb_offset(sb);
+				condition_offsets_offsets_count++;
+				sb_write_varint(sb, *offset);
+			}
+		}
+		if (sg->states_ids.count > 1) {
+			State *fs = &esd->states.items[sg->states_ids.items[0]];
+			if (fs->conditions_id.count > 0) {
+				size_t *fco = ht_find(&esd->dict_cond, fs->conditions_id.items[0]);
+				assert(fco);
+				condition_offsets_offsets_count++;
+				sb_write_varint(sb, *fco);
+			}
+		}
+	}
+	Dictzuzu same_cid_scid = {0};
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cid];
+				da_foreach(size_t, scid, &cond->sub_conditions_ids) {
+					size_t *offset = ht_find(&esd->dict_cond, *scid);
+					assert(offset);
+					size_t *found = ht_find(&same_cid_scid, (*cid)*(*scid));
+					// if the cid and scid are same we skip those
+					if (found) continue;
+					*ht_put(&same_cid_scid, (*scid)*(*cid)) = sb_offset(sb);
+
+					*ht_put(&condition_offset_offsets, *scid) = sb_offset(sb);
+					condition_offsets_offsets_count++;
+					sb_write_varint(sb, *offset);
+				}
+			}
+		}
+	}
+	// write condition_offsets_offsets_count to header
+	dst =  sb->items + ESD_MAGIC_LENGTH + offsetof(ESD_HEADER, conditionOffsetsCount);
+	size = sizeof(int32_t);
+	src = condition_offsets_offsets_count;
+	memcpy(dst, &src, size);
+
+	// back patch condition offsets offset
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			size_t offset = state_offsets.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				dst =  sb_base(sb) + offset + offsetof(StateHeader, conditionOffsetsOffset);
+				size_t *condition_offset = ht_find(&condition_offset_offsets, *cid);
+				size = sizeof(varint);
+				if (condition_offset == NULL) {
+					varint value = -1;
+					memcpy(dst, &value, size);
+				} else {
+					memcpy(dst, condition_offset, size);
+				}
+				break;
+			}
+			da_foreach(size_t, cid, &s->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cid];
+				da_foreach(size_t, scid, &cond->sub_conditions_ids) {
+					size_t *condition_offset = ht_find(&esd->dict_cond, *cid);
+					assert(condition_offset);
+					dst =  sb_base(sb) + (*condition_offset) + offsetof(ConditionHeader, conditionOffsetsOffset);
+					size_t *sub_condition_offset = ht_find(&condition_offset_offsets, *scid);
+					size = sizeof(varint);
+					if (sub_condition_offset == NULL) {
+						varint value = -1;
+						memcpy(dst, &value, size);
+					} else {
+						memcpy(dst, condition_offset, size);
+					}
+					break;
+
+				}
+			}
+		}
+	}
+
+	// back patch the duplicate state
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		if (sg->states_ids.count > 1) {
+			size_t fsid = sg->states_ids.items[0];
+			State *fs = &esd->states.items[fsid];
+			size_t offset = state_offsets.items[fsid];
+			dst = sb_base(sb) + offset + STATE_SIZE*sg->states_ids.count + offsetof(StateHeader, conditionOffsetsOffset);
+			if (fs->conditions_id.count != 0) {
+				size_t *offset_offset = ht_find(&condition_offset_offsets, fs->conditions_id.items[0]);
+				if (offset_offset) {
+					memcpy(dst, offset_offset, sizeof(varint));
+				}
+			}
+		}
+	}
+
+
+	da_free(state_offsets);
+	ht_free(&entry_commands_offsets);
+	ht_free(&exit_commands_offsets);
+	ht_free(&while_commands_offsets);
+	ht_free(&pass_commands_offsets);
+	ht_free(&args_offsets);
+	ht_free(&same_cid_scid);
+	ht_free(&condition_offset_offsets);
 }
 
 int main() {
@@ -4160,17 +4661,17 @@ int main() {
 	String_View sv = sb_to_sv(sb);
 
 	ESD esd = read_esd(sv);
-	ESD esd2 = read_esd_old(sv);
 
+	write_esd(&wsb, &esd);
+	if (!write_entire_file("out.esd", wsb.items, wsb.count)) return 1;
 
 	// print_state_group(&esd, &esd.state_groups.items[50]);
-	for (size_t i=0; i<esd.state_groups.count; i++) {
-		print_state_group(&esd, &esd.state_groups.items[i]);
-	}
-	free_esd(&esd2);
+	// for (size_t i=0; i<esd.state_groups.count; i++) {
+	// 	print_state_group(&esd, &esd.state_groups.items[i]);
+	// }
 
 	// test_all_expressions(&esd);
-	// write_esd(&wsb, &esd);
+	// write_esd_old(&wsb, &esd);
 	// if (!write_entire_file("out.esd", wsb.items, wsb.count)) return 1;
 
 	// String_View wsv = sb_to_sv(sb);
@@ -4184,7 +4685,7 @@ int main() {
 	free_esd(&esd);
 	da_free(sb);
 	da_free(wsb);
-	asm("int3");
+	// asm("int3");
 	return ret;
 }
 
