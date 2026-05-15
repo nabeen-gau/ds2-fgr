@@ -4220,7 +4220,7 @@ void write_esd(String_Builder *sb, ESD *esd) {
 			}
 		}
 	}
-	DictPairzu same_cid_scid = {0};
+	DictPairzu scond_offset_offsets = {0};
 	da_foreach(StateGroup, sg, &esd->state_groups) {
 		da_foreach(size_t, sid, &sg->states_ids) {
 			State *s = &esd->states.items[*sid];
@@ -4229,11 +4229,11 @@ void write_esd(String_Builder *sb, ESD *esd) {
 				da_foreach(size_t, scid, &cond->sub_conditions_ids) {
 					size_t *offset = ht_find(&esd->dict_cond, *scid);
 					assert(offset);
-					Pair key1 = {*scid, *cid};
-					size_t *found = ht_find(&same_cid_scid, key1);
+					Pair key = {*scid, *cid};
+					size_t *found = ht_find(&scond_offset_offsets, key);
 					// if the cid and scid are same we skip those
 					if (found) continue;
-					*ht_put(&same_cid_scid, key1) = sb_offset(sb);
+					*ht_put(&scond_offset_offsets, key) = sb_offset(sb);
 
 					condition_offsets_offsets_count++;
 					sb_write_varint(sb, *offset);
@@ -4248,7 +4248,7 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	src = condition_offsets_offsets_count;
 	memcpy(dst, &src, size);
 
-	// back patch condition offsets offset in state header
+	// back patch condition offsets offset in state header (condition_offset_offsets)
 	for (size_t i=0; i<esd->state_groups.count; i++) {
 		StateGroup *sg = &esd->state_groups.items[i];
 		for (size_t j=0; j<sg->states_ids.count; j++) {
@@ -4269,7 +4269,7 @@ void write_esd(String_Builder *sb, ESD *esd) {
 		}
 	}
 
-	// back patch condition offsets offset in condition header
+	// back patch condition offsets offset in condition header (scond_offset_offsets)
 	for (size_t i=0; i<esd->state_groups.count; i++) {
 		StateGroup *sg = &esd->state_groups.items[i];
 		for (size_t j=0; j<sg->states_ids.count; j++) {
@@ -4284,12 +4284,12 @@ void write_esd(String_Builder *sb, ESD *esd) {
 				size_t *condition_offset = ht_find(&esd->dict_cond, cond_index);
 				assert(condition_offset);
 
-				Pair key1 = {scid, cond_index};
-				size_t *found = ht_find(&same_cid_scid, key1);
-				assert(found);
+				Pair key = {scid, cond_index};
+				size_t *offset = ht_find(&scond_offset_offsets, key);
+				assert(offset);
 
 				dst = sb_base(sb) + (*condition_offset) + offsetof(ConditionHeader, conditionOffsetsOffset);
-				memcpy(dst, found, sizeof(varint));
+				memcpy(dst, offset, sizeof(varint));
 			}
 		}
 	}
@@ -4452,7 +4452,7 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	ht_free(&while_commands_offsets);
 	ht_free(&pass_commands_offsets);
 	ht_free(&args_offsets);
-	ht_free(&same_cid_scid);
+	ht_free(&scond_offset_offsets);
 	ht_free(&condition_offset_offsets);
 	ht_free(&evaluator_offsets);
 	ht_free(&end_args_offsets);
@@ -4509,7 +4509,7 @@ int test_loading_all_esds() {
 		write_esd(&wsb, &esd);
 
 		for (size_t j=0; j<wsb.count; j++) {
-			if(wsb.items[j] != sb.items[j] && j < wsb.count - 4) asm("int3");
+			if(wsb.items[j] != sb.items[j] && j < wsb.count - 0xf - 4) asm("int3");
 		}
 		if (wsb.count != sb.count) asm("int3");
 
@@ -4529,37 +4529,10 @@ int test_loading_all_esds() {
 
 int main() {
 	int ret = 0;
-	// ret += test_loading_all_maps();
-	// ret += test_loading_all_eventlocations();
-	// ret += test_loading_all_eventparams();
-	// ret += test_loading_all_mapobjinstanceparams();
-	// ret += test_loading_all_esds();
-	String_Builder sb = {0};
-	String_Builder wsb = {0};
-	const char *path = esd_path("m10_10_00_00");
-	if (!nob_read_entire_file(path, &sb)) {
-		return 1;
-	}
-	printf("Read %zu bytes from %s\n", sb.count, path);
-	String_View sv = sb_to_sv(sb);
-
-
-	ESD esd = read_esd(sv);
-	write_esd(&wsb, &esd);
-
-	if (!nob_write_entire_file("out.esd", wsb.items, wsb.count)) return 1;
-
-	for (size_t j=0; j<wsb.count; j++) {
-		if(wsb.items[j] != sb.items[j] && j < wsb.count - 4) asm("int3");
-	}
-	if (wsb.count != sb.count) asm("int3");
-
-	// print_state_group(&esd, &esd.state_groups.items[50]);
-	// for (size_t i=0; i<esd.state_groups.count; i++) {
-	// 	print_state_group(&esd, &esd.state_groups.items[i]);
-	// }
-	// test_all_expressions(&esd);
-
-	free_esd(&esd);
+	ret += test_loading_all_maps();
+	ret += test_loading_all_eventlocations();
+	ret += test_loading_all_eventparams();
+	ret += test_loading_all_mapobjinstanceparams();
+	ret += test_loading_all_esds();
 	return ret;
 }
