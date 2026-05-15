@@ -4879,13 +4879,85 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	}
 	da_free(added_states);
 	da_foreach(StateGroup, sg, &esd->state_groups) {
-		added_states.count = 0;
 		da_foreach(size_t, sid, &sg->states_ids) {
 			State *s = &esd->states.items[*sid];
 			write_pass_commands_args(sb, esd, &end_args_offsets, s);
 		}
 	}
 
+	// back patch args offsets
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, ecid, &s->entry_commands_ids) {
+				Command *comm = &esd->commands.items[*ecid];
+				da_foreach(size_t, aid, &comm->args_ids) {
+					size_t *ao = ht_find(&args_offsets, *aid);
+					assert(ao);
+					size_t *eao = ht_find(&end_args_offsets, *aid);
+					assert(eao);
+					dst = sb_base(sb) + (*ao) + offsetof(ArgumentHeader, argOffset);
+					memcpy(dst, eao, sizeof(varint));
+				}
+			}
+		}
+	}
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			da_foreach(size_t, cid, &s->conditions_id) {
+				Condition *cond = &esd->conditions.items[*cid];
+				da_foreach(size_t, pcid, &cond->pass_commands_ids) {
+					Command *comm = &esd->commands.items[*pcid];
+					da_foreach(size_t, aid, &comm->args_ids) {
+						size_t *ao = ht_find(&args_offsets, *aid);
+						assert(ao);
+						size_t *eao = ht_find(&end_args_offsets, *aid);
+						assert(eao);
+						dst = sb_base(sb) + (*ao) + offsetof(ArgumentHeader, argOffset);
+						memcpy(dst, eao, sizeof(varint));
+					}
+				}
+			}
+		}
+	}
+
+	// write name block offset
+	dst =  sb->items + ESD_MAGIC_LENGTH + offsetof(ESD_HEADER, nameBlockOffset);
+	size = sizeof(int32_t);
+	src = sb_offset(sb);
+	memcpy(dst, &src, size);
+
+	assert(esd->name != NULL);
+	sb_pad_align(sb, sizeof(wchar_t));
+
+	// write name offset
+	dst =  sb_base(sb) + offsetof(StateGroupHeader, nameOffset);
+	size = sizeof(varint);
+	src = sb_offset(sb);
+	memcpy(dst, &src, size);
+
+	// write name
+	size_t name_length = sb->count;
+	sb_append_utf16t(sb, esd->name);
+	name_length = (sb->count - name_length)/sizeof(wchar_t);
+
+	// write name length
+	dst =  sb->items + ESD_MAGIC_LENGTH + offsetof(ESD_HEADER, nameLength);
+	size = sizeof(int32_t);
+	memcpy(dst, &name_length, size);
+	dst =  sb_base(sb) + offsetof(StateGroupHeader, nameLength);
+	memcpy(dst, &name_length, size);
+
+	// write data_size, unkOffset1 & unkOffset2
+	dst =  sb->items + ESD_MAGIC_LENGTH + offsetof(ESD_HEADER, unkOffset1);
+	size = sizeof(int32_t);
+	src = sb_offset(sb);
+	memcpy(dst, &src, size);
+	dst =  sb->items + ESD_MAGIC_LENGTH + offsetof(ESD_HEADER, unkOffset2);
+	memcpy(dst, &src, size);
+	dst =  sb->items + ESD_MAGIC_LENGTH + offsetof(ESD_HEADER, data_size);
+	memcpy(dst, &src, size);
 
 	// copy all backpatching to duplicate state
 	for (size_t i=0; i<dup_states.count; i++) {
