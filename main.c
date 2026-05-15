@@ -4286,7 +4286,7 @@ bool da_containsz(const DArrz *arr, size_t item) {
 
 // if there is assert (condition) 0x41 and 0xa1 is added to the beginning of the state
 // except if the target state has already been added
-void write_41_a1(String_Builder *sb, ESD *esd, State *s, DArrz *added_states) {
+void write_sub_cond_evaluator(String_Builder *sb, ESD *esd, State *s, DArrz *added_states, Dictzuzu *evaluator_offsets) {
 	da_foreach(size_t, cid, &s->conditions_id) {
 		Condition *assert_cond = &esd->conditions.items[*cid];
 		if (assert_cond->evaluator.count == 4) {
@@ -4297,6 +4297,7 @@ void write_41_a1(String_Builder *sb, ESD *esd, State *s, DArrz *added_states) {
 				assert(assert_cond->sub_conditions_ids.count == 1);
 				Condition *scond = &esd->conditions.items[assert_cond->sub_conditions_ids.items[0]];
 				if (da_containsz(added_states, scond->target_state_id)) continue;
+				*ht_put(evaluator_offsets, assert_cond->sub_conditions_ids.items[0]) = sb_offset(sb);
 				sb_append(sb, 0x41);
 				sb_append(sb, (char)EzFin);
 				da_append(added_states, scond->target_state_id);
@@ -4315,8 +4316,8 @@ void write_args(String_Builder *sb, ESD *esd, Dictzuzu *end_args_offsets, Comman
 	}
 }
 
-void write_entry_commands_args(String_Builder *sb, ESD *esd, Dictzuzu *end_args_offsets, State *s, DArrz *added_states) {
-	write_41_a1(sb, esd, s, added_states);
+void write_entry_commands_args(String_Builder *sb, ESD *esd, Dictzuzu *end_args_offsets, State *s, DArrz *added_states, Dictzuzu *evaluator_offsets) {
+	write_sub_cond_evaluator(sb, esd, s, added_states, evaluator_offsets);
 	da_foreach(size_t, ecid, &s->entry_commands_ids) {
 		Command *comm = &esd->commands.items[*ecid];
 		write_args(sb, esd, end_args_offsets, comm);
@@ -4794,7 +4795,7 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	}
 
 	// write evalulator from conditions
-	Dictzuzu evalulator_offsets = {0};
+	Dictzuzu evaluator_offsets = {0};
 	Evaluator *first_eval = NULL;
 	for (size_t i=0; i<esd->state_groups.count; i++) {
 		StateGroup *sg = &esd->state_groups.items[i];
@@ -4804,36 +4805,35 @@ void write_esd(String_Builder *sb, ESD *esd) {
 			for (size_t k=0; k<s->conditions_id.count; k++) {
 				size_t cond_index = s->conditions_id.items[k];
 				Condition *cond = &esd->conditions.items[cond_index];
-				if (ht_find(&evalulator_offsets, cond_index) != NULL) continue;
-				// printf("offset: %zu, sg: %zu, sid: %zu, c: %zu\n", sb_offset(sb), sg->id, s->id, cond_index);
-				*ht_put(&evalulator_offsets, cond_index) = sb_offset(sb);
+				if (ht_find(&evaluator_offsets, cond_index) != NULL) continue;
+				*ht_put(&evaluator_offsets, cond_index) = sb_offset(sb);
 				sb_append_buf(sb, cond->evaluator.items, cond->evaluator.count);
 				if (!first_eval) {
 					first_eval = &cond->evaluator;
 				}
 			}
+
 		}
 	}
-	// for (size_t i=0; i<esd->state_groups.count; i++) {
-	// 	StateGroup *sg = &esd->state_groups.items[i];
-	// 	for (size_t j=0; j<sg->states_ids.count; j++) {
-	// 		size_t state_index = sg->states_ids.items[j];
-	// 		State *s = &esd->states.items[state_index];
-	// 		for (size_t k=0; k<s->conditions_id.count; k++) {
-	// 			size_t cond_index = s->conditions_id.items[k];
-	// 			Condition *cond = &esd->conditions.items[cond_index];
-	// 			for (size_t l=0; l<cond->sub_conditions_ids.count; l++) {
-	// 				size_t scond_index = cond->sub_conditions_ids.items[l];
-	// 				Condition *scond = &esd->conditions.items[scond_index];
-	// 				if (scond->evaluator.count == 0) continue;
-	// 				if (ht_find(&evalulator_offsets, scond_index) != NULL) continue;
-	// 				// printf("offset: %zu, sg: %zu, sid: %zu, c: %zu\n", sb_offset(sb), sg->id, s->id, scond_index);
-	// 				*ht_put(&evalulator_offsets, scond_index) = sb_offset(sb);
-	// 				sb_append_buf(sb, scond->evaluator.items, scond->evaluator.count);
-	// 			}
-	// 		}
-	// 	}
-	// }
+
+	// write args
+	Dictzuzu end_args_offsets = {0};
+	DArrz added_states = {0};
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		added_states.count = 0;
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			write_entry_commands_args(sb, esd, &end_args_offsets, s, &added_states, &evaluator_offsets);
+		}
+	}
+	da_free(added_states);
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			write_pass_commands_args(sb, esd, &end_args_offsets, s);
+		}
+	}
+
 
 	// back patch evaluator offsets
 	for (size_t i=0; i<esd->state_groups.count; i++) {
@@ -4848,44 +4848,26 @@ void write_esd(String_Builder *sb, ESD *esd) {
 				size_t *condition_offset = ht_find(&esd->dict_cond, cond_index);
 				assert(condition_offset);
 				dst = sb_base(sb) + (*condition_offset) + offsetof(ConditionHeader, evaluatorOffset);
-				size_t *eval_offset = ht_find(&evalulator_offsets, cond_index);
+				size_t *eval_offset = ht_find(&evaluator_offsets, cond_index);
 				assert(eval_offset);
 				memcpy(dst, eval_offset, sizeof(varint));
-				// for (size_t l=0; l<cond->sub_conditions_ids.count; l++) {
-				// 	size_t scond_index = cond->sub_conditions_ids.items[l];
-				// 	Condition *scond = &esd->conditions.items[scond_index];
-				// 	if (scond->evaluator.count == 0) continue;
-				// 	size_t *scond_offset = ht_find(&esd->dict_cond, scond_index);
-				// 	assert(scond_offset);
-				// 	dst = sb_base(sb) + (*scond_offset) + offsetof(ConditionHeader, evaluatorOffset);
-				// 	size_t *eval_offset = ht_find(&evalulator_offsets, scond_index);
-				// 	assert(eval_offset);
-				// 	memcpy(dst, eval_offset, sizeof(varint));
-				// }
+
+				for (size_t l=0; l<cond->sub_conditions_ids.count; l++) {
+					size_t scond_index = cond->sub_conditions_ids.items[l];
+					Condition *scond = &esd->conditions.items[scond_index];
+					if (scond->evaluator.count == 0) continue;
+					size_t *scond_offset = ht_find(&esd->dict_cond, scond_index);
+					assert(scond_offset);
+					dst = sb_base(sb) + (*scond_offset) + offsetof(ConditionHeader, evaluatorOffset);
+					size_t *eval_offset = ht_find(&evaluator_offsets, scond_index);
+					assert(eval_offset);
+					memcpy(dst, eval_offset, sizeof(varint));
+				}
 			}
 		}
 	}
 
-
-	// write args
-	Dictzuzu end_args_offsets = {0};
-	DArrz added_states = {0};
-	da_foreach(StateGroup, sg, &esd->state_groups) {
-		added_states.count = 0;
-		da_foreach(size_t, sid, &sg->states_ids) {
-			State *s = &esd->states.items[*sid];
-			write_entry_commands_args(sb, esd, &end_args_offsets, s, &added_states);
-		}
-	}
-	da_free(added_states);
-	da_foreach(StateGroup, sg, &esd->state_groups) {
-		da_foreach(size_t, sid, &sg->states_ids) {
-			State *s = &esd->states.items[*sid];
-			write_pass_commands_args(sb, esd, &end_args_offsets, s);
-		}
-	}
-
-	// back patch args offsets
+	// back patch arg offsets
 	da_foreach(StateGroup, sg, &esd->state_groups) {
 		da_foreach(size_t, sid, &sg->states_ids) {
 			State *s = &esd->states.items[*sid];
@@ -4900,11 +4882,6 @@ void write_esd(String_Builder *sb, ESD *esd) {
 					memcpy(dst, eao, sizeof(varint));
 				}
 			}
-		}
-	}
-	da_foreach(StateGroup, sg, &esd->state_groups) {
-		da_foreach(size_t, sid, &sg->states_ids) {
-			State *s = &esd->states.items[*sid];
 			da_foreach(size_t, cid, &s->conditions_id) {
 				Condition *cond = &esd->conditions.items[*cid];
 				da_foreach(size_t, pcid, &cond->pass_commands_ids) {
@@ -4959,6 +4936,8 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	dst =  sb->items + ESD_MAGIC_LENGTH + offsetof(ESD_HEADER, data_size);
 	memcpy(dst, &src, size);
 
+	sb_pad_align(sb, 0x10);
+
 	// copy all backpatching to duplicate state
 	for (size_t i=0; i<dup_states.count; i++) {
 		Pair *p = &dup_states.items[i];
@@ -4976,7 +4955,7 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	ht_free(&args_offsets);
 	ht_free(&same_cid_scid);
 	ht_free(&condition_offset_offsets);
-	ht_free(&evalulator_offsets);
+	ht_free(&evaluator_offsets);
 	ht_free(&end_args_offsets);
 }
 
