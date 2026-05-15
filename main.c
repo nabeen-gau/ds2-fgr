@@ -3250,7 +3250,6 @@ typedef struct {
 
 	Dictlldz dict_cond; // [varint (offset), size_t (index)]
 	Dictlldz dict_state; // [varint (offset), size_t (index)]
-	size_t duplicate_states_count;
 } ESD;
 
 void print_condition(const Condition *c, Expression *e) {
@@ -3799,9 +3798,10 @@ void write_sub_cond_evaluator(String_Builder *sb, ESD *esd, State *s, DArrz *add
 				assert(assert_cond->sub_conditions_ids.count == 1);
 				Condition *scond = &esd->conditions.items[assert_cond->sub_conditions_ids.items[0]];
 				if (da_containsz(added_states, scond->target_state_id)) continue;
+				size_t *offs = ht_find(evaluator_offsets, assert_cond->sub_conditions_ids.items[0]);
+				if (offs) continue;
 				*ht_put(evaluator_offsets, assert_cond->sub_conditions_ids.items[0]) = sb_offset(sb);
-				sb_append(sb, 0x41);
-				sb_append(sb, (char)EzFin);
+				sb_append_buf(sb, scond->evaluator.items, scond->evaluator.count);
 				da_append(added_states, scond->target_state_id);
 			}
 		}
@@ -4461,12 +4461,81 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	da_free(added_states);
 }
 
+int test_loading_all_esds() {
+	const char *paths[] = {
+		esd_path("m10_02_00_00"),
+		esd_path("m10_04_00_00"),
+		esd_path("m10_10_00_00"),
+		esd_path("m10_14_00_00"),
+		esd_path("m10_15_00_00"),
+		esd_path("m10_16_00_00"),
+		esd_path("m10_17_00_00"),
+		esd_path("m10_18_00_00"),
+		esd_path("m10_19_00_00"),
+		esd_path("m10_23_00_00"),
+		esd_path("m10_25_00_00"),
+		esd_path("m10_27_00_00"),
+		esd_path("m10_29_00_00"),
+		esd_path("m10_30_00_00"),
+		esd_path("m10_31_00_00"),
+		esd_path("m10_32_00_00"),
+		esd_path("m10_33_00_00"),
+		esd_path("m10_34_00_00"),
+		esd_path("m20_10_00_00"),
+		esd_path("m20_11_00_00"),
+		esd_path("m20_21_00_00"),
+		esd_path("m20_24_00_00"),
+		esd_path("m20_26_00_00"),
+		esd_path("m40_03_00_00"),
+		esd_path("m50_35_00_00"),
+		esd_path("m50_36_00_00"),
+		esd_path("m50_37_00_00"),
+		esd_path("m50_38_00_00"),
+	};
+
+	String_Builder sb = {0};
+	String_Builder wsb = {0};
+	for (size_t i=0; i<ARRAY_LEN(paths); i++) {
+		sb.count = 0;
+		wsb.count = 0;
+
+		const char *path = paths[i];
+		if (!nob_read_entire_file(path, &sb)) {
+			return 1;
+		}
+		printf("Read %zu bytes from %s\n", sb.count, path);
+		String_View sv = sb_to_sv(sb);
+
+
+		ESD esd = read_esd(sv);
+		write_esd(&wsb, &esd);
+
+		for (size_t j=0; j<wsb.count; j++) {
+			if(wsb.items[j] != sb.items[j] && j < wsb.count - 4) asm("int3");
+		}
+		if (wsb.count != sb.count) asm("int3");
+
+		// print_state_group(&esd, &esd.state_groups.items[50]);
+		// for (size_t i=0; i<esd.state_groups.count; i++) {
+		// 	print_state_group(&esd, &esd.state_groups.items[i]);
+		// }
+		// test_all_expressions(&esd);
+
+		free_esd(&esd);
+	}
+	da_free(sb);
+	da_free(wsb);
+
+	return 0;
+}
+
 int main() {
 	int ret = 0;
 	// ret += test_loading_all_maps();
 	// ret += test_loading_all_eventlocations();
 	// ret += test_loading_all_eventparams();
 	// ret += test_loading_all_mapobjinstanceparams();
+	// ret += test_loading_all_esds();
 	String_Builder sb = {0};
 	String_Builder wsb = {0};
 	const char *path = esd_path("m10_02_00_00");
@@ -4476,35 +4545,23 @@ int main() {
 	printf("Read %zu bytes from %s\n", sb.count, path);
 	String_View sv = sb_to_sv(sb);
 
-	ESD esd = read_esd(sv);
 
+	ESD esd = read_esd(sv);
 	write_esd(&wsb, &esd);
-	if (!write_entire_file("out.esd", wsb.items, wsb.count)) return 1;
+
+	if (!nob_write_entire_file("out.esd", wsb.items, wsb.count)) return 1;
+
+	for (size_t j=0; j<wsb.count; j++) {
+		if(wsb.items[j] != sb.items[j] && j < wsb.count - 4) asm("int3");
+	}
+	if (wsb.count != sb.count) asm("int3");
 
 	// print_state_group(&esd, &esd.state_groups.items[50]);
 	// for (size_t i=0; i<esd.state_groups.count; i++) {
 	// 	print_state_group(&esd, &esd.state_groups.items[i]);
 	// }
-
 	// test_all_expressions(&esd);
-	// write_esd_old(&wsb, &esd);
-	// if (!write_entire_file("out.esd", wsb.items, wsb.count)) return 1;
-
-	// String_View wsv = sb_to_sv(sb);
-	// ESD wesd = read_esd(wsv);
-	// free_esd(&wesd);
-	//
-	// for (size_t i=0; i<wsb.count; i++) {
-	// 	if (sb.items[i] != wsb.items[i]) asm("int3");
-	// }
 
 	free_esd(&esd);
-	da_free(sb);
-	da_free(wsb);
-	// asm("int3");
 	return ret;
 }
-
-// incorrect
-// data_size -> will be correct if others will be correct
-// conditionOffsetsOffset - ^
