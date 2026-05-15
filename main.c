@@ -3772,11 +3772,6 @@ void write_condition(String_Builder *sb, ESD *esd, Dictstrzu *res, const Conditi
 }
 
 typedef struct {
-	varint start;
-	varint end;
-} PairVarint;
-
-typedef struct {
 	size_t from;
 	size_t to;
 } Pair;
@@ -4310,31 +4305,31 @@ void write_41_a1(String_Builder *sb, ESD *esd, State *s, DArrz *added_states) {
 	}
 }
 
-void write_cond_args(String_Builder *sb, ESD *esd, Dictzuzu *end_args_offsets, Condition *cond) {
-	da_foreach(size_t, scid, &cond->sub_conditions_ids) {
-		Condition *scond = &esd->conditions.items[*scid];
-		write_cond_args(sb, esd, end_args_offsets, scond);
+void write_args(String_Builder *sb, ESD *esd, Dictzuzu *end_args_offsets, Command *comm) {
+	for (size_t i=0; i<comm->args_ids.count; i++) {
+		size_t aid = comm->args_ids.items[i];
+		Arg *arg = &esd->args.items[aid];
+		if (ht_find(end_args_offsets, aid) != NULL) continue;
+		*ht_put(end_args_offsets, aid) = sb_offset(sb);
+		sb_append_buf(sb, arg->items, arg->count);
 	}
 }
 
-void write_args(String_Builder *sb, ESD *esd, Dictzuzu *end_args_offsets, State *s, DArrz *added_states) {
-	PairVarint out = {.start = -1, .end = -1};
+void write_entry_commands_args(String_Builder *sb, ESD *esd, Dictzuzu *end_args_offsets, State *s, DArrz *added_states) {
 	write_41_a1(sb, esd, s, added_states);
 	da_foreach(size_t, ecid, &s->entry_commands_ids) {
 		Command *comm = &esd->commands.items[*ecid];
-		for (size_t i=0; i<comm->args_ids.count; i++) {
-			if (i == 1) out.start = sb->count;
-			size_t aid = comm->args_ids.items[i];
-			Arg *arg = &esd->args.items[aid];
-			if (ht_find(end_args_offsets, aid) != NULL) continue;
-			*ht_put(end_args_offsets, aid) = sb_offset(sb);
-			sb_append_buf(sb, arg->items, arg->count);
-			if (i == comm->args_ids.count - 1) out.end = sb->count;
-		}
+		write_args(sb, esd, end_args_offsets, comm);
 	}
+}
+
+void write_pass_commands_args(String_Builder *sb, ESD *esd, Dictzuzu *end_args_offsets, State *s) {
 	da_foreach(size_t, cid, &s->conditions_id) {
 		Condition *cond = &esd->conditions.items[*cid];
-		write_cond_args(sb, esd, end_args_offsets, cond);
+		da_foreach(size_t, comid, &cond->pass_commands_ids) {
+			Command *comm = &esd->commands.items[*comid];
+			write_args(sb, esd, end_args_offsets, comm);
+		}
 	}
 }
 
@@ -4879,10 +4874,17 @@ void write_esd(String_Builder *sb, ESD *esd) {
 		added_states.count = 0;
 		da_foreach(size_t, sid, &sg->states_ids) {
 			State *s = &esd->states.items[*sid];
-			write_args(sb, esd, &end_args_offsets, s, &added_states);
+			write_entry_commands_args(sb, esd, &end_args_offsets, s, &added_states);
 		}
 	}
 	da_free(added_states);
+	da_foreach(StateGroup, sg, &esd->state_groups) {
+		added_states.count = 0;
+		da_foreach(size_t, sid, &sg->states_ids) {
+			State *s = &esd->states.items[*sid];
+			write_pass_commands_args(sb, esd, &end_args_offsets, s);
+		}
+	}
 
 
 	// copy all backpatching to duplicate state
