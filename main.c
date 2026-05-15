@@ -4191,7 +4191,7 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	memcpy(dst, &src, size);
 
 	// write conditions offsets
-	DictPairzu condition_offset_offsets = {0};
+	DictPairzu condition_offset_offsets = {0}; // key = (cond_index, state_id)
 	size_t condition_offsets_offsets_count = 0;
 	da_foreach(StateGroup, sg, &esd->state_groups) {
 		da_foreach(size_t, sid, &sg->states_ids) {
@@ -4220,7 +4220,7 @@ void write_esd(String_Builder *sb, ESD *esd) {
 			}
 		}
 	}
-	Dictzuzu same_cid_scid = {0};
+	DictPairzu same_cid_scid = {0};
 	da_foreach(StateGroup, sg, &esd->state_groups) {
 		da_foreach(size_t, sid, &sg->states_ids) {
 			State *s = &esd->states.items[*sid];
@@ -4229,14 +4229,12 @@ void write_esd(String_Builder *sb, ESD *esd) {
 				da_foreach(size_t, scid, &cond->sub_conditions_ids) {
 					size_t *offset = ht_find(&esd->dict_cond, *scid);
 					assert(offset);
-					size_t *found = ht_find(&same_cid_scid, (*cid)*(*scid));
+					Pair key1 = {*scid, *cid};
+					size_t *found = ht_find(&same_cid_scid, key1);
 					// if the cid and scid are same we skip those
 					if (found) continue;
-					*ht_put(&same_cid_scid, (*scid)*(*cid)) = sb_offset(sb);
+					*ht_put(&same_cid_scid, key1) = sb_offset(sb);
 
-					Pair key = {*scid, s->id};
-					// TODO: maybe check if it already exists here as well
-					*ht_put(&condition_offset_offsets, key) = sb_offset(sb);
 					condition_offsets_offsets_count++;
 					sb_write_varint(sb, *offset);
 				}
@@ -4286,12 +4284,12 @@ void write_esd(String_Builder *sb, ESD *esd) {
 				size_t *condition_offset = ht_find(&esd->dict_cond, cond_index);
 				assert(condition_offset);
 
-				Pair key = {scid, s->id};
-				size_t *condition_offset_offset = ht_find(&condition_offset_offsets, key);
-				if (condition_offset_offset == NULL) continue;
+				Pair key1 = {scid, cond_index};
+				size_t *found = ht_find(&same_cid_scid, key1);
+				assert(found);
 
 				dst = sb_base(sb) + (*condition_offset) + offsetof(ConditionHeader, conditionOffsetsOffset);
-				memcpy(dst, condition_offset_offset, sizeof(varint));
+				memcpy(dst, found, sizeof(varint));
 			}
 		}
 	}
@@ -4538,7 +4536,7 @@ int main() {
 	// ret += test_loading_all_esds();
 	String_Builder sb = {0};
 	String_Builder wsb = {0};
-	const char *path = esd_path("m10_02_00_00");
+	const char *path = esd_path("m10_10_00_00");
 	if (!nob_read_entire_file(path, &sb)) {
 		return 1;
 	}
