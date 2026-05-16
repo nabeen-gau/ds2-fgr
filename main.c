@@ -55,7 +55,7 @@ const char* map_begin = NULL;
 
 #define _read_item(type, sv)        *(type *)(sv)->data
 #define _read_item_ptr(type, sv)    (type *)(sv)->data
-#define read_item(type, sv)         _read_item(type, sv);     (sv)->data += sizeof(type)
+#define read_item(type, sv)         _read_item(type, sv);     (sv)->data += sizeof(type); (sv)->count -= sizeof(type);
 #define read_item_ptr(type, sv, n)  _read_item_ptr(type, sv); (sv)->data += sizeof(type)*(n)
 
 #define assert_val_ret(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); return false;}
@@ -2210,6 +2210,12 @@ typedef packed_struct {
 	uint32_t Unk10;
 	int32_t ItemlotID;
 } MapObjectInstancePARAMDEF;
+
+typedef packed_struct {
+	int32_t unk00;
+	float entry_delay;
+	int32_t unk01, unk02, key_guide_id_1, key_guide_id_2, unk04, unk05;
+} MapObjectWhiteDoorParamPARAMDEF;
 
 typedef enum {
 	Cell_EventLoc,
@@ -4561,6 +4567,25 @@ typedef struct {
 	size_t length;
 } BinaryReader;
 
+BinaryReader sb_to_br(String_Builder sb) {
+	return (BinaryReader) {
+		.data = (void *)sb.items,
+		.length = sb.count,
+		.position = 0
+	};
+}
+
+#define br_read(br, type) *(type *)((br)->data + (br)->position); (br)->position += sizeof(type);
+#define br_head(br) (void *)((br)->data + (br)->position)
+#define br_rem_bytes(br) (br)->length - (br)->position
+#define br_at(br, offset) (void *)((br)->data + offset)
+#define br_assert(br, type, value) \
+	do {\
+		type __i__ = br_read((br), type);\
+		assert(__i__ == (value));\
+	} while (0)
+
+
 // initialize the dst before passsing here
 bool inflate_zlib(String_View src, String_Builder *dst) {
     z_stream stream = {0};
@@ -4603,8 +4628,8 @@ typedef struct {
 } DCX;
 
 #define UNCOMPRESSED_SIZE 1024*1024
-DCX decompress_dcx(String_View br) {
-	DCX_Header header = *(DCX_Header *)br.data;
+DCX decompress_dcx(BinaryReader br) {
+	DCX_Header header = br_read(&br, DCX_Header);
 	assert(strcmp(header.magic, "DCX") == 0);
 	assert(header.unk04 == big_end_s32(0x10000));
 	assert(header.unk08 == big_end_s32(0x18));
@@ -4629,8 +4654,8 @@ DCX decompress_dcx(String_View br) {
 	// assert(header.unk4c == 0x78);
 	// assert(header.unk4d == 0x01 || header.unk4d == 0x5e || header.unk4d == 0x9c || header.unk4d == 0xda);
 	String_View compressed = {0};
-	compressed.data = br.data + sizeof(DCX_Header);
-	compressed.count = br.count - sizeof(DCX_Header);
+	compressed.data = br_head(&br);
+	compressed.count = br_rem_bytes(&br);
 
 	String_Builder sb = {0};
 	da_init(&sb, UNCOMPRESSED_SIZE);
@@ -4641,6 +4666,199 @@ DCX decompress_dcx(String_View br) {
 	};
 }
 
+void free_dcx(DCX *dcx) {
+	da_free(dcx->data);
+}
+
+typedef enum {
+	BND_Fmt_None = 0,
+	BND_Fmt_BigEndian = 1,
+	BND_Fmt_IDs = 1<<1,
+	BND_Fmt_Names1 = 1<<2,
+	BND_Fmt_Names2 = 1<<3,
+	BND_Fmt_LongOffsets = 1<<4,
+	BND_Fmt_Compression = 1<<5,
+	BND_Fmt_Flag6 = 1<<6,
+	BND_Fmt_Flag7 = 1<<7,
+} BND4Format;
+
+typedef enum {
+	None = 0,
+	BND4_File_Compressed = 1<<0,
+	BND4_File_Flag1 = 1<<1,
+	BND4_File_Flag2 = 1<<2,
+	BND4_File_Flag3 = 1<<3,
+	BND4_File_Flag4 = 1<<4,
+	BND4_File_Flag5 = 1<<5,
+	BND4_File_Flag6 = 1<<6,
+	BND4_File_Flag7 = 1<<7,
+} BND4FileFlags;
+
+uint8_t reverse_bits_8(uint8_t b) {
+    uint8_t result = 0;
+    for (int i = 0; i < 8; i++) {
+        result = (result << 1) | (b & 1);
+        b >>= 1;
+    }
+    return result;
+}
+
+long get_bnd4_file_header_size(BND4Format format) {
+	return 0x10 \
+		+ (((format & BND_Fmt_LongOffsets) != 0) ? 8: 4) \
+		+ (((format & BND_Fmt_Compression) != 0) ? 8: 0) \
+		+ (((format & BND_Fmt_IDs) != 0) ? 4: 0) \
+		+ (((format & (BND_Fmt_Names1 | BND_Fmt_Names2)) != 0) ? 4: 0) \
+		+ ((format == BND_Fmt_Names1) ? 8: 0);
+
+}
+
+typedef packed_struct {
+	char magic[4]; // BND4
+	bool unk04;
+	bool unk05;
+	byte unk06; // 0
+	byte unk07; // 0
+	byte unk08; // 0
+	bool big_endian;
+	bool bit_big_endian;
+	byte unk11; // 0
+	int32_t file_count;
+	int64_t header_size; // 0x40
+	char version[8];
+	int64_t file_header_size;
+	int64_t header_end;
+	bool unicode;
+	byte format;
+	byte extended; // 0 || 1 || 4 || 0x80
+	uint8_t unk51; // 0
+	int32_t unk52; // 0
+	int64_t unk56; // 0
+} BND4_Header;
+
+BND4_Header read_bnd4_header(BinaryReader *br) {
+	BND4_Header header = br_read(br, BND4_Header);
+	header.bit_big_endian = !header.bit_big_endian;
+	if (!(header.bit_big_endian || (((header.format & 1) != 0) && ((header.format & 1<<7) == 0)))) {
+		header.format = reverse_bits_8(header.format);
+	}
+	return header;
+}
+
+typedef packed_struct {
+	byte file_flags;
+	uint8_t unk01; // 0
+	uint8_t unk02; // 0
+	uint8_t unk03; // 0
+	int32_t unk04; // -1
+	int64_t compressed_size;
+} BND4_FileHeaderInfo;
+
+typedef struct {
+	BND4_FileHeaderInfo info;
+	int64_t uncompressed_size;
+	bool has_long_offsets;
+	int64_t data_offset;
+	int32_t id;
+	const unsigned char *name;
+} BinderFileHeader;
+
+DA(BinderFileHeader, BinderFileHeaders);
+
+typedef struct {
+	uint8_t *bytes;
+	size_t count;
+
+	byte flags;
+	int32_t id;
+	const unsigned char *name;
+} BinderFile;
+DA(BinderFile, BinderFiles);
+
+typedef struct {
+	BND4_Header header;
+	BinderFileHeaders file_headers;
+	BinderFiles files;
+} BND4;
+
+void free_bnd4(BND4 *bnd4) {
+	da_free(bnd4->file_headers);
+	da_free(bnd4->files);
+}
+
+BinderFileHeader read_bnd4_file_header(const BND4_Header *bnd_info, BinaryReader *br) {
+	BND4_FileHeaderInfo info = br_read(br, BND4_FileHeaderInfo);
+	if (!bnd_info->bit_big_endian) {
+		info.file_flags = reverse_bits_8(info.file_flags);
+	}
+	bool has_compression = ((bnd_info->format & BND_Fmt_Compression) != 0);
+	assert(!has_compression);
+
+	BinderFileHeader header = {0};
+	header.uncompressed_size = -1;
+	header.info = info;
+	if ((bnd_info->format & BND_Fmt_LongOffsets) != 0) {
+		header.has_long_offsets = true;
+		header.data_offset = br_read(br, int64_t);
+	} else {
+		header.has_long_offsets = false;
+		header.data_offset = br_read(br, int32_t);
+	}
+
+	if ((bnd_info->format & BND_Fmt_IDs) != 0) {
+		header.id = br_read(br, int32_t);
+	} else {
+		header.id = -1;
+	}
+
+	if ((bnd_info->format & (BND_Fmt_Names1 | BND_Fmt_Names2)) != 0) {
+		uint32_t name_offset = br_read(br, uint32_t);
+		assert(!bnd_info->unicode);
+		header.name = br_at(br, name_offset);
+	} else {
+		header.name = NULL;
+	}
+
+	if (bnd_info->format == BND_Fmt_Names1) {
+		header.id = br_read(br, int32_t);
+		br_assert(br, int32_t, 0);
+	}
+
+	return header;
+}
+
+BinderFile read_binder_file(BinaryReader *br, BinderFileHeader *header) {
+	BinderFile file = {0};
+	assert(!((header->info.file_flags & BND4_File_Compressed) != 0));
+	file.bytes = br_at(br, header->data_offset);
+	file.count = header->info.compressed_size;
+	file.flags = header->info.file_flags;
+	file.id = header->id;
+	file.name = header->name;
+	return file;
+}
+
+BND4 read_bnd4(DCX *dcx) {
+	BinaryReader br = sb_to_br(dcx->data);
+	br.length = dcx->data.count;
+	String_View sv = sb_to_sv(dcx->data);
+	assert(!is_dcx(&sv));
+	BND4 bnd4 = {0};
+	bnd4.header = read_bnd4_header(&br);
+	// printf("offset = %llu\n", offsetof(BND4_Header, unk51));
+	assert(bnd4.header.file_header_size == get_bnd4_file_header_size(bnd4.header.format));
+
+	da_init(&bnd4.file_headers, bnd4.header.file_count);
+	for (int32_t i=0; i<bnd4.header.file_count; i++) {
+		da_append(&bnd4.file_headers, read_bnd4_file_header(&bnd4.header, &br));
+	}
+	da_init(&bnd4.files, bnd4.header.file_count);
+	da_foreach(BinderFileHeader, header, &bnd4.file_headers) {
+		da_append(&bnd4.files, read_binder_file(&br, header));
+	}
+
+	return bnd4;
+}
 
 int main() {
 	int ret = 0;
@@ -4655,10 +4873,13 @@ int main() {
 		return 1;
 	}
 	printf("Read %zu bytes from %s\n", sb.count, path);
-	String_View sv = sb_to_sv(sb);
+	BinaryReader br = sb_to_br(sb);
 
-	DCX dcx = decompress_dcx(sv);
+	DCX dcx = decompress_dcx(br);
+	BND4 bnd4 = read_bnd4(&dcx);
 
+	free_bnd4(&bnd4);
+	free_dcx(&dcx);
 	da_free(sb);
 	return ret;
 }
