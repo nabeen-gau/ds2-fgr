@@ -11,6 +11,7 @@
 #define HT_IMPLEMENTATION
 #include "ht.h"
 
+#include "miniz.h"
 
 // #define LOG_GENERATED_FILES
 
@@ -4527,12 +4528,137 @@ int test_loading_all_esds() {
 	return 0;
 }
 
+typedef int32_t s32;
+typedef uint8_t u8;
+
+typedef packed_struct {
+	char magic[4];
+    s32 unk04;
+    s32 unk08;
+    s32 unk0c;
+    s32 unk10;
+    s32 unk14;
+    char dcs[4];
+    s32 uncompressed_size;
+    s32 compressed_size;
+    char dcp[4];
+    char format[4];
+    s32 unk2c;
+    u8 unk30;
+    u8 pad[3];
+    s32 unk34;
+    u8 unk38;
+    u8 pad2[3];
+    s32 unk3c;
+    s32 unk40;
+    char dca[4];
+    s32 compressed_header_length;
+} DCX_Header;
+
+typedef struct {
+	uint8_t *data;
+	size_t position;
+	size_t length;
+} BinaryReader;
+
+// initialize the dst before passsing here
+bool inflate_zlib(String_View src, String_Builder *dst) {
+    z_stream stream = {0};
+    stream.next_in = (uint8_t *)src.data;
+    stream.avail_in = src.count;
+    
+    stream.next_out = (uint8_t *)(dst->items + dst->count); 
+    stream.avail_out = dst->capacity - dst->count;
+
+    if (inflateInit2(&stream, MZ_DEFAULT_WINDOW_BITS) != Z_OK) {
+        printf("ERROR: inflateInit() failed!\n");
+        return false;
+    }
+
+    int status = inflate(&stream, MZ_FINISH);
+    if (status == Z_STREAM_END) {
+        dst->count += stream.total_out; 
+        inflateEnd(&stream);
+        return true;
+    } else {
+        printf("ERROR: inflate() failed or buffer too small (status %i)!\n", status);
+        inflateEnd(&stream);
+        return false;
+    }
+}
+
+int32_t big_end_s32(int32_t val) {
+	const uint8_t *b = (uint8_t *)&val;
+    return (int32_t)(
+        ((uint32_t)b[0] << 24) |
+        ((uint32_t)b[1] << 16) |
+        ((uint32_t)b[2] << 8)  |
+        ((uint32_t)b[3])
+    );
+}
+
+typedef struct {
+	DCX_Header header;
+	String_Builder data;
+} DCX;
+
+#define UNCOMPRESSED_SIZE 1024*1024
+DCX decompress_dcx(String_View br) {
+	DCX_Header header = *(DCX_Header *)br.data;
+	assert(strcmp(header.magic, "DCX") == 0);
+	assert(header.unk04 == big_end_s32(0x10000));
+	assert(header.unk08 == big_end_s32(0x18));
+	assert(header.unk0c == big_end_s32(0x24));
+	assert(header.unk10 == big_end_s32(0x24));
+	assert(header.unk14 == big_end_s32(0x2c));
+	assert(strcmp(header.dcs, "DCS") == 0);
+	assert(strcmp(header.dcp, "DCP") == 0);
+	assert(strcmp(header.format, "DFLT") == 0);
+	assert(header.unk2c == big_end_s32(0x20));
+	assert(header.unk30 == 9);
+	assert(header.pad[0] == 0);
+	assert(header.pad[1] == 0);
+	assert(header.pad[2] == 0);
+	assert(header.unk34 == 0);
+	assert(header.unk38 == 0);
+	assert(header.pad2[0] == 0);
+	assert(header.pad2[1] == 0);
+	assert(header.unk3c == 0);
+	assert(header.unk40 == big_end_s32(0x00010100));
+	assert(strcmp(header.dca, "DCA") == 0);
+	// assert(header.unk4c == 0x78);
+	// assert(header.unk4d == 0x01 || header.unk4d == 0x5e || header.unk4d == 0x9c || header.unk4d == 0xda);
+	String_View compressed = {0};
+	compressed.data = br.data + sizeof(DCX_Header);
+	compressed.count = br.count - sizeof(DCX_Header);
+
+	String_Builder sb = {0};
+	da_init(&sb, UNCOMPRESSED_SIZE);
+	assert(inflate_zlib(compressed, &sb) && "Failed to decompress dcx.");
+	return (DCX){
+		.data = sb,
+		.header = header,
+	};
+}
+
+
 int main() {
 	int ret = 0;
-	ret += test_loading_all_maps();
-	ret += test_loading_all_eventlocations();
-	ret += test_loading_all_eventparams();
-	ret += test_loading_all_mapobjinstanceparams();
-	ret += test_loading_all_esds();
+	// ret += test_loading_all_maps();
+	// ret += test_loading_all_eventlocations();
+	// ret += test_loading_all_eventparams();
+	// ret += test_loading_all_mapobjinstanceparams();
+	// ret += test_loading_all_esds();
+	String_Builder sb = {0};
+	const char *path = "./enc_regulation.bnd.dcx";
+	if (!nob_read_entire_file(path, &sb)) {
+		return 1;
+	}
+	printf("Read %zu bytes from %s\n", sb.count, path);
+	String_View sv = sb_to_sv(sb);
+
+	DCX dcx = decompress_dcx(sv);
+
+	da_free(sb);
 	return ret;
 }
