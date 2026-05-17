@@ -5146,6 +5146,7 @@ int test_loading_enc_reg() {
 #define WHITE_DOOR_PARAM_NAME "MapObjectWhiteDoorParam.param"
 
 bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path) {
+	printf("[DISABLING-FOG-GATES]\n");
 	String_Builder sb = {0};
 	if (!nob_read_entire_file(input_path, &sb)) {
 		return false;
@@ -5230,6 +5231,7 @@ bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path
 	free_bnd4(&bnd4);
 	da_free(bnd4_sb);
 	da_free(wsb);
+	printf("\n");
 	return true;
 }
 
@@ -5304,8 +5306,9 @@ void write_fmg(String_Builder *sb, FMG *fmg) {
 	size_t group_count_offset = sb->count;
 	sb_reserve(sb, sizeof(int32_t)); // group_count
 	sb_write_int32t(sb, fmg->entries.count);
+	size_t string_offsets_offset = sb->count;
 	sb_reserve(sb, sizeof(int32_t)); // string_offsets_offset
-	sb_append(sb, 0);
+	sb_write_int32t(sb, 0);
 	int32_t group_count = 0;
 	for (size_t i=0; i<fmg->entries.count; i++) {
 		sb_write_int32t(sb, i);
@@ -5316,49 +5319,69 @@ void write_fmg(String_Builder *sb, FMG *fmg) {
 		group_count++;
 	}
 	sb_patch_int32t(sb, group_count_offset, group_count);
-	sb_patch_int32t(sb, sb->count, group_count_offset);
+	sb_patch_int32t(sb, string_offsets_offset, sb->count);
 	DArrz offsets = {0};
 	for (size_t i=0; i<fmg->entries.count; i++) {
 		da_append(&offsets, sb->count);
 		sb_reserve(sb, sizeof(int32_t));
 	}
 	for (size_t i=0; i<fmg->entries.count; i++) {
-		sb_patch_int32t(sb, sb->count, offsets.items[i]);
 		FMG_Entry *entry = &fmg->entries.items[i];
-		if (entry->text) sb_append_utf16t(sb, entry->text);
+		if (entry->text) {
+			sb_patch_int32t(sb, offsets.items[i], sb->count);
+			sb_append_utf16t(sb, entry->text);
+		} else {
+			sb_patch_int32t(sb, offsets.items[i], 0);
+		}
 	}
-	sb_patch_int32t(sb, sb->count, file_size_offset);
+	sb_pad_align(sb, 0x10);
+	sb_patch_int32t(sb, file_size_offset, sb->count);
 	da_free(offsets);
 }
 
-#define OUT_FOLDER_PATH "output/"
+#define PIRATE_SHIP_ARRIVAL_MSG L"Ghost ship in No Mans Wharf not docked"
 
-int randomize_fog_gates() {
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
-	if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
-	return 0;
-}
-
-int main() {
-	const char *path = "./menu/text/english/mapevent.fmg";
+bool add_pirate_ship_msg_to_game_files(const char *input_path, const char *output_path, int *msg_id) {
+	printf("[ADDING-CUSTOM-MSGS]\n");
 	String_Builder sb = {0};
-	if (!nob_read_entire_file(path, &sb)) {
-		return 1;
+	if (!nob_read_entire_file(input_path, &sb)) {
+		return false;
 	}
-	printf("[Read] %s: %zu bytes\n", path, sb.count);
+	printf("[Read] %s: %zu bytes\n", input_path, sb.count);
 	BinaryReader br = sb_to_br(sb);
 	FMG fmg = read_fmg(&br);
+	da_foreach(FMG_Entry, entry, &fmg.entries) {
+		if (entry->text == NULL) {
+			entry->text = PIRATE_SHIP_ARRIVAL_MSG;
+			*msg_id = entry->id;
+			break;
+		}
+	}
 
 	String_Builder wsb = {0};
 	write_fmg(&wsb, &fmg);
 
-	const char *output_path = OUT_FOLDER_PATH"./menu/text/english/mapevent.fmg";
-
-	if (!write_entire_file(output_path, sb.items, sb.count)) return 1;
+	if (!write_entire_file(output_path, wsb.items, wsb.count)) return 1;
 	printf("[Generated] %s\n", output_path);
 
 	free_fmg(&fmg);
 	da_free(sb);
 	da_free(wsb);
+	printf("\n");
+	return true;
+}
+
+#define OUT_FOLDER_PATH "output/"
+#define MAP_EVENT_TEXT_LOCATION "menu/text/english/mapevent.fmg"
+
+int randomize_fog_gates() {
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
+	if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
+	int ship_arrival_msg_id = -1;
+	if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
 	return 0;
+}
+
+int main() {
+	return randomize_fog_gates();
 }
