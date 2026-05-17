@@ -5290,6 +5290,47 @@ FMG read_fmg(BinaryReader *br) {
 	return fmg;
 }
 
+void write_fmg(String_Builder *sb, FMG *fmg) {
+	sb_append(sb, 0);
+	sb_append(sb, fmg->big_endian);
+	sb_append(sb, fmg->version);
+	sb_append(sb, 0);
+	size_t file_size_offset = sb->count;
+	sb_reserve(sb, sizeof(int32_t)); // file_size
+	sb_append(sb, 1);
+	sb_append(sb, 0);
+	sb_append(sb, 0);
+	sb_append(sb, 0);
+	size_t group_count_offset = sb->count;
+	sb_reserve(sb, sizeof(int32_t)); // group_count
+	sb_write_int32t(sb, fmg->entries.count);
+	sb_reserve(sb, sizeof(int32_t)); // string_offsets_offset
+	sb_append(sb, 0);
+	int32_t group_count = 0;
+	for (size_t i=0; i<fmg->entries.count; i++) {
+		sb_write_int32t(sb, i);
+		sb_write_int32t(sb, fmg->entries.items[i].id);
+		while (i < fmg->entries.count - 1 && fmg->entries.items[i + 1].id == fmg->entries.items[i].id + 1)
+			i++;
+		sb_write_int32t(sb, fmg->entries.items[i].id);
+		group_count++;
+	}
+	sb_patch_int32t(sb, group_count_offset, group_count);
+	sb_patch_int32t(sb, sb->count, group_count_offset);
+	DArrz offsets = {0};
+	for (size_t i=0; i<fmg->entries.count; i++) {
+		da_append(&offsets, sb->count);
+		sb_reserve(sb, sizeof(int32_t));
+	}
+	for (size_t i=0; i<fmg->entries.count; i++) {
+		sb_patch_int32t(sb, sb->count, offsets.items[i]);
+		FMG_Entry *entry = &fmg->entries.items[i];
+		if (entry->text) sb_append_utf16t(sb, entry->text);
+	}
+	sb_patch_int32t(sb, sb->count, file_size_offset);
+	da_free(offsets);
+}
+
 #define OUT_FOLDER_PATH "output/"
 
 int randomize_fog_gates() {
@@ -5307,6 +5348,17 @@ int main() {
 	printf("[Read] %s: %zu bytes\n", path, sb.count);
 	BinaryReader br = sb_to_br(sb);
 	FMG fmg = read_fmg(&br);
+
+	String_Builder wsb = {0};
+	write_fmg(&wsb, &fmg);
+
+	const char *output_path = OUT_FOLDER_PATH"./menu/text/english/mapevent.fmg";
+
+	if (!write_entire_file(output_path, sb.items, sb.count)) return 1;
+	printf("[Generated] %s\n", output_path);
+
 	free_fmg(&fmg);
+	da_free(sb);
+	da_free(wsb);
 	return 0;
 }
