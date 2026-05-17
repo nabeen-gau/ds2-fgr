@@ -5233,6 +5233,63 @@ bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path
 	return true;
 }
 
+typedef struct {
+	int id;
+	wchar_t *text;
+} FMG_Entry;
+
+DA(FMG_Entry, FMG_Entries);
+
+typedef struct {
+	FMG_Entries entries;
+	bool big_endian;
+	uint8_t version;
+} FMG;
+
+void free_fmg(FMG *fmg) {
+	da_free(fmg->entries);
+}
+
+FMG read_fmg(BinaryReader *br) {
+	FMG fmg = {0};
+	br_assert(br, byte, 0);
+	fmg.big_endian = br_read(br, byte);
+	assert(!fmg.big_endian);
+	fmg.version = br_read(br, byte);
+	assert(fmg.version == 1);
+	br_assert(br, byte, 0);
+	int32_t file_size = br_read(br, int32_t);
+	UNUSED(file_size);
+	br_assert(br, byte, 1);
+	br_assert(br, byte, 0);
+	br_assert(br, byte, 0);
+	br_assert(br, byte, 0);
+	int32_t group_count = br_read(br, int32_t);
+	int32_t string_count = br_read(br, int32_t);
+	int32_t string_offsets_offset = br_read(br, int32_t);
+	br_assert(br, int32_t, 0);
+	da_init(&fmg.entries, string_count);
+	for (int32_t i=0; i<group_count; i++) {
+		int32_t offset_index = br_read(br, int32_t);
+		int32_t first_id = br_read(br, int32_t);
+		int32_t last_id = br_read(br, int32_t);
+
+		size_t position = br->position; {
+			br->position = string_offsets_offset + offset_index*4;
+			for (int32_t j=0; j<last_id-first_id+1; j++) {
+				int32_t string_offset = br_read(br, int32_t);
+				FMG_Entry entry = {
+					.id = first_id + j,
+					.text = string_offset != 0 ? br_at(br, string_offset) : NULL,
+				};
+				da_append(&fmg.entries, entry);
+
+			}
+		} br->position = position;
+	}
+	return fmg;
+}
+
 #define OUT_FOLDER_PATH "output/"
 
 int randomize_fog_gates() {
@@ -5242,5 +5299,14 @@ int randomize_fog_gates() {
 }
 
 int main() {
+	const char *path = "./menu/text/english/mapevent.fmg";
+	String_Builder sb = {0};
+	if (!nob_read_entire_file(path, &sb)) {
+		return 1;
+	}
+	printf("[Read] %s: %zu bytes\n", path, sb.count);
+	BinaryReader br = sb_to_br(sb);
+	FMG fmg = read_fmg(&br);
+	free_fmg(&fmg);
 	return 0;
 }
