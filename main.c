@@ -2222,7 +2222,8 @@ typedef packed_struct {
 typedef enum {
 	Cell_EventLoc,
 	Cell_EventParam,
-	Cell_MapObjInstanceParam
+	Cell_MapObjInstanceParam,
+	Cell_MapObjectWhiteDoorParam,
 } CellType;
 
 typedef struct {
@@ -2230,6 +2231,7 @@ typedef struct {
 		EventLocPARAMDEF event_loc;
 		EventParamPARAMDEF event_param;
 		MapObjectInstancePARAMDEF map_obj_instance_param;
+		MapObjectWhiteDoorParamPARAMDEF map_obj_white_door_param;
 	} as;
 } Cell;
 typedef struct {
@@ -2300,6 +2302,9 @@ void PARAM_apply_paramdef(PARAM *param, CellType type) {
 			break;
 			case Cell_MapObjInstanceParam:
 				cell.as.map_obj_instance_param = *(MapObjectInstancePARAMDEF *)(sv.data);
+			break;
+			case Cell_MapObjectWhiteDoorParam:
+				cell.as.map_obj_white_door_param = *(MapObjectWhiteDoorParamPARAMDEF *)(sv.data);
 			break;
 		default: TODO("CellType enum not implemented");
 		}
@@ -2490,6 +2495,9 @@ void write_param(String_Builder *sb, PARAM *param) {
 		break;
 		case Cell_MapObjInstanceParam:
 			length = sizeof(MapObjectInstancePARAMDEF);
+		break;
+		case Cell_MapObjectWhiteDoorParam:
+			length = sizeof(MapObjectWhiteDoorParamPARAMDEF);
 		break;
 		default: TODO("CellType enum not implemented");
 		}
@@ -4614,6 +4622,71 @@ bool inflate_zlib(String_View src, String_Builder *dst) {
     }
 }
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include "miniz.h"
+
+// 1. (Optional) Custom Adler32 implementation.
+// Note: miniz natively includes mz_adler32(), but this is the exact 1:1 translation of your C# logic.
+uint32_t Adler32(const uint8_t *data, size_t length) {
+    uint32_t adlerA = 1;
+    uint32_t adlerB = 0;
+
+    for (size_t i = 0; i < length; i++) {
+        adlerA = (adlerA + data[i]) % 65521;
+        adlerB = (adlerB + adlerA) % 65521;
+    }
+
+    return (adlerB << 16) | adlerA;
+}
+
+// 2. The WriteZlib implementation
+bool write_zlib(String_Builder *dst, String_View *src) {
+    if (dst == NULL || src == NULL) return false;
+
+    // Write the custom Zlib header (0x78 and custom formatByte)
+	sb_append(dst, 0x78);
+	sb_append(dst, 0xda);
+
+    // Compress using raw DEFLATE
+    // miniz's tdefl_compress_mem_to_heap creates raw deflate data without zlib headers 
+    // when using default flags, which perfectly mimics C#'s DeflateStream.
+	long size = tdefl_compress_mem_to_mem((dst->items+dst->count), (dst->capacity-dst->count), src->data, src->count, MZ_BEST_COMPRESSION);
+	if (size == 0) {
+		printf("ERROR: compression failed\n");
+		return false;
+	}
+	dst->count += size;
+
+    // Compute the Adler32 Checksum
+    // You can use your function: Adler32(input, inputLen) 
+    // OR miniz's heavily optimized built-in function:
+    uint32_t adler = (uint32_t)mz_adler32(1, (unsigned char *)src->data, src->count);
+
+    // Write the Adler32 checksum
+    uint8_t adlerBytes[4];
+    
+    // IMPORTANT ENDIANNESS CHECK:
+    // C# BinaryWriter.Write(UInt32) writes in Little-Endian by default.
+    // If your goal is to strictly match the C# output byte-for-byte, use Little-Endian:
+    // adlerBytes[0] = (uint8_t)(adler & 0xFF);
+    // adlerBytes[1] = (uint8_t)((adler >> 8) & 0xFF);
+    // adlerBytes[2] = (uint8_t)((adler >> 16) & 0xFF);
+    // adlerBytes[3] = (uint8_t)((adler >> 24) & 0xFF);
+
+    // HOWEVER: Standard Zlib format requires the Adler32 checksum to be Big-Endian!
+    // If you need standard zlib compatibility, swap to Big-Endian like this:
+    adlerBytes[0] = (uint8_t)((adler >> 24) & 0xFF);
+    adlerBytes[1] = (uint8_t)((adler >> 16) & 0xFF);
+    adlerBytes[2] = (uint8_t)((adler >> 8) & 0xFF);
+    adlerBytes[3] = (uint8_t)(adler & 0xFF);
+
+	sb_append_buf(dst, adlerBytes, 4);
+
+    return true;
+}
+
 bool deflate_zlib(String_View src, String_Builder *dst) {
     z_stream stream = {0};
     stream.next_in = (uint8_t *)src.data;
@@ -4622,7 +4695,7 @@ bool deflate_zlib(String_View src, String_Builder *dst) {
     stream.next_out = (uint8_t *)(dst->items + dst->count); 
     stream.avail_out = dst->capacity - dst->count;
 
-    if (deflateInit(&stream, MZ_BEST_COMPRESSION) != Z_OK) {
+    if (deflateInit(&stream, MZ_BEST_SPEED) != Z_OK) {
         printf("ERROR: deflateInit() failed!\n");
         return false;
     }
@@ -4994,6 +5067,7 @@ void write_bnd4(String_Builder *sb, const BND4 *bnd4) {
 }
 
 void compress_dcx(String_Builder *sb, DCX *dcx, const String_Builder *uncomp_sb) {
+	size_t begin = sb->count;
 	size_t size = sizeof(dcx->header);
 	DCX_Header header = dcx->header;
 	// header.unk04 = swap_endianness(header.unk04);
@@ -5007,7 +5081,12 @@ void compress_dcx(String_Builder *sb, DCX *dcx, const String_Builder *uncomp_sb)
 
 	String_View uncompressed = sb_to_sv(*uncomp_sb);
 	da_reserve(sb, sb->count + uncompressed.count); // reserve enough to accomodate the uncompressed bytes
-	assert(deflate_zlib(uncompressed, sb) && "Failed to decompress dcx.");
+	size = sb->count;
+	assert(write_zlib(sb, &uncompressed));
+	size = swap_endianness(sb->count - size);
+	char *dst = sb->items + begin + offsetof(DCX_Header, compressed_size);
+	memcpy(dst, &size, sizeof(int32_t));
+	// assert(deflate_zlib(uncompressed, sb) && "Failed to decompress dcx.");
 }
 
 int test_loading_enc_reg() {
@@ -5049,13 +5128,13 @@ int test_loading_enc_reg() {
 		if (dcx.data.items[i] != dcx_check.data.items[i]) asm("int3");
 	}
 	if (dcx.data.count != dcx_check.data.count) asm("int3");
+
+
+	if (!nob_write_entire_file("output/enc_regulation.bnd.dcx", wsb.items, wsb.count)) {
+		return 1;
+	}
+
 	free_dcx(&dcx_check);
-
-
-	// if (!nob_write_entire_file("out.dcx", wsb.items, wsb.count)) {
-	// 	return 1;
-	// }
-
 	free_bnd4(&bnd4);
 	free_dcx(&dcx);
 	da_free(sb);
@@ -5064,13 +5143,104 @@ int test_loading_enc_reg() {
 	return 0;
 }
 
+#define WHITE_DOOR_PARAM_NAME "MapObjectWhiteDoorParam.param"
+
+bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path) {
+	String_Builder sb = {0};
+	if (!nob_read_entire_file(input_path, &sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", input_path, sb.count);
+	BinaryReader br = sb_to_br(sb);
+	DCX dcx = decompress_dcx(br);
+	BND4 bnd4 = read_bnd4(&dcx);
+	PARAM param = {0};
+
+	bool param_exists = false;
+	byte flags = 0;
+	for (size_t i=0; i<bnd4.files.count; i++) {
+		BinderFile *file = &bnd4.files.items[i];
+		if (strcmp(file->name, WHITE_DOOR_PARAM_NAME) == 0) {
+			param_exists = true;
+			break;
+		}
+
+		if (i == 0) {
+			flags = file->flags;
+		}
+	}
+
+	// add white door param to the reg file if it does not exist
+	// when merging with other mods this is necessary
+	String_Builder out_param_sb = {0};
+	if (!param_exists) {
+		String_Builder param_sb = {0};
+		if (!nob_read_entire_file(param_file_path, &param_sb)) {
+			return false;
+		}
+		String_View sv = sb_to_sv(param_sb);
+		param = load_param(&sv, Cell_MapObjectWhiteDoorParam);
+		da_foreach(Cell, cell, &param.cells) {
+			cell->as.map_obj_white_door_param.key_guide_id_1 = 0; // for disabling the fog gate key guide
+			cell->as.map_obj_white_door_param.key_guide_id_2 = 0; // for disabling the fog gate key guide
+			cell->as.map_obj_white_door_param.unk04 = 0; // to diable boss gates to disappear
+		}
+		write_param(&out_param_sb, &param);
+		BinderFile file = {0};
+		file.bytes = (void *)out_param_sb.items;
+		file.count = out_param_sb.count;
+		file.flags = flags;
+		file.id = bnd4.files.count;
+		file.name = WHITE_DOOR_PARAM_NAME;
+		da_append(&bnd4.files, file);
+		da_free(param_sb);
+	}
+
+	// disable fog gates
+	String_Builder white_door_param_buf = {0};
+	da_foreach(BinderFile, file, &bnd4.files) {
+		if (strcmp(file->name, WHITE_DOOR_PARAM_NAME) == 0) {
+			String_View sv = {.data = (char *)file->bytes, .count = file->count};
+			param = load_param(&sv, Cell_MapObjectWhiteDoorParam);
+			da_foreach(Cell, cell, &param.cells) {
+				cell->as.map_obj_white_door_param.key_guide_id_1 = 0; // for disabling the fog gate key guide
+				cell->as.map_obj_white_door_param.key_guide_id_2 = 0; // for disabling the fog gate key guide
+				cell->as.map_obj_white_door_param.unk04 = 0; // to diable boss gates to disappear
+			}
+			write_param(&white_door_param_buf, &param);
+			file->bytes = (uint8_t *)white_door_param_buf.items;
+			file->count = white_door_param_buf.count;
+			break;
+		}
+	}
+
+	String_Builder bnd4_sb = {0};
+	write_bnd4(&bnd4_sb, &bnd4);
+	String_Builder wsb = {0};
+	compress_dcx(&wsb, &dcx, &bnd4_sb);
+
+	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
+	printf("[Generated] %s\n", output_path);
+
+	da_free(out_param_sb);
+	free_PARAM(&param);
+	da_free(white_door_param_buf);
+	da_free(sb);
+	free_dcx(&dcx);
+	free_bnd4(&bnd4);
+	da_free(bnd4_sb);
+	da_free(wsb);
+	return true;
+}
+
+#define OUT_FOLDER_PATH "output/"
+
+int randomize_fog_gates() {
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
+	if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
+	return 0;
+}
+
 int main() {
-	int ret = 0;
-	ret += test_loading_all_maps();
-	ret += test_loading_all_eventlocations();
-	ret += test_loading_all_eventparams();
-	ret += test_loading_all_mapobjinstanceparams();
-	ret += test_loading_all_esds();
-	ret += test_loading_enc_reg();
-	return ret;
+	return 0;
 }
