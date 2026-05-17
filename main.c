@@ -13,6 +13,8 @@
 
 #include "miniz.h"
 
+#define COMPRESSION_ALLOC_SIZE 1024*1024
+
 // #define LOG_GENERATED_FILES
 
 // [          FILE        ]
@@ -4612,7 +4614,33 @@ bool inflate_zlib(String_View src, String_Builder *dst) {
     }
 }
 
-int32_t big_end_s32(int32_t val) {
+bool deflate_zlib(String_View src, String_Builder *dst) {
+    z_stream stream = {0};
+    stream.next_in = (uint8_t *)src.data;
+    stream.avail_in = src.count;
+    
+    stream.next_out = (uint8_t *)(dst->items + dst->count); 
+    stream.avail_out = dst->capacity - dst->count;
+
+    if (deflateInit(&stream, MZ_BEST_COMPRESSION) != Z_OK) {
+        printf("ERROR: deflateInit() failed!\n");
+        return false;
+    }
+
+    int status = deflate(&stream, MZ_FINISH);
+    
+    if (status == Z_STREAM_END) {
+        dst->count += stream.total_out; 
+        deflateEnd(&stream);
+        return true;
+    } else {
+        printf("ERROR: deflate() failed or buffer too small (status %i)!\n", status);
+        deflateEnd(&stream);
+        return false;
+    }
+}
+
+int32_t swap_endianness(int32_t val) {
 	const uint8_t *b = (uint8_t *)&val;
     return (int32_t)(
         ((uint32_t)b[0] << 24) |
@@ -4627,19 +4655,18 @@ typedef struct {
 	String_Builder data;
 } DCX;
 
-#define UNCOMPRESSED_SIZE 1024*1024
 DCX decompress_dcx(BinaryReader br) {
 	DCX_Header header = br_read(&br, DCX_Header);
 	assert(strcmp(header.magic, "DCX") == 0);
-	assert(header.unk04 == big_end_s32(0x10000));
-	assert(header.unk08 == big_end_s32(0x18));
-	assert(header.unk0c == big_end_s32(0x24));
-	assert(header.unk10 == big_end_s32(0x24));
-	assert(header.unk14 == big_end_s32(0x2c));
+	assert(header.unk04 == swap_endianness(0x10000));
+	assert(header.unk08 == swap_endianness(0x18));
+	assert(header.unk0c == swap_endianness(0x24));
+	assert(header.unk10 == swap_endianness(0x24));
+	assert(header.unk14 == swap_endianness(0x2c));
 	assert(strcmp(header.dcs, "DCS") == 0);
 	assert(strcmp(header.dcp, "DCP") == 0);
 	assert(strcmp(header.format, "DFLT") == 0);
-	assert(header.unk2c == big_end_s32(0x20));
+	assert(header.unk2c == swap_endianness(0x20));
 	assert(header.unk30 == 9);
 	assert(header.pad[0] == 0);
 	assert(header.pad[1] == 0);
@@ -4649,7 +4676,7 @@ DCX decompress_dcx(BinaryReader br) {
 	assert(header.pad2[0] == 0);
 	assert(header.pad2[1] == 0);
 	assert(header.unk3c == 0);
-	assert(header.unk40 == big_end_s32(0x00010100));
+	assert(header.unk40 == swap_endianness(0x00010100));
 	assert(strcmp(header.dca, "DCA") == 0);
 	// assert(header.unk4c == 0x78);
 	// assert(header.unk4d == 0x01 || header.unk4d == 0x5e || header.unk4d == 0x9c || header.unk4d == 0xda);
@@ -4658,7 +4685,7 @@ DCX decompress_dcx(BinaryReader br) {
 	compressed.count = br_rem_bytes(&br);
 
 	String_Builder sb = {0};
-	da_init(&sb, UNCOMPRESSED_SIZE);
+	da_init(&sb, COMPRESSION_ALLOC_SIZE);
 	assert(inflate_zlib(compressed, &sb) && "Failed to decompress dcx.");
 	return (DCX){
 		.data = sb,
@@ -4760,7 +4787,7 @@ typedef struct {
 	bool has_long_offsets;
 	int64_t data_offset;
 	int32_t id;
-	const unsigned char *name;
+	const char *name;
 } BinderFileHeader;
 
 DA(BinderFileHeader, BinderFileHeaders);
@@ -4771,7 +4798,7 @@ typedef struct {
 
 	byte flags;
 	int32_t id;
-	const unsigned char *name;
+	const char *name;
 } BinderFile;
 DA(BinderFile, BinderFiles);
 
@@ -4860,13 +4887,130 @@ BND4 read_bnd4(DCX *dcx) {
 	return bnd4;
 }
 
-int main() {
-	int ret = 0;
-	// ret += test_loading_all_maps();
-	// ret += test_loading_all_eventlocations();
-	// ret += test_loading_all_eventparams();
-	// ret += test_loading_all_mapobjinstanceparams();
-	// ret += test_loading_all_esds();
+BinderFileHeader binder_file_to_header(BinderFile *file) {
+	BinderFileHeader header = {0};
+	header.info = (BND4_FileHeaderInfo){
+		.file_flags = file->flags,
+		.unk01 = 0,
+		.unk02 = 0,
+		.unk03 = 0,
+		.unk04 = -1,
+		.compressed_size = file->count,
+	};
+	header.uncompressed_size = -1;
+	header.has_long_offsets = false;
+	header.data_offset = -1;
+	header.id = file->id;
+	header.name = file->name;
+	return header;
+}
+
+void write_binder_file_header(String_Builder *sb, const BND4 *bnd4, BinderFileHeader *header, DArrz *offsets) {
+	const BND4_Header *bnd_info = &bnd4->header;
+	BND4_FileHeaderInfo info = header->info;
+	if (!bnd_info->bit_big_endian) {
+		info.file_flags = reverse_bits_8(info.file_flags);
+	}
+
+	bool has_compression = ((bnd_info->format & BND_Fmt_Compression) != 0);
+	assert(!has_compression);
+
+	size_t size = sizeof(info);
+	sb_append_buf(sb, &info, size);
+
+	da_append(offsets, sb->count);
+	if ((bnd_info->format & BND_Fmt_LongOffsets) != 0) {
+		sb_reserve(sb, sizeof(int64_t)); // data_offset
+	} else {
+		sb_reserve(sb, sizeof(int32_t)); // data_offset
+	}
+
+	if ((bnd_info->format & BND_Fmt_IDs) != 0) {
+		sb_write_int32t(sb, header->id);
+	}
+
+	da_append(offsets, sb->count);
+	if ((bnd_info->format & (BND_Fmt_Names1 | BND_Fmt_Names2)) != 0) {
+		sb_reserve(sb, sizeof(int32_t)); //name_offset
+		assert(!bnd_info->unicode);
+	}
+
+	if (bnd_info->format == BND_Fmt_Names1) {
+		sb_write_int32t(sb, header->id);
+		sb_write_int32t(sb, 0);
+	}
+}
+
+void write_binder_file_headers(String_Builder *sb, const BND4 *bnd4, BinderFileHeaders *headers, DArrz *offsets) {
+	size_t size = sizeof(bnd4->header);
+	BND4_Header header = bnd4->header;
+
+	if (!(header.bit_big_endian || (((header.format & 1) != 0) && ((header.format & 1<<7) == 0)))) {
+		header.format = reverse_bits_8(header.format);
+	}
+	header.bit_big_endian = !header.bit_big_endian;
+	header.file_count = headers->count;
+
+	sb_append_buf(sb, &header, size);
+
+	for (size_t i=0; i<headers->count; i++) {
+		BinderFileHeader *file_header = &headers->items[i];
+		write_binder_file_header(sb, bnd4, file_header, offsets);
+	}
+	for (size_t i=0; i<headers->count; i++) {
+		BinderFileHeader *file_header = &headers->items[i];
+		sb_patch_int32t(sb, offsets->items[2*i + 1], sb->count);
+		sb_append_cstr(sb, file_header->name);
+		sb_append(sb, 0);
+	}
+
+	void *dst = sb->items + offsetof(BND4_Header, header_end);
+	memcpy(dst, &sb->count, sizeof(int64_t));
+}
+
+void write_binder_file(String_Builder *sb, BinderFile *file, DArrz *offsets, size_t i) {
+	if (file->count > 0) {
+		sb_pad_align(sb, 0x10);
+	}
+	sb_patch_int32t(sb, offsets->items[2*i], sb->count);
+	sb_append_buf(sb, file->bytes, file->count);
+}
+
+void write_bnd4(String_Builder *sb, const BND4 *bnd4) {
+	BinderFileHeaders headers = {0};
+	da_foreach(BinderFile, file, &bnd4->files) {
+		da_append(&headers, binder_file_to_header(file));
+	}
+	DArrz offsets = {0}; // even = data_offset, odd = name_offset
+	da_init(&offsets, 2*headers.count);
+	write_binder_file_headers(sb, bnd4, &headers, &offsets);
+	size_t count = 0;
+	da_foreach(BinderFile, file, &bnd4->files) {
+		write_binder_file(sb, file, &offsets, count++);
+	}
+
+	da_free(headers);
+	da_free(offsets);
+}
+
+void compress_dcx(String_Builder *sb, DCX *dcx, const String_Builder *uncomp_sb) {
+	size_t size = sizeof(dcx->header);
+	DCX_Header header = dcx->header;
+	// header.unk04 = swap_endianness(header.unk04);
+	// header.unk08 = swap_endianness(header.unk08);
+	// header.unk0c = swap_endianness(header.unk0c);
+	// header.unk10 = swap_endianness(header.unk10);
+	// header.unk14 = swap_endianness(header.unk14);
+	// header.unk2c = swap_endianness(header.unk2c);
+	// header.unk40 = swap_endianness(header.unk40);
+	sb_append_buf(sb, &header, size);
+
+	String_View uncompressed = sb_to_sv(*uncomp_sb);
+	da_reserve(sb, sb->count + uncompressed.count); // reserve enough to accomodate the uncompressed bytes
+	assert(deflate_zlib(uncompressed, sb) && "Failed to decompress dcx.");
+}
+
+int test_loading_enc_reg() {
 	String_Builder sb = {0};
 	const char *path = "./enc_regulation.bnd.dcx";
 	if (!nob_read_entire_file(path, &sb)) {
@@ -4876,10 +5020,57 @@ int main() {
 	BinaryReader br = sb_to_br(sb);
 
 	DCX dcx = decompress_dcx(br);
+
+	// if (!nob_write_entire_file("out-orig.bnd4", dcx.data.items, dcx.data.count)) {
+	// 	return 1;
+	// }
+
 	BND4 bnd4 = read_bnd4(&dcx);
+
+	String_Builder bnd4_sb = {0};
+	write_bnd4(&bnd4_sb, &bnd4);
+
+	// check if generated data is same
+	for (size_t i=0; i<dcx.data.count; i++) {
+		if (dcx.data.items[i] != bnd4_sb.items[i]) asm("int3");
+	}
+	if (dcx.data.count != bnd4_sb.count) asm("int3");
+
+	// if (!nob_write_entire_file("out-gen.bnd4", bnd4_sb.items, bnd4_sb.count)) {
+	// 	return 1;
+	// }
+
+	String_Builder wsb = {0};
+	compress_dcx(&wsb, &dcx, &bnd4_sb);
+
+	br = sb_to_br(wsb);
+	DCX dcx_check = decompress_dcx(br);
+	for (size_t i=0; i<dcx.data.count; i++) {
+		if (dcx.data.items[i] != dcx_check.data.items[i]) asm("int3");
+	}
+	if (dcx.data.count != dcx_check.data.count) asm("int3");
+	free_dcx(&dcx_check);
+
+
+	// if (!nob_write_entire_file("out.dcx", wsb.items, wsb.count)) {
+	// 	return 1;
+	// }
 
 	free_bnd4(&bnd4);
 	free_dcx(&dcx);
 	da_free(sb);
+	da_free(bnd4_sb);
+	da_free(wsb);
+	return 0;
+}
+
+int main() {
+	int ret = 0;
+	ret += test_loading_all_maps();
+	ret += test_loading_all_eventlocations();
+	ret += test_loading_all_eventparams();
+	ret += test_loading_all_mapobjinstanceparams();
+	ret += test_loading_all_esds();
+	ret += test_loading_enc_reg();
 	return ret;
 }
