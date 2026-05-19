@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #define NOB_DA_INIT_CAP 32
 #define NOB_IMPLEMENTATION
@@ -127,6 +128,17 @@ typedef struct {
 } Entry;
 DA(Entry, Model);
 
+void entry_copy(Entry *copy, const Entry *src, String_Builder *buf) {
+	size_t str_len = wcslen(src->name);
+	assert(buf->capacity > buf->count + str_len);
+	wchar_t *dst = (wchar_t *)(buf->items + buf->count);
+	size_t dst_size = buf->capacity - buf->count;
+	*copy = *src;
+	assert(wcscpy_s(dst, dst_size, src->name) == 0);
+	copy->name = dst;
+	buf->count += str_len;
+}
+
 typedef packed_struct {
 	int32_t version;
 	int32_t offset_count;
@@ -219,6 +231,38 @@ typedef packed_struct {
 typedef packed_struct { 
 	float x,y,z; 
 } V3f;
+
+static float normalize_angle(float angle) {
+	angle = fmodf(angle, 360);
+	if (angle < 0) {
+		angle += 360;
+	}
+	return angle;
+}
+
+V3f v3f_flip_y(V3f rotation)
+{
+	return (V3f) {
+		rotation.x, 
+		normalize_angle(rotation.y + 180),
+		rotation.z
+	};
+}
+
+V3f v3f_move(V3f position, V3f rotation, float distance) {
+	float yaw = rotation.y * (float)(M_PI / 180); // Rotate around y-axis
+	float x = (float)(sinf(yaw) * -distance);
+	float z = (float)(cosf(yaw) * -distance);
+	return (V3f){position.x + x, position.y, position.z + z};
+}
+
+V3f v3f_add(V3f a, V3f b) {
+	return (V3f) { a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
+V3f v3f_sub(V3f a, V3f b) {
+	return (V3f) { a.x - b.x, a.y - b.y, a.z - b.z};
+}
 
 typedef packed_struct {
 	V3f translation;
@@ -522,6 +566,18 @@ typedef struct {
 	PartType type;
 	PartTypeData type_data;
 } Part;
+
+void part_copy(Part *copy, const Part *src, String_Builder *buf) {
+	size_t str_len = wcslen(src->name);
+	assert(buf->capacity > buf->count + str_len);
+	wchar_t *dst = (wchar_t *)(buf->items + buf->count);
+	size_t dst_size = buf->capacity - buf->count;
+	*copy = *src;
+	assert(wcscpy_s(dst, dst_size, src->name) == 0);
+	copy->name = dst;
+	buf->count += str_len;
+}
+
 
 DA(Part, Parts);
 
@@ -1884,6 +1940,9 @@ size_t write_param_header(String_Builder *sb, ParamSt *p, utf16_t *name, DArrz *
 
 void write_model_param(String_Builder *sb, ModelParam *param) {
 	DArrz offset_positions = {0};
+	// TODO: this might be necessary
+	// size_t total_entries = param->MapPieces.count + param->Objects.count + param->Collisions.count + param->Navmeshes.count;
+	// param->param.offset_count = total_entries + 1;
 	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
 
 	size_t entries_count = 0;
@@ -1944,6 +2003,9 @@ void write_layer_param(String_Builder *sb, LayerParam *param) {
 
 void write_parts_param(String_Builder *sb, PartParam *param) {
 	DArrz offset_positions = {0};
+	size_t total_entries = param->MapPieces.count + param->Objects.count + param->Collisions.count +\
+						   param->Navmeshes.count + param->ConnectCollisions.count;
+	param->param.offset_count = total_entries + 1;
 	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
 
 	size_t entries_count = 0;
@@ -1953,6 +2015,7 @@ void write_parts_param(String_Builder *sb, PartParam *param) {
 	write_parts(sb, &param->Navmeshes, &offset_positions, &entries_count);
 	write_parts(sb, &param->ConnectCollisions, &offset_positions, &entries_count);
 	sb_patch_varint(sb, next_param_offset, sb->count);
+
 	da_free(offset_positions);
 }
 
@@ -2985,7 +3048,7 @@ void dealloc_expression(Expression *e) {
 }
 
 typedef struct {
-	const unsigned char *items;
+	uint8_t *items;
 	size_t count;
 } Evaluator;
 
@@ -5371,7 +5434,513 @@ bool add_pirate_ship_msg_to_game_files(const char *input_path, const char *outpu
 	return true;
 }
 
+#define WARP_OBJ_MODEL_NAME "o02_1050"
+#define WARP_OBJ_NAME WARP_OBJ_MODEL_NAME"_0000"
+#define WARP_OBJ_INST_ID 10021101 
+
+typedef enum {
+	ThingsBetwixt = 0,
+	Majula,
+	ForestOfTheFallenGiants,
+	BrightstoneCoveTseldora,
+	AldiasKeep,
+	TheLostBastilleBelfryLuna,
+	HarvestValleyEarthenPeak,
+	NomansWharf,
+	IronKeepBelfrySol,
+	HuntsmanCopseUndeadPurgatory,
+	TheGutterBlackGulch,
+	DragonAerieDragonShrine,
+	MajulaShadedWoods,
+	HeidesToNoMansWharf,
+	HeidesTowerofFlame,
+	ShadedWoodsShrineofWinter,
+	DoorsofPharros,
+	GraveofSaints,
+	MemoryofVammarOrroandJeigh,
+	ShrineofAmana,
+	DrangleicCastleThroneofWant,
+	UndeadCrypt,
+	DragonMemories,
+	DarkChasmofOld,
+	ShulvaSanctumCity,
+	BrumeTower,
+	FrozenEleumLoyce,
+	MemoryoftheKing,
+	__MapNameCount,
+} MapName;
+
+const char map_names[][13] = {
+	"m10_02_00_00",
+	"m10_04_00_00",
+	"m10_10_00_00",
+	"m10_14_00_00",
+	"m10_15_00_00",
+	"m10_16_00_00",
+	"m10_17_00_00",
+	"m10_18_00_00",
+	"m10_19_00_00",
+	"m10_23_00_00",
+	"m10_25_00_00",
+	"m10_27_00_00",
+	"m10_29_00_00",
+	"m10_30_00_00",
+	"m10_31_00_00",
+	"m10_32_00_00",
+	"m10_33_00_00",
+	"m10_34_00_00",
+	"m20_10_00_00",
+	"m20_11_00_00",
+	"m20_21_00_00",
+	"m20_24_00_00",
+	"m20_26_00_00",
+	"m40_03_00_00",
+	"m50_35_00_00",
+	"m50_36_00_00",
+	"m50_37_00_00",
+	"m50_38_00_00",
+};
+
+wchar_t * write_cstr_to_wchar(const char *src, String_Builder *dst_sb) {
+	size_t count = 0;
+	assert(dst_sb->capacity - dst_sb->count > 2*strlen(src) + 2);
+	char *loc = dst_sb->items + dst_sb->count;
+	for(;;) {
+		char c = src[count++];
+		if (c == 0) {
+			sb_append(dst_sb, 0);
+			sb_append(dst_sb, 0);
+			break;
+		}
+		sb_append(dst_sb, c);
+		sb_append(dst_sb, 0);
+	}
+	return (wchar_t *)loc;
+}
+
+static_assert(ARRAY_LEN(map_names) == __MapNameCount, "Missing map name");
+
+Part warp_part_new(const Part *src, V3f pos, V3f rot, int32_t instance_id, size_t name_id, String_Builder *name_buf) {
+	size_t mark = temp_save();
+	Part part = *src;
+	part.part.position = pos;
+	part.part.rotation = rot;
+	part.type_data.object.map_object_instance_param_id = instance_id;
+	part.name = write_cstr_to_wchar(temp_sprintf(WARP_OBJ_MODEL_NAME"_%zu", name_id), name_buf);
+	temp_rewind(mark);
+	return part;
+}
+
+#define da_insert(da, item, position) \
+	do {\
+		assert((position) <= (da)->count);\
+		da_reserve((da), (da)->count + 1);\
+		memmove(&(da)->items[(position)+1], &(da)->items[(position)], sizeof(*(da)->items)*((da)->count - (position)));\
+		(da)->items[(position)] = (item);\
+		(da)->count++;\
+	} while(0)
+
+void add_map_obj_instance_param_warpobj(PARAM *param, int32_t id, size_t insert_loc) {
+	Row row = {
+		.ID = id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+	};
+	Cell cell = {
+		.as.map_obj_instance_param = {
+			.headerID = 0, .ParamID = 0, .ObjectBullet = 0,
+			.Unk02 = 1.0f, .Unk03 = -1.0f, .MapObjectInstanceType = 100,
+			.Unk04 = 0, .Unk05 = 255, .Unk06 = 255,
+			.Unk07 = 7, .Unk08 = 255, .DefaultState = 255,
+			.Unk09 = 50, .Unk10 = 255, .ItemlotID = 0,
+		}
+	};
+	da_insert(&param->rows, row, insert_loc);
+	da_insert(&param->cells, cell, insert_loc);
+	param->rowCount++;
+}
+
+void add_event_param_warpobj(PARAM *param, int32_t event_param_id, int32_t warp_obj_inst_id) {
+	Row row = {
+		.ID = event_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+	};
+	Cell cell = {
+		.as.event_param = {
+			.event_id = event_param_id, .flag_id = warp_obj_inst_id,
+			.Unk08 = 0, .Unk09 = 0, .Unk0A = 0, .Unk0B = 2, .Unk0C = 1, 
+			.Unk0D = 0, .Unk0E = 0, .Unk0F = 0,
+		}
+	};
+	da_append(&param->rows, row);
+	da_append(&param->cells, cell);
+	param->rowCount++;
+}
+
+void add_event_loc_warpobj(PARAM *param, int32_t warp_point_begin, V3f pos, V3f rot, size_t insert_loc) {
+	Row row = {
+		.ID = warp_point_begin, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+	};
+	Cell cell = {
+		.as.event_loc = {
+			.position = pos, .rotation = rot, .region_type = 1, .Unk19 = 0, .Unk1A = 255,
+			.Unk1B = 0, .scale = (V3f){0.5f, 1.0f, 1.0f}, .Unk28 = 0, .Unk2A = 2560, .Unk2C = 0,
+		}
+	};
+	da_insert(&param->rows, row, insert_loc);
+	da_insert(&param->cells, cell, insert_loc);
+	param->rowCount++;
+}
+
+Evaluator evaluator_1(String_Builder *bytecode_buf) {
+	assert(bytecode_buf->capacity - bytecode_buf->count > 2);
+	Evaluator e = {0};
+	e.items =  (uint8_t *)(bytecode_buf->items + bytecode_buf->count);
+	e.count = 2;
+	da_append(bytecode_buf, 0x41); // 65 => 1
+	da_append(bytecode_buf, 0xa1);
+	return e;
+}
+
+Evaluator evaluator_condition_group(String_Builder *bytecode_buf, size_t group_id) {
+	assert(bytecode_buf->capacity - bytecode_buf->count > 9);
+	Evaluator e = {0};
+	e.items = (uint8_t *)(bytecode_buf->items + bytecode_buf->count);
+	e.count = 9;
+	sb_append(bytecode_buf, 0x82);
+	sb_append_sint32(bytecode_buf, 140001);
+	sb_append(bytecode_buf, group_id + 64);
+	sb_append(bytecode_buf, 0x85);
+	sb_append(bytecode_buf, 0xa6);
+	sb_append(bytecode_buf, 0xa1);
+	return e;
+}
+
+size_t add_state0(ESD *esd, size_t target_state_id, String_Builder *bytecode_buf) {
+	State state = {0};
+	state.id = 0;
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+
+	cond.evaluator = evaluator_1(bytecode_buf);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return esd->states.count - 1;
+}
+
+size_t create_arg_number(ESD *esd, int number) {
+	size_t id = esd->args.count;
+	Arg arg = {0};
+	da_init(&arg, 2);
+	da_append(&arg, number + 64);
+	da_append(&arg, 0xa1);
+	da_append(&esd->args, arg);
+	return id;
+}
+
+size_t create_arg_s32(ESD *esd, int32_t val) {
+	size_t id = esd->args.count;
+	Arg arg = {0};
+	da_init(&arg, 6);
+	da_append(&arg, 0x82);
+	da_append_many(&arg, &val, 4);
+	// memcpy(arg.items + arg.count, &val, sizeof(int32_t));
+	// arg.count += sizeof(int32_t);
+	da_append(&arg, 0xa1);
+	da_append(&esd->args, arg);
+	return id;
+}
+
+Command command_is_obj_searched(ESD *esd, int group_id, int32_t obj_inst_id) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 140205;
+	da_append(&comm.args_ids, create_arg_number(esd, group_id));
+	da_append(&comm.args_ids, create_arg_s32(esd, obj_inst_id));
+	return comm;
+}
+
+Command command_display_event_msg(ESD *esd, int32_t obj_inst_id) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 130447;
+	da_append(&comm.args_ids, create_arg_s32(esd, obj_inst_id));
+	da_append(&comm.args_ids, create_arg_number(esd, 0));
+	da_append(&comm.args_ids, create_arg_number(esd, 0));
+	da_append(&comm.args_ids, create_arg_number(esd, 0));
+	return comm;
+}
+
+Command command_restart_machine() {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 130002;
+	return comm;
+}
+
+Command command_disable_obj_keyguide(ESD *esd, int obj_inst_id) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 131638;
+	da_append(&comm.args_ids, create_arg_s32(esd, obj_inst_id));
+	da_append(&comm.args_ids, create_arg_number(esd, 1));
+	return comm;
+}
+
+
+
+size_t wait_until_interact_with_obj(ESD *esd, String_Builder *bytecode_buf, int id, int32_t target_state_id, int obj_inst_id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	int group_id = 0;
+	Command comm = command_is_obj_searched(esd, group_id, obj_inst_id);
+
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+	cond.evaluator =  evaluator_condition_group(bytecode_buf, group_id);
+
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t display_ring_bell_msg(ESD *esd, String_Builder *bytecode_buf, int id, int32_t target_state_id, int msg_id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm = command_display_event_msg(esd, msg_id);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+	cond.evaluator =  evaluator_1(bytecode_buf);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t restart_state(ESD *esd, int id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm = command_restart_machine();
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t disable_obj_keyguide(ESD *esd, String_Builder *bytecode_buf, int id, int target_state_id, int obj_inst_id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm = command_disable_obj_keyguide(esd, obj_inst_id);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+	cond.evaluator =  evaluator_1(bytecode_buf);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
 #define OUT_FOLDER_PATH "output/"
+
+bool generate_map_objects() {
+	size_t mark = temp_save();
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"map")) return false;
+
+	String_Builder string_buffer = {0};
+	da_init(&string_buffer, 1024);
+
+	String_Builder sb = {0};
+	const char *map_name = map_names[ThingsBetwixt];
+	if (!mkdir_if_not_exists(temp_sprintf(OUT_FOLDER_PATH"map/%s/", map_name))) return false;
+	const char *path_map = temp_sprintf("map/%s/%s.msb", map_name, map_name);
+	if (!nob_read_entire_file(path_map, &sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", path_map, sb.count);
+	String_View sv = sb_to_sv(sb);
+
+	// add the warp object part to the map
+	MSB2 map = load_map(path_map, sv); 
+	V3f pos_offs_event_loc = map.events.MapOffsets.count > 0 ?\
+							 map.events.MapOffsets.items[0].type_data.map_offset.translation :\
+							 (V3f){0, 0, 0};
+	// Entry warp_model = {0};
+	// for (size_t j=0; j<map.models.Objects.count; j++) {
+	// 	Entry *model = &map.models.Objects.items[j];
+	// 	if (wcscmp(model->name, L""WARP_OBJ_MODEL_NAME) == 0) {
+	// 		entry_copy(&warp_model, model, &string_buffer);
+	// 		break;
+	// 	}
+	// }
+	// assert(warp_model.name != NULL);
+	Part warp_part = {0};
+	for (size_t j=0; j<map.parts.Objects.count; j++) {
+		Part *part = &map.parts.Objects.items[j];
+		if (wcscmp(part->name, L""WARP_OBJ_NAME) == 0) {
+			part_copy(&warp_part, part, &string_buffer);
+			break;
+		}
+	}
+	assert(warp_part.name != NULL);
+	// disabling the visibility of warp_part
+	if (0) {
+		for (size_t i=0; i<ARRAY_LEN(warp_part.part.draw_groups); i++) {
+			warp_part.part.draw_groups[i] = 0;
+		}
+		for (size_t i=0; i<ARRAY_LEN(warp_part.part.disp_groups); i++) {
+			warp_part.part.disp_groups[i] = 0;
+		}
+	}
+	V3f pos = {-153.63, 13.477, -130.951};
+	V3f rot = {0.0, 15.0, 0.0};
+	size_t name_id = 1000;
+	size_t warp_obj_inst_id = 10020401;
+	da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, rot, warp_obj_inst_id, name_id++, &string_buffer));
+	da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, v3f_flip_y(rot), warp_obj_inst_id + 1, name_id++, &string_buffer));
+	String_Builder wsb = {0};
+	if (!write_map(&wsb, &map) != 0) return false;
+	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", path_map);
+	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
+	printf("[Generated] %s\n", output_path);
+	free_map(&map);
+	temp_rewind(mark);
+
+	//
+	// add the object instance for the warp part
+	sb.count = 0;
+	wsb.count = 0;
+	const char *param_path = temp_sprintf("Param/mapobjectinstanceparam_%s.param", map_name);
+	if (!nob_read_entire_file(param_path, &sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", param_path, sb.count);
+	sv = sb_to_sv(sb);
+	PARAM param = load_param(&sv, Cell_MapObjInstanceParam);
+	size_t insert_loc = 1;
+	add_map_obj_instance_param_warpobj(&param, warp_obj_inst_id, insert_loc++);
+	add_map_obj_instance_param_warpobj(&param, warp_obj_inst_id + 1, insert_loc++);
+	write_param(&wsb, &param);
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", param_path);
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return false;
+	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
+	printf("[Generated] %s\n", output_path);
+	free_PARAM(&param);
+	temp_rewind(mark);
+
+	//
+	// create and add new event param for infront and back of fog door
+	sb.count = 0;
+	wsb.count = 0;
+	param_path = temp_sprintf("Param/eventparam_%s.param", map_name);
+	if (!nob_read_entire_file(param_path, &sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", param_path, sb.count);
+	sv = sb_to_sv(sb);
+	param = load_param(&sv, Cell_EventParam);
+	size_t event_param_id = 1001;
+	add_event_param_warpobj(&param, event_param_id, warp_obj_inst_id);
+	add_event_param_warpobj(&param, event_param_id+1, warp_obj_inst_id+1);
+	write_param(&wsb, &param);
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", param_path);
+	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
+	printf("[Generated] %s\n", output_path);
+	free_PARAM(&param);
+	temp_rewind(mark);
+
+	// create and add the new warp points behind and front of the fog door
+	sb.count = 0;
+	wsb.count = 0;
+	param_path = temp_sprintf("Param/eventlocation_%s.param", map_name);
+	if (!nob_read_entire_file(param_path, &sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", param_path, sb.count);
+	sv = sb_to_sv(sb);
+	param = load_param(&sv, Cell_EventLoc);
+	size_t warp_point_begin = 100201;
+	insert_loc = 1;
+	add_event_loc_warpobj(&param, warp_point_begin, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, insert_loc);
+	add_event_loc_warpobj(&param, warp_point_begin+1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), rot, insert_loc+1);
+	write_param(&wsb, &param);
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", param_path);
+	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
+	printf("[Generated] %s\n", output_path);
+	free_PARAM(&param);
+	temp_rewind(mark);
+
+	// modify esd to warp on interact
+	if (1) {
+		sb.count = 0;
+		wsb.count = 0;
+		const char *esd_path = temp_sprintf("ezstate/event_%s.esd", map_name);
+		if (!nob_read_entire_file(esd_path, &sb)) {
+			return false;
+		}
+		printf("[Read] %s: %zu bytes\n", esd_path, sb.count);
+		sv = sb_to_sv(sb);
+		ESD esd = read_esd(sv);
+		StateGroup sg = {0};
+		sg.id = event_param_id;
+		size_t s0 = add_state0(&esd, esd.states.count + 1, &string_buffer);
+		size_t s1 = wait_until_interact_with_obj(&esd, &string_buffer, 1, esd.states.count + 1, warp_obj_inst_id);
+		// size_t s2 = display_ring_bell_msg(&esd, &string_buffer, 2, 3, 1003);
+		size_t s2 = disable_obj_keyguide(&esd, &string_buffer, 2, esd.states.count + 1, warp_obj_inst_id);
+		size_t s3 = restart_state(&esd, 3);
+		da_append(&sg.states_ids, s0);
+		da_append(&sg.states_ids, s1);
+		da_append(&sg.states_ids, s2);
+		da_append(&sg.states_ids, s3);
+		da_append(&esd.state_groups, sg);
+		write_esd(&wsb, &esd);
+		output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_path);
+		if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
+		if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
+		printf("[Generated] %s\n", output_path);
+		free_esd(&esd);
+		temp_rewind(mark);
+
+		// checking esd
+		// sb.count = 0;
+		// if (!nob_read_entire_file(output_path, &sb)) {
+		// 	return false;
+		// }
+		// sv = sb_to_sv(sb);
+		// esd = read_esd(sv);
+		// print_state_group(&esd, &esd.state_groups.items[127]);
+	}
+
+
+	da_free(sb);
+	da_free(string_buffer);
+	da_free(wsb);
+	temp_rewind(mark);
+	return true;
+}
+
+
 #define MAP_EVENT_TEXT_LOCATION "menu/text/english/mapevent.fmg"
 
 int randomize_fog_gates() {
@@ -5383,5 +5952,7 @@ int randomize_fog_gates() {
 }
 
 int main() {
-	return randomize_fog_gates();
+	// return randomize_fog_gates();
+	if (!generate_map_objects()) return 1;
+	return 0;
 }
