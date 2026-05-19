@@ -5500,6 +5500,39 @@ const char map_names[][13] = {
 	"m50_37_00_00",
 	"m50_38_00_00",
 };
+static_assert(ARRAY_LEN(map_names) == __MapNameCount, "Missing map name");
+
+size_t map_ids[] = {
+	10020000,
+	10040000,
+	10100000,
+	10140000,
+	10150000,
+	10160000,
+	10170000,
+	10180000,
+	10190000,
+	10230000,
+	10250000,
+	10270000,
+	10290000,
+	10300000,
+	10310000,
+	10320000,
+	10330000,
+	10340000,
+	20100000,
+	20110000,
+	20210000,
+	20240000,
+	20260000,
+	40030000,
+	50350000,
+	50360000,
+	50370000,
+	50380000,
+};
+static_assert(ARRAY_LEN(map_ids) == __MapNameCount, "Missing map id");
 
 wchar_t * write_cstr_to_wchar(const char *src, String_Builder *dst_sb) {
 	size_t count = 0;
@@ -5517,8 +5550,6 @@ wchar_t * write_cstr_to_wchar(const char *src, String_Builder *dst_sb) {
 	}
 	return (wchar_t *)loc;
 }
-
-static_assert(ARRAY_LEN(map_names) == __MapNameCount, "Missing map name");
 
 Part warp_part_new(const Part *src, V3f pos, V3f rot, int32_t instance_id, size_t name_id, String_Builder *name_buf) {
 	size_t mark = temp_save();
@@ -5613,7 +5644,42 @@ Evaluator evaluator_condition_group(String_Builder *bytecode_buf, size_t group_i
 	return e;
 }
 
-size_t add_state0(ESD *esd, size_t target_state_id, String_Builder *bytecode_buf) {
+#define FunctionEventMessageDisplay 130432
+#define FunctionCutsceneWarpEnded 132101
+
+Evaluator cond_wait_until_msg_is_displayed(String_Builder *bytecode_buf) {
+	// binop => lhs rhs op
+	assert(bytecode_buf->capacity - bytecode_buf->count > 10);
+	Evaluator e = {0};
+	e.items = (uint8_t *)(bytecode_buf->items + bytecode_buf->count);
+	e.count = 10;
+	sb_append(bytecode_buf, (char)EzS32);
+	sb_append_sint32(bytecode_buf, FunctionEventMessageDisplay);
+	sb_append(bytecode_buf, (char)EzFuncCall1);
+	sb_append(bytecode_buf, (char)1+64);
+	sb_append(bytecode_buf, (char)EzNeq);
+	sb_append(bytecode_buf, (char)EzTry);
+	sb_append(bytecode_buf, (char)EzFin);
+	return e;
+}
+
+Evaluator cond_cutscene_warp_ended(String_Builder *bytecode_buf) {
+	assert(bytecode_buf->capacity - bytecode_buf->count > 10);
+	Evaluator e = {0};
+	e.items = (uint8_t *)(bytecode_buf->items + bytecode_buf->count);
+	e.count = 10;
+	sb_append(bytecode_buf, (char)EzS32);
+	sb_append_sint32(bytecode_buf, FunctionCutsceneWarpEnded);
+	sb_append(bytecode_buf, (char)EzFuncCall1);
+	sb_append(bytecode_buf, (char)0+64);
+	sb_append(bytecode_buf, (char)EzNeq);
+	sb_append(bytecode_buf, (char)EzTry);
+	sb_append(bytecode_buf, (char)EzFin);
+	return e;
+}
+
+
+size_t state_init(ESD *esd, size_t target_state_id, String_Builder *bytecode_buf) {
 	State state = {0};
 	state.id = 0;
 
@@ -5687,6 +5753,26 @@ Command command_disable_obj_keyguide(ESD *esd, int obj_inst_id) {
 	return comm;
 }
 
+Command command_enable_obj_keyguide(ESD *esd, int obj_inst_id) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 131638;
+	da_append(&comm.args_ids, create_arg_s32(esd, obj_inst_id));
+	da_append(&comm.args_ids, create_arg_number(esd, 0));
+	return comm;
+}
+
+Command command_play_cutscene_and_warp(ESD *esd, int map_id, int dst_id) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 132125;
+	da_append(&comm.args_ids, create_arg_number(esd, 0));
+	da_append(&comm.args_ids, create_arg_number(esd, 0));
+	da_append(&comm.args_ids, create_arg_s32(esd, map_id));
+	da_append(&comm.args_ids, create_arg_s32(esd, dst_id));
+	da_append(&comm.args_ids, create_arg_number(esd, 0));
+	return comm;
+}
 
 
 size_t wait_until_interact_with_obj(ESD *esd, String_Builder *bytecode_buf, int id, int32_t target_state_id, int obj_inst_id) {
@@ -5722,7 +5808,7 @@ size_t display_ring_bell_msg(ESD *esd, String_Builder *bytecode_buf, int id, int
 
 	Condition cond = {0};
 	cond.target_state_id = target_state_id;
-	cond.evaluator =  evaluator_1(bytecode_buf);
+	cond.evaluator =  cond_wait_until_msg_is_displayed(bytecode_buf);
 	da_append(&state.conditions_id, esd->conditions.count);
 	da_append(&esd->conditions, cond);
 
@@ -5761,6 +5847,46 @@ size_t disable_obj_keyguide(ESD *esd, String_Builder *bytecode_buf, int id, int 
 	da_append(&esd->states, state);
 	return state_id;
 }
+
+size_t enable_obj_keyguide(ESD *esd, String_Builder *bytecode_buf, int id, int target_state_id, int obj_inst_id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm = command_enable_obj_keyguide(esd, obj_inst_id);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+	cond.evaluator =  evaluator_1(bytecode_buf);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t warp_to_location(ESD *esd, String_Builder *bytecode_buf, int id, int target_state_id, int map_id, int dst_id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm = command_play_cutscene_and_warp(esd, map_id, dst_id);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+	cond.evaluator =  cond_cutscene_warp_ended(bytecode_buf);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+
 
 #define OUT_FOLDER_PATH "output/"
 
@@ -5892,45 +6018,46 @@ bool generate_map_objects() {
 	temp_rewind(mark);
 
 	// modify esd to warp on interact
-	if (1) {
-		sb.count = 0;
-		wsb.count = 0;
-		const char *esd_path = temp_sprintf("ezstate/event_%s.esd", map_name);
-		if (!nob_read_entire_file(esd_path, &sb)) {
-			return false;
-		}
-		printf("[Read] %s: %zu bytes\n", esd_path, sb.count);
-		sv = sb_to_sv(sb);
-		ESD esd = read_esd(sv);
-		StateGroup sg = {0};
-		sg.id = event_param_id;
-		size_t s0 = add_state0(&esd, esd.states.count + 1, &string_buffer);
-		size_t s1 = wait_until_interact_with_obj(&esd, &string_buffer, 1, esd.states.count + 1, warp_obj_inst_id);
-		// size_t s2 = display_ring_bell_msg(&esd, &string_buffer, 2, 3, 1003);
-		size_t s2 = disable_obj_keyguide(&esd, &string_buffer, 2, esd.states.count + 1, warp_obj_inst_id);
-		size_t s3 = restart_state(&esd, 3);
-		da_append(&sg.states_ids, s0);
-		da_append(&sg.states_ids, s1);
-		da_append(&sg.states_ids, s2);
-		da_append(&sg.states_ids, s3);
-		da_append(&esd.state_groups, sg);
-		write_esd(&wsb, &esd);
-		output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_path);
-		if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
-		if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
-		printf("[Generated] %s\n", output_path);
-		free_esd(&esd);
-		temp_rewind(mark);
-
-		// checking esd
-		// sb.count = 0;
-		// if (!nob_read_entire_file(output_path, &sb)) {
-		// 	return false;
-		// }
-		// sv = sb_to_sv(sb);
-		// esd = read_esd(sv);
-		// print_state_group(&esd, &esd.state_groups.items[127]);
+	sb.count = 0;
+	wsb.count = 0;
+	const char *esd_path = temp_sprintf("ezstate/event_%s.esd", map_name);
+	if (!nob_read_entire_file(esd_path, &sb)) {
+		return false;
 	}
+	printf("[Read] %s: %zu bytes\n", esd_path, sb.count);
+	sv = sb_to_sv(sb);
+	ESD esd = read_esd(sv);
+	StateGroup sg = {0};
+	sg.id = event_param_id;
+	size_t state_id = 1;
+	// size_t msg_id = 1003;
+	da_append(&sg.states_ids, state_init(&esd, esd.states.count + 1, &string_buffer)); 
+	da_append(&sg.states_ids, wait_until_interact_with_obj(&esd, &string_buffer, state_id++, esd.states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, disable_obj_keyguide(&esd, &string_buffer, state_id++, esd.states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, warp_to_location(&esd, &string_buffer, state_id++, esd.states.count + 1, map_ids[ThingsBetwixt], warp_point_begin)); 
+	// da_append(&sg.states_ids, display_ring_bell_msg(&esd, &string_buffer, state_id++, esd.states.count + 1, msg_id)); 
+	da_append(&sg.states_ids, enable_obj_keyguide(&esd, &string_buffer, state_id++, esd.states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, restart_state(&esd, state_id++)); 
+	da_append(&esd.state_groups, sg);
+	write_esd(&wsb, &esd);
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_path);
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
+	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
+	printf("[Generated] %s\n", output_path);
+	free_esd(&esd);
+	temp_rewind(mark);
+
+	// checking esd
+	sb.count = 0;
+	if (!nob_read_entire_file(output_path, &sb)) {
+		return false;
+	}
+	sv = sb_to_sv(sb);
+	esd = read_esd(sv);
+	print_state_group(&esd, &esd.state_groups.items[127]);
+	// for (size_t i=0; i<esd.state_groups.count; i++) {
+	// 	print_state_group(&esd, &esd.state_groups.items[i]);
+	// }
 
 
 	da_free(sb);
