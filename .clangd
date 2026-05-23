@@ -1,3 +1,4 @@
 CompileFlags:
   Add:
-    - -Iother
+    - -Iother 
+    - -Wno-initializer-overrides

@@ -5,7 +5,9 @@
 #include <string.h>
 #include <math.h>
 
-#define NOB_DA_INIT_CAP 32
+#include "common.h"
+#include "foggates.c"
+
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
@@ -14,7 +16,7 @@
 
 #include "miniz.h"
 
-#define COMPRESSION_ALLOC_SIZE 1024*1024
+#define COMPRESSION_ALLOC_SIZE 10*1024*1024
 
 // #define LOG_GENERATED_FILES
 
@@ -63,13 +65,6 @@ const char* map_begin = NULL;
 
 #define assert_val_ret(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); return false;}
 #define assert_val(item, val) if ((item) != (val)) {nob_log(ERROR, "Invalid value"); assert(false);}
-
-#ifdef _MSC_VER
-#define packed_struct struct
-#define asm(val) (void)val
-#else
-#define packed_struct struct __attribute__((packed))
-#endif
 
 #define VERSION 5
 
@@ -224,14 +219,6 @@ typedef packed_struct {
 	char pattern[BGColorPatternSize]; // 0x00
 } BGColor;
 
-typedef packed_struct { 
-	float x,y; 
-} V2f;
-
-typedef packed_struct { 
-	float x,y,z; 
-} V3f;
-
 static float normalize_angle(float angle) {
 	angle = fmodf(angle, 360);
 	if (angle < 0) {
@@ -240,8 +227,7 @@ static float normalize_angle(float angle) {
 	return angle;
 }
 
-V3f v3f_flip_y(V3f rotation)
-{
+V3f v3f_flip_y(V3f rotation) {
 	return (V3f) {
 		rotation.x, 
 		normalize_angle(rotation.y + 180),
@@ -3464,15 +3450,6 @@ void free_esd(ESD *esd) {
 const char *ESD_MAGIC = "fsSL";
 #define ESD_MAGIC_LENGTH  4
 
-#define da_init(da, size) \
-	do {\
-		if ((size) > 0) {\
-			assert((da)->capacity == 0 && "0 init the da first");\
-			(da)->capacity = (size);\
-			(da)->items = malloc(sizeof(*(da)->items)*(da)->capacity);\
-		}\
-	} while (0)
-
 #define STATE_SIZE 0x48
 
 typedef Ht(const char *, size_t) Dictstrzu;
@@ -5438,69 +5415,85 @@ bool add_pirate_ship_msg_to_game_files(const char *input_path, const char *outpu
 #define WARP_OBJ_NAME WARP_OBJ_MODEL_NAME"_0000"
 #define WARP_OBJ_INST_ID 10021101 
 
-typedef enum {
-	ThingsBetwixt = 0,
-	Majula,
-	ForestOfTheFallenGiants,
-	BrightstoneCoveTseldora,
-	AldiasKeep,
-	TheLostBastilleBelfryLuna,
-	HarvestValleyEarthenPeak,
-	NomansWharf,
-	IronKeepBelfrySol,
-	HuntsmanCopseUndeadPurgatory,
-	TheGutterBlackGulch,
-	DragonAerieDragonShrine,
-	MajulaShadedWoods,
-	HeidesToNoMansWharf,
-	HeidesTowerofFlame,
-	ShadedWoodsShrineofWinter,
-	DoorsofPharros,
-	GraveofSaints,
-	MemoryofVammarOrroandJeigh,
-	ShrineofAmana,
-	DrangleicCastleThroneofWant,
-	UndeadCrypt,
-	DragonMemories,
-	DarkChasmofOld,
-	ShulvaSanctumCity,
-	BrumeTower,
-	FrozenEleumLoyce,
-	MemoryoftheKing,
-	__MapNameCount,
-} MapName;
+#define MAP_ITEMS \
+  X("m10_02_00_00") \
+  X("m10_04_00_00") \
+  X("m10_10_00_00") \
+  X("m10_14_00_00") \
+  X("m10_15_00_00") \
+  X("m10_16_00_00") \
+  X("m10_17_00_00") \
+  X("m10_18_00_00") \
+  X("m10_19_00_00") \
+  X("m10_23_00_00") \
+  X("m10_25_00_00") \
+  X("m10_27_00_00") \
+  X("m10_29_00_00") \
+  X("m10_30_00_00") \
+  X("m10_31_00_00") \
+  X("m10_32_00_00") \
+  X("m10_33_00_00") \
+  X("m10_34_00_00") \
+  X("m20_10_00_00") \
+  X("m20_11_00_00") \
+  X("m20_21_00_00") \
+  X("m20_24_00_00") \
+  X("m20_26_00_00") \
+  X("m40_03_00_00") \
+  X("m50_35_00_00") \
+  X("m50_36_00_00") \
+  X("m50_37_00_00") \
+  X("m50_38_00_00")
 
+// Generate the names array
 const char map_names[][13] = {
-	"m10_02_00_00",
-	"m10_04_00_00",
-	"m10_10_00_00",
-	"m10_14_00_00",
-	"m10_15_00_00",
-	"m10_16_00_00",
-	"m10_17_00_00",
-	"m10_18_00_00",
-	"m10_19_00_00",
-	"m10_23_00_00",
-	"m10_25_00_00",
-	"m10_27_00_00",
-	"m10_29_00_00",
-	"m10_30_00_00",
-	"m10_31_00_00",
-	"m10_32_00_00",
-	"m10_33_00_00",
-	"m10_34_00_00",
-	"m20_10_00_00",
-	"m20_11_00_00",
-	"m20_21_00_00",
-	"m20_24_00_00",
-	"m20_26_00_00",
-	"m40_03_00_00",
-	"m50_35_00_00",
-	"m50_36_00_00",
-	"m50_37_00_00",
-	"m50_38_00_00",
+#define X(name) name,
+  MAP_ITEMS
+#undef X
 };
-static_assert(ARRAY_LEN(map_names) == __MapNameCount, "Missing map name");
+
+// Generate the paths array
+const char map_paths[][34] = {
+#define X(name) "map/" name "/" name ".msb",
+  MAP_ITEMS
+#undef X
+};
+
+// Generate the mapobjectinstanceparam array
+const char obj_inst_param_paths[][48] = {
+#define X(name) "Param/mapobjectinstanceparam_" name ".param",
+  MAP_ITEMS
+#undef X
+};
+
+// Generate the event_param array
+const char event_param_paths[][36] = {
+#define X(name) "Param/eventparam_" name ".param",
+  MAP_ITEMS
+#undef X
+};
+
+// Generate the event_location array
+const char event_loc_paths[][39] = {
+#define X(name) "Param/eventlocation_" name ".param",
+  MAP_ITEMS
+#undef X
+};
+
+
+// Generate the esd path array
+const char esd_paths[][31] = {
+#define X(name) "ezstate/event_" name ".esd",
+  MAP_ITEMS
+#undef X
+};
+
+static_assert(ARRAY_LEN(map_names) == __MapNameCount, "Missing map_name");
+static_assert(ARRAY_LEN(map_paths) == __MapNameCount, "Missing map_path");
+static_assert(ARRAY_LEN(obj_inst_param_paths) == __MapNameCount, "Missing obj_inst_param_path");
+static_assert(ARRAY_LEN(event_param_paths) == __MapNameCount, "Missing event_param_path");
+static_assert(ARRAY_LEN(event_loc_paths) == __MapNameCount, "Missing event_loc_path");
+static_assert(ARRAY_LEN(esd_paths) == __MapNameCount, "Missing esd_path");
 
 size_t map_ids[] = {
 	10020000,
@@ -5886,29 +5879,105 @@ size_t warp_to_location(ESD *esd, String_Builder *bytecode_buf, int id, int targ
 	return state_id;
 }
 
-
-
 #define OUT_FOLDER_PATH "output/"
+
+bool load_map_from_name(String_Builder *sb, MapName name, MSB2 *map) {
+	const char *map_name = map_names[name];
+	if (!mkdir_if_not_exists(temp_sprintf(OUT_FOLDER_PATH"map/%s/", map_name))) return false;
+	const char *map_path = map_paths[name];
+	if (!nob_read_entire_file(map_path, sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", map_path, sb->count);
+	String_View sv = sb_to_sv(*sb);
+	*map = load_map(map_path, sv);
+	return true;
+}
+
+bool write_map_from_name(String_Builder *wsb, MapName name, MSB2 *map) {
+	if (!write_map(wsb, map) != 0) return false;
+	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", map_paths[name]);
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"map")) return false;
+	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
+	printf("[Generated] %s\n", output_path);
+	free_map(map);
+	return true;
+}
+
+
+bool load_obj_inst_param_from_map_name(String_Builder *sb, MapName name, PARAM *param) {
+	const char *param_path = obj_inst_param_paths[name];
+	if (!nob_read_entire_file(param_path, sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
+	String_View sv = sb_to_sv(*sb);
+	*param = load_param(&sv, Cell_MapObjInstanceParam);
+	return true;
+}
+
+bool load_event_param_from_map_name(String_Builder *sb, MapName name, PARAM *param) {
+	if (!nob_read_entire_file(event_param_paths[name], sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", event_param_paths[name], sb->count);
+	String_View sv = sb_to_sv(*sb);
+	*param = load_param(&sv, Cell_EventParam);
+	return true;
+}
+
+bool load_event_loc_from_map_name(String_Builder *sb, MapName name, PARAM *param) {
+	if (!nob_read_entire_file(event_loc_paths[name], sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", event_loc_paths[name], sb->count);
+	String_View sv = sb_to_sv(*sb);
+	*param = load_param(&sv, Cell_EventLoc);
+	return true;
+}
+
+bool write_param_from_map_name(String_Builder *wsb, const char *output_path, PARAM *param) {
+	write_param(wsb, param);
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return false;
+	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
+	printf("[Generated] %s\n", output_path);
+	free_PARAM(param);
+	return true;
+}
+
+
+bool load_esd_from_map_name(String_Builder *sb, MapName name, ESD *esd) {
+	if (!nob_read_entire_file(esd_paths[name], sb)) {
+		return false;
+	}
+	printf("[Read] %s: %zu bytes\n", esd_paths[name], sb->count);
+	String_View sv = sb_to_sv(*sb);
+	*esd = read_esd(sv);
+	return true;
+}
+
+bool write_esd_from_map_name(String_Builder *wsb, MapName name, ESD *esd) {
+	write_esd(wsb, esd);
+	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_paths[name]);
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
+	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
+	printf("[Generated] %s\n", output_path);
+	free_esd(esd);
+	return true;
+}
 
 bool generate_map_objects() {
 	size_t mark = temp_save();
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"map")) return false;
 
 	String_Builder string_buffer = {0};
 	da_init(&string_buffer, 1024);
-
-	String_Builder sb = {0};
-	const char *map_name = map_names[ThingsBetwixt];
-	if (!mkdir_if_not_exists(temp_sprintf(OUT_FOLDER_PATH"map/%s/", map_name))) return false;
-	const char *path_map = temp_sprintf("map/%s/%s.msb", map_name, map_name);
-	if (!nob_read_entire_file(path_map, &sb)) {
-		return false;
-	}
-	printf("[Read] %s: %zu bytes\n", path_map, sb.count);
-	String_View sv = sb_to_sv(sb);
+	String_Builder sb = {0};  // for reading the files
+	String_Builder wsb = {0}; // for writing the files
 
 	// add the warp object part to the map
-	MSB2 map = load_map(path_map, sv); 
+	MSB2 map;
+	MapName map_name_id = ThingsBetwixt;
+	if (!load_map_from_name(&sb, map_name_id, &map)) return false;
 	V3f pos_offs_event_loc = map.events.MapOffsets.count > 0 ?\
 							 map.events.MapOffsets.items[0].type_data.map_offset.translation :\
 							 (V3f){0, 0, 0};
@@ -5931,13 +6000,11 @@ bool generate_map_objects() {
 	}
 	assert(warp_part.name != NULL);
 	// disabling the visibility of warp_part
-	if (0) {
-		for (size_t i=0; i<ARRAY_LEN(warp_part.part.draw_groups); i++) {
-			warp_part.part.draw_groups[i] = 0;
-		}
-		for (size_t i=0; i<ARRAY_LEN(warp_part.part.disp_groups); i++) {
-			warp_part.part.disp_groups[i] = 0;
-		}
+	for (size_t i=0; i<ARRAY_LEN(warp_part.part.draw_groups); i++) {
+		warp_part.part.draw_groups[i] = 0;
+	}
+	for (size_t i=0; i<ARRAY_LEN(warp_part.part.disp_groups); i++) {
+		warp_part.part.disp_groups[i] = 0;
 	}
 	V3f pos = {-153.63, 13.477, -130.951};
 	V3f rot = {0.0, 15.0, 0.0};
@@ -5945,88 +6012,54 @@ bool generate_map_objects() {
 	size_t warp_obj_inst_id = 10020401;
 	da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, rot, warp_obj_inst_id, name_id++, &string_buffer));
 	da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, v3f_flip_y(rot), warp_obj_inst_id + 1, name_id++, &string_buffer));
-	String_Builder wsb = {0};
-	if (!write_map(&wsb, &map) != 0) return false;
-	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", path_map);
-	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
-	printf("[Generated] %s\n", output_path);
-	free_map(&map);
+
+	if (!write_map_from_name(&wsb, map_name_id, &map)) return false;
 	temp_rewind(mark);
 
 	//
 	// add the object instance for the warp part
 	sb.count = 0;
 	wsb.count = 0;
-	const char *param_path = temp_sprintf("Param/mapobjectinstanceparam_%s.param", map_name);
-	if (!nob_read_entire_file(param_path, &sb)) {
-		return false;
-	}
-	printf("[Read] %s: %zu bytes\n", param_path, sb.count);
-	sv = sb_to_sv(sb);
-	PARAM param = load_param(&sv, Cell_MapObjInstanceParam);
+	PARAM param;
+	if (!load_obj_inst_param_from_map_name(&sb, map_name_id, &param)) return false;
 	size_t insert_loc = 1;
 	add_map_obj_instance_param_warpobj(&param, warp_obj_inst_id, insert_loc++);
 	add_map_obj_instance_param_warpobj(&param, warp_obj_inst_id + 1, insert_loc++);
-	write_param(&wsb, &param);
-	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", param_path);
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return false;
-	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
-	printf("[Generated] %s\n", output_path);
-	free_PARAM(&param);
+	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", obj_inst_param_paths[map_name_id]);
+	if (!write_param_from_map_name(&wsb, output_path, &param)) return false;
 	temp_rewind(mark);
 
 	//
 	// create and add new event param for infront and back of fog door
 	sb.count = 0;
 	wsb.count = 0;
-	param_path = temp_sprintf("Param/eventparam_%s.param", map_name);
-	if (!nob_read_entire_file(param_path, &sb)) {
-		return false;
-	}
-	printf("[Read] %s: %zu bytes\n", param_path, sb.count);
-	sv = sb_to_sv(sb);
-	param = load_param(&sv, Cell_EventParam);
+	if (!load_event_param_from_map_name(&sb, map_name_id, &param)) return false;
 	size_t event_param_id = 1001;
 	add_event_param_warpobj(&param, event_param_id, warp_obj_inst_id);
 	add_event_param_warpobj(&param, event_param_id+1, warp_obj_inst_id+1);
 	write_param(&wsb, &param);
-	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", param_path);
-	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
-	printf("[Generated] %s\n", output_path);
-	free_PARAM(&param);
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", event_param_paths[map_name_id]);
+	if (!write_param_from_map_name(&wsb, output_path, &param)) return false;
 	temp_rewind(mark);
 
 	// create and add the new warp points behind and front of the fog door
 	sb.count = 0;
 	wsb.count = 0;
-	param_path = temp_sprintf("Param/eventlocation_%s.param", map_name);
-	if (!nob_read_entire_file(param_path, &sb)) {
-		return false;
-	}
-	printf("[Read] %s: %zu bytes\n", param_path, sb.count);
-	sv = sb_to_sv(sb);
-	param = load_param(&sv, Cell_EventLoc);
+	if (!load_event_loc_from_map_name(&sb, map_name_id, &param)) return false;
 	size_t warp_point_begin = 100201;
 	insert_loc = 1;
 	add_event_loc_warpobj(&param, warp_point_begin, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, insert_loc);
 	add_event_loc_warpobj(&param, warp_point_begin+1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), rot, insert_loc+1);
 	write_param(&wsb, &param);
-	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", param_path);
-	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
-	printf("[Generated] %s\n", output_path);
-	free_PARAM(&param);
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", event_loc_paths[map_name_id]);
+	if (!write_param_from_map_name(&wsb, output_path, &param)) return false;
 	temp_rewind(mark);
 
 	// modify esd to warp on interact
 	sb.count = 0;
 	wsb.count = 0;
-	const char *esd_path = temp_sprintf("ezstate/event_%s.esd", map_name);
-	if (!nob_read_entire_file(esd_path, &sb)) {
-		return false;
-	}
-	printf("[Read] %s: %zu bytes\n", esd_path, sb.count);
-	sv = sb_to_sv(sb);
-	ESD esd = read_esd(sv);
+	ESD esd;
+	if (!load_esd_from_map_name(&sb, map_name_id, &esd)) return false;
 	StateGroup sg = {0};
 	sg.id = event_param_id;
 	size_t state_id = 1;
@@ -6039,12 +6072,7 @@ bool generate_map_objects() {
 	da_append(&sg.states_ids, enable_obj_keyguide(&esd, &string_buffer, state_id++, esd.states.count + 1, warp_obj_inst_id)); 
 	da_append(&sg.states_ids, restart_state(&esd, state_id++)); 
 	da_append(&esd.state_groups, sg);
-	write_esd(&wsb, &esd);
-	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_path);
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
-	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
-	printf("[Generated] %s\n", output_path);
-	free_esd(&esd);
+	if (!write_esd_from_map_name(&wsb, map_name_id, &esd)) return false;
 	temp_rewind(mark);
 
 	// checking esd
@@ -6052,12 +6080,12 @@ bool generate_map_objects() {
 	if (!nob_read_entire_file(output_path, &sb)) {
 		return false;
 	}
-	sv = sb_to_sv(sb);
-	esd = read_esd(sv);
+	esd = read_esd(sb_to_sv(sb));
 	print_state_group(&esd, &esd.state_groups.items[127]);
 	// for (size_t i=0; i<esd.state_groups.count; i++) {
 	// 	print_state_group(&esd, &esd.state_groups.items[i]);
 	// }
+	free_esd(&esd);
 
 
 	da_free(sb);
@@ -6080,6 +6108,9 @@ int randomize_fog_gates() {
 
 int main() {
 	// return randomize_fog_gates();
-	if (!generate_map_objects()) return 1;
+	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
+	// if (!generate_map_objects()) return 1;
+	generate_connections();
+	free_connections();
 	return 0;
 }
