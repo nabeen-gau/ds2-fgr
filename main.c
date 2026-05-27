@@ -11,12 +11,12 @@
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
-#define HT_IMPLEMENTATION
-#include "ht.h"
-
 #include "miniz.h"
 
 #define COMPRESSION_ALLOC_SIZE 10*1024*1024
+
+#define OUT_FOLDER_PATH "output/"
+
 
 // #define LOG_GENERATED_FILES
 
@@ -48,9 +48,6 @@ const char* map_begin = NULL;
 #define utf16_t wchar_t
 
 #define read_utf_16(sv) (utf16_t *)(sv)->data;
-
-#define DA(type, name) typedef struct {type *items; size_t count; size_t capacity;} name
-#define DA2(type, name) typedef struct {struct type *items; size_t count; size_t capacity;} name
 
 #define assert_item(type, sv, val)\
     do {\
@@ -1648,7 +1645,6 @@ void sb_append_float(String_Builder *sb, float value) {
 	sb_append_buf(sb, &value, length);
 }
 
-DA(size_t, DArrz);
 #define sb_pad sb_reserve
 void write_model(String_Builder *sb, Model *model, DArrz *offset_positions, size_t *entries_count) {
 	for (size_t i=0; i<model->count; i++) {
@@ -5401,6 +5397,10 @@ bool add_pirate_ship_msg_to_game_files(const char *input_path, const char *outpu
 	String_Builder wsb = {0};
 	write_fmg(&wsb, &fmg);
 
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"menu")) return false;
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"menu/text")) return false;
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"menu/text/english")) return false;
+
 	if (!write_entire_file(output_path, wsb.items, wsb.count)) return 1;
 	printf("[Generated] %s\n", output_path);
 
@@ -5879,11 +5879,7 @@ size_t warp_to_location(ESD *esd, String_Builder *bytecode_buf, int id, int targ
 	return state_id;
 }
 
-#define OUT_FOLDER_PATH "output/"
-
 bool load_map_from_name(String_Builder *sb, MapName name, MSB2 *map) {
-	const char *map_name = map_names[name];
-	if (!mkdir_if_not_exists(temp_sprintf(OUT_FOLDER_PATH"map/%s/", map_name))) return false;
 	const char *map_path = map_paths[name];
 	if (!nob_read_entire_file(map_path, sb)) {
 		return false;
@@ -5894,12 +5890,15 @@ bool load_map_from_name(String_Builder *sb, MapName name, MSB2 *map) {
 	return true;
 }
 
+#define CONCAT_STR(str, b) str #b
+
 bool write_map_from_name(String_Builder *wsb, MapName name, MSB2 *map) {
 	if (!write_map(wsb, map) != 0) return false;
 	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", map_paths[name]);
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"map")) return false;
+	if (!mkdir_if_not_exists(temp_sprintf(OUT_FOLDER_PATH"map/%s", map_names[name]))) return false;
 	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
-	printf("[Generated] %s\n", output_path);
+	printf("[Generated] %s\n\n", output_path);
 	free_map(map);
 	return true;
 }
@@ -5940,7 +5939,7 @@ bool write_param_from_map_name(String_Builder *wsb, const char *output_path, PAR
 	write_param(wsb, param);
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return false;
 	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
-	printf("[Generated] %s\n", output_path);
+	printf("[Generated] %s\n\n", output_path);
 	free_PARAM(param);
 	return true;
 }
@@ -5963,6 +5962,173 @@ bool write_esd_from_map_name(String_Builder *wsb, MapName name, ESD *esd) {
 	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
 	printf("[Generated] %s\n", output_path);
 	free_esd(esd);
+	return true;
+}
+
+bool str_wchar_eq(wchar_t *ws, const char *s) {
+	const char *ws_cstr = (char *)ws;
+	int n = strlen(s);
+	for (int i=0; i<n; i++) {
+		if (ws_cstr[2*i] != s[i]) return false;
+		if (ws_cstr[2*i+1] != 0) return false;
+	}
+	return true;
+}
+
+void add_esd_event(ESD *esd, String_Builder *string_buffer,
+		MapName dst_map_name_id, size_t event_param_id, size_t warp_obj_inst_id, size_t dst_loc_id) 
+{
+	StateGroup sg = {0};
+	sg.id = event_param_id;
+	size_t state_id = 1;
+	// size_t msg_id = 1003;
+	da_append(&sg.states_ids, state_init(esd, esd->states.count + 1, string_buffer)); 
+	da_append(&sg.states_ids, wait_until_interact_with_obj(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, disable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, warp_to_location(esd, string_buffer, state_id++, esd->states.count + 1, map_ids[dst_map_name_id], dst_loc_id)); 
+	// da_append(&sg.states_ids, display_ring_bell_msg(esd, string_buffer, state_id++, esd->states.count + 1, msg_id)); 
+	da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, restart_state(esd, state_id++)); 
+	da_append(&esd->state_groups, sg);
+}
+
+bool generate_map_objects_name(MapName map_name_id) {
+	size_t mark = temp_save();
+	String_Builder string_buffer = {0};
+	da_init(&string_buffer, 2048);
+	String_Builder map_sb = {0};  // for reading the files
+	String_Builder map_wsb = {0}; // for writing the files
+	MSB2 map;
+	if (!load_map_from_name(&map_sb, map_name_id, &map)) return false;
+	V3f pos_offs_event_loc = map.events.MapOffsets.count > 0 ?\
+							 map.events.MapOffsets.items[0].type_data.map_offset.translation :\
+							 (V3f){0, 0, 0};
+	Part warp_part = {0};
+	for (size_t j=0; j<map.parts.Objects.count; j++) {
+		Part *part = &map.parts.Objects.items[j];
+		if (wcscmp(part->name, L""WARP_OBJ_NAME) == 0) {
+			part_copy(&warp_part, part, &string_buffer);
+			break;
+		}
+	}
+	assert(warp_part.name != NULL);
+	// disabling the visibility of warp_part
+	for (size_t i=0; i<ARRAY_LEN(warp_part.part.draw_groups); i++) {
+		warp_part.part.draw_groups[i] = 0;
+	}
+	for (size_t i=0; i<ARRAY_LEN(warp_part.part.disp_groups); i++) {
+		warp_part.part.disp_groups[i] = 0;
+	}
+	// Ht(char *, V3f) positions = { .hasheq = ht_cstr_hasheq };
+	// Ht(char *, V3f) rotations = { .hasheq = ht_cstr_hasheq };
+	size_t name_id = 1001;
+	size_t warp_obj_inst_id = 10020411;
+	size_t oip_insert_loc = 3;
+	size_t event_param_id = 1021;
+	size_t warp_point_begin = 100201;
+
+	PARAM obj_inst_param, ev_param, param;
+
+	String_Builder oip_sb = {0};
+	String_Builder oip_wsb = {0};
+	if (!load_obj_inst_param_from_map_name(&oip_sb, map_name_id, &obj_inst_param)) return false;
+
+	String_Builder ep_sb = {0};
+	String_Builder ep_wsb = {0};
+	if (!load_event_param_from_map_name(&ep_sb, map_name_id, &ev_param)) return false;
+
+	Ht(size_t, bool) completed_ids = {0};
+
+	String_Builder el_sb = {0};
+	String_Builder el_wsb = {0};
+	if (!load_event_loc_from_map_name(&el_sb, map_name_id, &param)) return false;
+	size_t el_insert_loc = 1;
+
+	ESD esd;
+	String_Builder sb = {0};
+	String_Builder wsb = {0};
+	if (!load_esd_from_map_name(&sb, map_name_id, &esd)) return false;
+	size_t sg_id = esd.state_groups.count;
+
+	for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
+		WarpPoint wp = warp_points[i];
+		if (wp.map != map_name_id) continue;
+		if (!wp.is_foggate) continue;
+		Part *fog_gate = NULL;
+		bool *found = NULL;
+		for (size_t j=0; j<map.parts.Objects.count; j++) {
+			Part *p = &map.parts.Objects.items[j];
+			if (str_wchar_eq(p->name, wp.obj_id)) {
+				found = ht_find(&completed_ids, j);
+				if (found == NULL) {
+					*ht_put(&completed_ids, j) = true;
+					fog_gate = p;
+				}
+				break;
+			}
+		}
+		if (found) continue;
+		assert(fog_gate != NULL && "Could not find the foggate name in the map");
+		V3f pos = v3f_add(wp.offset, fog_gate->part.position);
+		V3f rot = fog_gate->part.rotation;
+		size_t woi_id1 = warp_obj_inst_id++;
+		size_t woi_id2 = warp_obj_inst_id++;
+		da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, rot, woi_id1, name_id++, &string_buffer));
+		da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, v3f_flip_y(rot), woi_id2, name_id++, &string_buffer));
+
+		// add the object instance for the warp part
+		add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id1, oip_insert_loc++);
+		add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id2, oip_insert_loc++);
+
+		// create and add new event param for infront and back of fog door
+		size_t ep_id1 = event_param_id++;
+		size_t ep_id2 = event_param_id++;
+		add_event_param_warpobj(&ev_param, ep_id1, woi_id1);
+		add_event_param_warpobj(&ev_param, ep_id2, woi_id2);
+
+		// create and add the new warp points behind and front of the fog door
+		size_t wp1 = warp_point_begin++;
+		size_t wp2 = warp_point_begin++;
+		add_event_loc_warpobj(&param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
+		add_event_loc_warpobj(&param, wp2, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), rot, el_insert_loc++);
+
+		add_esd_event(&esd, &string_buffer, map_name_id, ep_id1, woi_id1, wp1);
+		add_esd_event(&esd, &string_buffer, map_name_id, ep_id2, woi_id2, wp2);
+	}
+	if (!write_map_from_name(&map_wsb, map_name_id, &map)) return false;
+	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", obj_inst_param_paths[map_name_id]);
+	if (!write_param_from_map_name(&oip_wsb, output_path, &obj_inst_param)) return false;
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", event_param_paths[map_name_id]);
+	write_param(&ep_wsb, &ev_param);
+	if (!write_param_from_map_name(&ep_wsb, output_path, &ev_param)) return false;
+	write_param(&el_wsb, &param);
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", event_loc_paths[map_name_id]);
+	if (!write_param_from_map_name(&el_wsb, output_path, &param)) return false;
+
+	if (!write_esd_from_map_name(&wsb, map_name_id, &esd)) return false;
+	sb.count = 0;
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_paths[map_name_id]);
+	if (!nob_read_entire_file(output_path, &sb)) return false;
+	esd = read_esd(sb_to_sv(sb));
+	for (size_t i=sg_id; i<esd.state_groups.count; i++) {
+		print_state_group(&esd, &esd.state_groups.items[i]);
+	}
+	free_esd(&esd);
+
+
+	ht_free(&completed_ids);
+	da_free(string_buffer);
+	da_free(map_sb);
+	da_free(map_wsb);
+	da_free(oip_sb);
+	da_free(oip_wsb);
+	da_free(ep_sb);
+	da_free(ep_wsb);
+	da_free(el_sb);
+	da_free(el_wsb);
+	da_free(sb);
+	da_free(wsb);
+	temp_rewind(mark);
 	return true;
 }
 
@@ -6077,9 +6243,8 @@ bool generate_map_objects() {
 
 	// checking esd
 	sb.count = 0;
-	if (!nob_read_entire_file(output_path, &sb)) {
-		return false;
-	}
+	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_paths[map_name_id]);
+	if (!nob_read_entire_file(output_path, &sb)) return false;
 	esd = read_esd(sb_to_sv(sb));
 	print_state_group(&esd, &esd.state_groups.items[127]);
 	// for (size_t i=0; i<esd.state_groups.count; i++) {
@@ -6098,19 +6263,17 @@ bool generate_map_objects() {
 
 #define MAP_EVENT_TEXT_LOCATION "menu/text/english/mapevent.fmg"
 
-int randomize_fog_gates() {
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
-	if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
-	int ship_arrival_msg_id = -1;
-	if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
-	return 0;
-}
-
 int main() {
-	// return randomize_fog_gates();
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
 	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
-	// if (!generate_map_objects()) return 1;
-	generate_connections();
-	free_connections();
+	// int ship_arrival_msg_id = -1;
+	// if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
+	if (!generate_map_objects()) return 1;
+	// if (!generate_map_objects_name(ThingsBetwixt)) return 1;
+	// generate_default_connections();
+	// generate_connections();
+	// Warps warps = {0};
+	// warp_add(&warps, GameStartSpawnSrc);
+	// free_connections();
 	return 0;
 }

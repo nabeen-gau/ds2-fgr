@@ -8,6 +8,7 @@
 #define packed_struct struct __attribute__((packed))
 #endif
 
+#include <stdint.h>
 
 typedef packed_struct { 
 	float x,y; 
@@ -16,7 +17,6 @@ typedef packed_struct {
 typedef packed_struct { 
 	float x,y,z; 
 } V3f;
-#endif
 
 #define da_init(da, size) \
 	do {\
@@ -27,3 +27,8 @@ typedef packed_struct {
 		}\
 	} while (0)
 
+#define DA(type, name) typedef struct {type *items; size_t count; size_t capacity;} name
+#define DA2(type, name) typedef struct {struct type *items; size_t count; size_t capacity;} name
+
+DA(size_t, DArrz);
+#endif

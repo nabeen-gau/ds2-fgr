@@ -7,6 +7,9 @@
 #define NOB_DA_INIT_CAP 32
 #include "nob.h"
 
+#define HT_IMPLEMENTATION
+#include "ht.h"
+
 typedef enum {
 	ThingsBetwixt = 0,
 	Majula,
@@ -65,9 +68,9 @@ typedef enum {
 	LookingGlassKnight,
 	DemonofSong,
 	VelstadtTheRoyalAegis,
-	Vendrick,
+	VendrickBoss,
 	GuardianDragon,
-	AncientDragon,
+	AncientDragonBoss,
 	GiantLord,
 	ThroneWatcherAndDefender,
 	Nashandra,
@@ -92,23 +95,177 @@ typedef enum {
 	WPBT_FragrantBranchOfYore,
 } WarpPointBlockType;
 
-#define WarpNodeItems \
-	X(GameStartSpawnSrc) \
-	X(GameStartSpawnDst) \
+#define FogGateNames \
+	X(Tutorial1Entry) \
+	X(Tutorial1Exit) \
+	X(Tutorial2Entry) \
+	X(Tutorial2Exit) \
+	X(Tutorial3Entry) \
+	X(Tutorial3Exit) \
+	X(MajulaToForestOfFallenGiants) \
+	X(MajulaToGraveOfSaints) \
+	X(MajulaToHuntsmanCopse) \
+	X(MajulaToRotundaLockstone) \
+	X(MajulaToGutter) \
+	X(MajulaToShadedWoods) \
+	X(LastGiantEntry) \
+	X(PursuerEntry) \
+	X(PursuerExit) \
+	X(ForestOfFallenGiantsBalcony) \
+	X(ForestOfFallenGiantsToCale) \
+	X(ForestOfFallenGiantsAfterFirstBonfire) \
+	X(ForestOfFallenGiantsFromMajula) \
+	X(ForestOfFallenGiantsToPursuerArena) \
+	X(CongregationEntry) \
+	X(CongregationExit) \
+	X(BrightstoneCoveToDoorsOfPharros) \
+	X(DukesDearFreyjaEntry) \
+	X(DukesDearFreyjaExit) \
+	X(GuardianDragonEntry) \
+	X(GuardianDragonExit) \
+	X(AldiasKeepEntrance) \
+	X(GargoylesEntry) \
+	X(GargoylesExit) \
+	X(RuinSentinelsEntry) \
+	X(RuinSentinelsExit) \
+	X(RuinSentinelsHiddenDoor1Exit) \
+	X(RuinSentinelsHiddenDoor2Exit) \
+	X(RuinSentinelsHiddenDoor3Exit) \
+	X(RuinSentinelsHiddenDoor4Exit) \
+	X(RuinSentinesUpperExit) \
+	X(LostBastilleToSinnersRise) \
+	X(LostBastilleToShipFromWharf) \
+	X(LostBastilleToBelfryLuna) \
+	X(LostSinnerEntry) \
+	X(LostSinnerExit) \
+	X(CovetousDemonEntry) \
+	X(EarthenPeakNearWindmillBurnLocation) \
+	X(MythaEntry) \
+	X(CovetousDemonExit) \
+	X(MythaExit) \
+	X(HarvestValleyToSkeletonLords) \
+	X(FlexileSentryExit) \
+	X(FlexileSentryEntry) \
+	X(NoMansWharfToHeides) \
+	X(SmeltorDemonEntry) \
+	X(IronKeepNearFlameThrowerAndTurtle) \
+	X(BelfrySolExit) \
+	X(BelfrySolEntry) \
+	X(OldIronKingEntry) \
+	X(OldIronKingExit) \
+	X(SmeltorDemonExit) \
+	X(SmeltorDemonToBonfire) \
+	X(IronKeepToBelfryAtPharrosLockstone) \
+	X(IronKeepToEarthenPeak) \
+	X(SkeletonLordsEntry) \
+	X(ChariotEntry) \
+	X(SkeletonLordsExit) \
+	X(ChariotExit) \
+	X(HuntsmanCopseToMajula) \
+	X(GutterNearAntQueen) \
+	X(TheRottenExit) \
+	X(BlackGulchEntrance) \
+	X(TheGutterFromGraveOfSaints) \
+	X(TheRottenEntry) \
+	X(DragonAerieToAldiasKeep) \
+	X(AncientDragon) \
+	X(ShadedWoodsFromMajula) \
+	X(DragonriderEntry) \
+	X(DragonriderExit) \
+	X(HeidesToMajula) \
+	X(HeidesToWharf) \
+	X(OldDragonslayerEntry) \
+	X(OldDragonslayerExit) \
+	X(ScorpionessNajkaExit) \
+	X(ShadedWoodsToMistyArea) \
+	X(ScorpionessNajkaEntry) \
+	X(RoyalRatAuthorityExit) \
+	X(DoorOfPharrosToOrdealEndBonfire) \
+	X(DoorOfPharrosToRatKingDomain) \
+	X(RoyalRatAuthorityEntry) \
+	X(GraveOfSaintsFromPit) \
+	X(GraveOfSaintsNearUpperBonfire) \
+	X(RoyalRatVanguardEntry) \
+	X(RoyalRatVanguardExit) \
+	X(GiantLordEntry) \
+	X(GiantLordExit) \
+	X(DemonOfSongEntry) \
+	X(ShrineOfAmanaTo2ndBonfire) \
+	X(ShrineOfAmanaTo3rdBonfire) \
+	X(DemonOfSongExit) \
+	X(ShrineOfAmanaToDrangleicCastle) \
+	X(LookingGlassKnightEntry) \
+	X(TwinDragonridersEntry) \
+	X(TwinDragonridersExit) \
+	X(LookingGlassKnightExit) \
+	X(FinalFightArena) \
+	X(DrangleicCastleToChasmPortal) \
+	X(DrangleicCastleToShadedWoods) \
+	X(UndeadCryptToShrineOfAmana) \
+	X(VelsdatEntry) \
+	X(VelsdatExit) \
+	X(UndeadCryptFromAgdayneToBonfire) \
+	X(Vendrick) \
+	X(DarkChasmFromBlackGulchExit) \
+	X(DarkChasmFromDrangleicCastleExit) \
+	X(DarkChasmFromShadedWoodsExit) \
+	X(DarkLurkerExit) \
+	X(SihnTheSlumberingDragonEntry) \
+	X(ElanaTheSqualidQueenEntry) \
+	X(GankSquadBossEntry) \
+	X(GankSquadBossExit) \
+	X(ShulvaToGankFight1) \
+	X(ShulvaEntrance) \
+	X(BetweenElanaAndSihn) \
+	X(ShulvaToGankFight2) \
+	X(NearJesterThomas) \
+	X(BrumeTowerFrom2ndBonfireToCentralRoom) \
+	X(BrumeTowerToFoyerBonfireFromOutside) \
+	X(BrumeTowerToScorchingIronSceptorKey) \
+	X(SirAlonneEntry) \
+	X(SirAlonneExit) \
+	X(FumeKnightEntry) \
+	X(FumeKnightExit) \
+	X(BlueSmeltorDemonEntry) \
+	X(BlueSmeltorDemonExit) \
+	X(BrumeTowerEntranceFromLift) \
+	X(BrumeTowerToBlueSmelterDungeon) \
+	X(AavaTheKingsPetExit) \
+	X(EleumLoyceAfterGettingEyeToSeeGhosts) \
+	X(IvoryKing) \
+	X(LudAndZallenEntry) \
+	X(AavaTheKingsPetEntry) \
+	X(LudAndZallenExit) \
+	X(EleumLoyceCathedraEntrance)
+
+#define WarpPoints \
+	X(GameStartSpawn) \
+	X(NearPursuerGiantMemoryEntry) \
+	X(NearPateGiantMemoryEntry) \
+	X(GiantLordMemoryEntry) \
+	X(NearPursuerGiantMemoryExit) \
+	X(NearPateGiantMemoryExit) \
+	X(GiantLordMemoryExit) \
+	X(SirAlonneArmorDLCEntry) \
+	X(SirAlonneMemoryExit) \
+	X(ChasmPortalFromBlackGulch) \
+	X(ChasmPortalFromShadedWoods) \
+	X(ChasmPortalFromCastle) \
+	X(ChasmGulchExitWarp) \
+	X(ChasmShadedWoodsExitWarp) \
+	X(ChasmCastleExitWarp) \
+	X(ChasmDarkLurkerExitWarp) \
+	X(IvoryKingFightEnd) \
+	X(CoffinWarp) \
+	X(LudAndZallenExitWarp) \
+	X(DragonMemoriesCove) \
+	X(DragonMemoriesMemory) \
+	X(MemoryOfTheKingCrypt) \
+	X(MemoryOfTheKingMemory)
+
+#define OtherWarpNodes \
 	X(NearPursuerBirdEntry) \
-	X(NearPursuerGiantMemoryEntrySrc) \
-	X(NearPateGiantMemoryEntrySrc) \
-	X(GiantLordMemoryEntrySrc) \
-	X(NearPursuerGiantMemoryExitDst) \
-	X(NearPateGiantMemoryExitDst) \
-	X(GiantLordMemoryExitDst) \
 	X(NearPursuerBirdExit) \
-	X(NearPursuerGiantMemoryEntryDst) \
-	X(NearPateGiantMemoryEntryDst) \
-	X(GiantLordMemoryEntryDst) \
-	X(NearPursuerGiantMemoryExitSrc) \
-	X(NearPateGiantMemoryExitSrc) \
-	X(GiantLordMemoryExitSrc) \
 	X(PirateShipWharf) \
 	X(PirateShipBastille) \
 	X(DLC1EntranceBaseGame) \
@@ -117,332 +274,44 @@ typedef enum {
 	X(DLC1EntranceDLC) \
 	X(DLC2EntranceDLC) \
 	X(DLC3EntranceDLC) \
-	X(SirAlonneArmorDLCEntrySrc) \
-	X(SirAlonneArmorDLCEntryDst) \
-	X(SirAlonneMemoryExitSrc) \
-	X(SirAlonneMemoryExitDst) \
-	X(ChasmPortalFromBlackGulchSrc) \
-	X(ChasmPortalFromShadedWoodsSrc) \
-	X(ChasmPortalFromCastleSrc) \
-	X(ChasmPortalFromBlackGulchDst) \
-	X(ChasmPortalFromShadedWoodsDst) \
-	X(ChasmPortalFromCastleDst) \
-	X(ChasmGulchExitWarpSrc) \
-	X(ChasmShadedWoodsExitWarpSrc) \
-	X(ChasmCastleExitWarpSrc) \
-	X(ChasmDarkLurkerExitWarpSrc) \
-	X(ChasmGulchExitWarpDst) \
-	X(ChasmShadedWoodsExitWarpDst) \
-	X(ChasmCastleExitWarpDst) \
-	X(ChasmDarkLurkerExitWarpDst) \
-	X(IvoryKingFightEndSrc) \
-	X(IvoryKingFightEndDst) \
-	X(CoffinWarpSrc) \
-	X(CoffinWarpDst) \
-	X(LudAndZallenExitWarpSrc) \
-	X(LudAndZallenExitWarpDst) \
-	X(DragonMemoriesCoveSrc) \
-	X(DragonMemoriesCoveDst) \
-	X(DragonMemoriesMemoryDst) \
-	X(DragonMemoriesMemorySrc) \
-	X(MemoryOfTheKingCryptSrc) \
-	X(MemoryOfTheKingCryptDst) \
-	X(MemoryOfTheKingMemoryDst) \
-	X(MemoryOfTheKingMemorySrc) \
-	X(Tutorial1EntryFront) \
-	X(Tutorial1ExitFront) \
-	X(Tutorial2EntryFront) \
-	X(Tutorial2ExitFront) \
-	X(Tutorial3EntryFront) \
-	X(Tutorial3ExitFront) \
-	X(Tutorial1EntryBack) \
-	X(Tutorial1ExitBack) \
-	X(Tutorial2EntryBack) \
-	X(Tutorial2ExitBack) \
-	X(Tutorial3EntryBack) \
-	X(Tutorial3ExitBack) \
-	X(MajulaToForestOfFallenGiantsFront) \
-	X(MajulaToGraveOfSaintsFront) \
-	X(MajulaToHuntsmanCopseFront) \
-	X(MajulaToRotundaLockstoneFront) \
-	X(MajulaToGutterFront) \
-	X(MajulaToShadedWoodsFront) \
-	X(MajulaToForestOfFallenGiantsBack) \
-	X(MajulaToGraveOfSaintsBack) \
-	X(MajulaToHuntsmanCopseBack) \
-	X(MajulaToRotundaLockstoneBack) \
-	X(MajulaToGutterBack) \
-	X(MajulaToShadedWoodsBack) \
-	X(LastGiantEntryFront) \
-	X(PursuerEntryFront) \
-	X(PursuerExitFront) \
-	X(ForestOfFallenGiantsBalconyFront) \
-	X(ForestOfFallenGiantsToCaleFront) \
-	X(ForestOfFallenGiantsAfterFirstBonfireFront) \
-	X(ForestOfFallenGiantsFromMajulaFront) \
-	X(ForestOfFallenGiantsToPursuerArenaFront) \
-	X(LastGiantEntryBack) \
-	X(PursuerEntryBack) \
-	X(PursuerExitBack) \
-	X(ForestOfFallenGiantsBalconyBack) \
-	X(ForestOfFallenGiantsToCaleBack) \
-	X(ForestOfFallenGiantsAfterFirstBonfireBack) \
-	X(ForestOfFallenGiantsFromMajulaBack) \
-	X(ForestOfFallenGiantsToPursuerArenaBack) \
-	X(CongregationEntryFront) \
-	X(CongregationExitFront) \
-	X(BrightstoneCoveToDoorsOfPharrosFront) \
-	X(DukesDearFreyjaEntryFront) \
-	X(DukesDearFreyjaExitFront) \
-	X(CongregationEntryBack) \
-	X(CongregationExitBack) \
-	X(BrightstoneCoveToDoorsOfPharrosBack) \
-	X(DukesDearFreyjaEntryBack) \
-	X(DukesDearFreyjaExitBack) \
-	X(GuardianDragonEntryFront) \
-	X(GuardianDragonExitFront) \
-	X(AldiasKeepEntranceFront) \
-	X(GuardianDragonEntryBack) \
-	X(GuardianDragonExitBack) \
-	X(AldiasKeepEntranceBack) \
-	X(GargoylesEntryFront) \
-	X(GargoylesExitFront) \
-	X(RuinSentinelsEntryFront) \
-	X(RuinSentinelsExitFront) \
-	X(RuinSentinelsHiddenDoor1ExitFront) \
-	X(RuinSentinelsHiddenDoor2ExitFront) \
-	X(RuinSentinelsHiddenDoor3ExitFront) \
-	X(RuinSentinelsHiddenDoor4ExitFront) \
-	X(RuinSentinesUpperExitFront) \
-	X(LostBastilleToSinnersRiseFront) \
-	X(LostBastilleToShipFromWharfFront) \
-	X(LostBastilleToBelfryLunaFront) \
-	X(LostSinnerEntryFront) \
-	X(LostSinnerExitFront) \
-	X(GargoylesEntryBack) \
-	X(GargoylesExitBack) \
-	X(RuinSentinelsEntryBack) \
-	X(RuinSentinelsExitBack) \
-	X(RuinSentinelsHiddenDoor1ExitBack) \
-	X(RuinSentinelsHiddenDoor2ExitBack) \
-	X(RuinSentinelsHiddenDoor3ExitBack) \
-	X(RuinSentinelsHiddenDoor4ExitBack) \
-	X(RuinSentinesUpperExitBack) \
-	X(LostBastilleToSinnersRiseBack) \
-	X(LostBastilleToShipFromWharfBack) \
-	X(LostBastilleToBelfryLunaBack) \
-	X(LostSinnerEntryBack) \
-	X(LostSinnerExitBack) \
-	X(CovetousDemonEntryFront) \
-	X(EarthenPeakNearWindmillBurnLocationFront) \
-	X(MythaEntryFront) \
-	X(CovetousDemonExitFront) \
-	X(MythaExitFront) \
-	X(HarvestValleyToSkeletonLordsFront) \
-	X(CovetousDemonEntryBack) \
-	X(EarthenPeakNearWindmillBurnLocationBack) \
-	X(MythaEntryBack) \
-	X(CovetousDemonExitBack) \
-	X(MythaExitBack) \
-	X(HarvestValleyToSkeletonLordsBack) \
-	X(FlexileSentryExitFront) \
-	X(FlexileSentryEntryFront) \
-	X(NoMansWharfToHeidesFront) \
-	X(FlexileSentryExitBack) \
-	X(FlexileSentryEntryBack) \
-	X(NoMansWharfToHeidesBack) \
-	X(SmeltorDemonEntryFront) \
-	X(IronKeepNearFlameThrowerAndTurtleFront) \
-	X(BelfrySolExitFront) \
-	X(BelfrySolEntryFront) \
-	X(OldIronKingEntryFront) \
-	X(OldIronKingExitFront) \
-	X(SmeltorDemonExitFront) \
-	X(SmeltorDemonToBonfireFront) \
-	X(IronKeepToBelfryAtPharrosLockstoneFront) \
-	X(IronKeepToEarthenPeakFront) \
-	X(SmeltorDemonEntryBack) \
-	X(IronKeepNearFlameThrowerAndTurtleBack) \
-	X(BelfrySolExitBack) \
-	X(BelfrySolEntryBack) \
-	X(OldIronKingEntryBack) \
-	X(OldIronKingExitBack) \
-	X(SmeltorDemonExitBack) \
-	X(SmeltorDemonToBonfireBack) \
-	X(IronKeepToBelfryAtPharrosLockstoneBack) \
-	X(IronKeepToEarthenPeakBack) \
-	X(SkeletonLordsEntryFront) \
-	X(ChariotEntryFront) \
-	X(SkeletonLordsExitFront) \
-	X(ChariotExitFront) \
-	X(HuntsmanCopseToMajulaFront) \
-	X(SkeletonLordsEntryBack) \
-	X(ChariotEntryBack) \
-	X(SkeletonLordsExitBack) \
-	X(ChariotExitBack) \
-	X(HuntsmanCopseToMajulaBack) \
-	X(GutterNearAntQueenFront) \
-	X(TheRottenExitFront) \
-	X(BlackGulchEntranceFront) \
-	X(TheGutterFromGraveOfSaintsFront) \
-	X(TheRottenEntryFront) \
-	X(GutterNearAntQueenBack) \
-	X(TheRottenExitBack) \
-	X(BlackGulchEntranceBack) \
-	X(TheGutterFromGraveOfSaintsBack) \
-	X(TheRottenEntryBack) \
-	X(DragonAerieToAldiasKeepFront) \
-	X(AncientDragonFront) \
-	X(DragonAerieToAldiasKeepBack) \
-	X(AncientDragonBack) \
-	X(ShadedWoodsFromMajulaFront) \
-	X(ShadedWoodsFromMajulaBack) \
-	X(DragonriderEntryFront) \
-	X(DragonriderExitFront) \
-	X(HeidesToMajulaFront) \
-	X(HeidesToWharfFront) \
-	X(OldDragonslayerEntryFront) \
-	X(OldDragonslayerExitFront) \
-	X(DragonriderEntryBack) \
-	X(DragonriderExitBack) \
-	X(HeidesToMajulaBack) \
-	X(HeidesToWharfBack) \
-	X(OldDragonslayerEntryBack) \
-	X(OldDragonslayerExitBack) \
-	X(ScorpionessNajkaExitFront) \
-	X(ShadedWoodsToMistyAreaFront) \
-	X(ScorpionessNajkaEntryFront) \
-	X(ScorpionessNajkaExitBack) \
-	X(ShadedWoodsToMistyAreaBack) \
-	X(ScorpionessNajkaEntryBack) \
-	X(RoyalRatAuthorityExitFront) \
-	X(DoorOfPharrosToOrdealEndBonfireFront) \
-	X(DoorOfPharrosToRatKingDomainFront) \
-	X(RoyalRatAuthorityEntryFront) \
-	X(RoyalRatAuthorityExitBack) \
-	X(DoorOfPharrosToOrdealEndBonfireBack) \
-	X(DoorOfPharrosToRatKingDomainBack) \
-	X(RoyalRatAuthorityEntryBack) \
-	X(GraveOfSaintsFromPitFront) \
-	X(GraveOfSaintsNearUpperBonfireFront) \
-	X(RoyalRatVanguardEntryFront) \
-	X(RoyalRatVanguardExitFront) \
-	X(GraveOfSaintsFromPitBack) \
-	X(GraveOfSaintsNearUpperBonfireBack) \
-	X(RoyalRatVanguardEntryBack) \
-	X(RoyalRatVanguardExitBack) \
-	X(GiantLordEntryFront) \
-	X(GiantLordExitFront) \
-	X(GiantLordEntryBack) \
-	X(GiantLordExitBack) \
-	X(DemonOfSongEntryFront) \
-	X(ShrineOfAmanaTo2ndBonfireFront) \
-	X(ShrineOfAmanaTo3rdBonfireFront) \
-	X(DemonOfSongExitFront) \
-	X(ShrineOfAmanaToDrangleicCastleFront) \
-	X(DemonOfSongEntryBack) \
-	X(ShrineOfAmanaTo2ndBonfireBack) \
-	X(ShrineOfAmanaTo3rdBonfireBack) \
-	X(DemonOfSongExitBack) \
-	X(ShrineOfAmanaToDrangleicCastleBack) \
-	X(LookingGlassKnightEntryFront) \
-	X(TwinDragonridersEntryFront) \
-	X(TwinDragonridersExitFront) \
-	X(LookingGlassKnightExitFront) \
-	X(FinalFightArenaFront) \
-	X(DrangleicCastleToChasmPortalFront) \
-	X(DrangleicCastleToShadedWoodsFront) \
-	X(LookingGlassKnightEntryBack) \
-	X(TwinDragonridersEntryBack) \
-	X(TwinDragonridersExitBack) \
-	X(LookingGlassKnightExitBack) \
-	X(FinalFightArenaBack) \
-	X(DrangleicCastleToChasmPortalBack) \
-	X(DrangleicCastleToShadedWoodsBack) \
-	X(UndeadCryptToShrineOfAmanaFront) \
-	X(VelsdatEntryFront) \
-	X(VelsdatExitFront) \
-	X(UndeadCryptFromAgdayneToBonfireFront) \
-	X(VendrickFront) \
-	X(UndeadCryptToShrineOfAmanaBack) \
-	X(VelsdatEntryBack) \
-	X(VelsdatExitBack) \
-	X(UndeadCryptFromAgdayneToBonfireBack) \
-	X(VendrickBack) \
-	X(DarkChasmFromBlackGulchExitFront) \
-	X(DarkChasmFromDrangleicCastleExitFront) \
-	X(DarkChasmFromShadedWoodsExitFront) \
-	X(DarkLurkerExitFront) \
-	X(DarkChasmFromBlackGulchExitBack) \
-	X(DarkChasmFromDrangleicCastleExitBack) \
-	X(DarkChasmFromShadedWoodsExitBack) \
-	X(DarkLurkerExitBack) \
-	X(SihnTheSlumberingDragonEntryFront) \
-	X(ElanaTheSqualidQueenEntryFront) \
-	X(GankSquadBossEntryFront) \
-	X(GankSquadBossExitFront) \
-	X(ShulvaToGankFight1Front) \
-	X(ShulvaEntranceFront) \
-	X(BetweenElanaAndSihnFront) \
-	X(ShulvaToGankFight2Front) \
-	X(NearJesterThomasFront) \
-	X(SihnTheSlumberingDragonEntryBack) \
-	X(ElanaTheSqualidQueenEntryBack) \
-	X(GankSquadBossEntryBack) \
-	X(GankSquadBossExitBack) \
-	X(ShulvaToGankFight1Back) \
-	X(ShulvaEntranceBack) \
-	X(BetweenElanaAndSihnBack) \
-	X(ShulvaToGankFight2Back) \
-	X(NearJesterThomasBack) \
-	X(BrumeTowerFrom2ndBonfireToCentralRoomFront) \
-	X(BrumeTowerToFoyerBonfireFromOutsideFront) \
-	X(BrumeTowerToScorchingIronSceptorKeyFront) \
-	X(SirAlonneEntryFront) \
-	X(SirAlonneExitFront) \
-	X(FumeKnightEntryFront) \
-	X(FumeKnightExitFront) \
-	X(BlueSmeltorDemonEntryFront) \
-	X(BlueSmeltorDemonExitFront) \
-	X(BrumeTowerEntranceFromLiftFront) \
-	X(BrumeTowerToBlueSmelterDungeonFront) \
-	X(BrumeTowerFrom2ndBonfireToCentralRoomBack) \
-	X(BrumeTowerToFoyerBonfireFromOutsideBack) \
-	X(BrumeTowerToScorchingIronSceptorKeyBack) \
-	X(SirAlonneEntryBack) \
-	X(SirAlonneExitBack) \
-	X(FumeKnightEntryBack) \
-	X(FumeKnightExitBack) \
-	X(BlueSmeltorDemonEntryBack) \
-	X(BlueSmeltorDemonExitBack) \
-	X(BrumeTowerEntranceFromLiftBack) \
-	X(BrumeTowerToBlueSmelterDungeonBack) \
-	X(AavaTheKingsPetExitFront) \
-	X(EleumLoyceAfterGettingEyeToSeeGhostsFront) \
-	X(IvoryKingFront) \
-	X(LudAndZallenEntryFront) \
-	X(AavaTheKingsPetEntryFront) \
-	X(LudAndZallenExitFront) \
-	X(EleumLoyceCathedraEntranceFront) \
-	X(AavaTheKingsPetExitBack) \
-	X(EleumLoyceAfterGettingEyeToSeeGhostsBack) \
-	X(IvoryKingBack) \
-	X(LudAndZallenEntryBack) \
-	X(AavaTheKingsPetEntryBack) \
-	X(LudAndZallenExitBack) \
-	X(EleumLoyceCathedraEntranceBack) \
 	X(DarkLurkerSpawn)
 
 typedef enum {
-#define X(name) name,
-  WarpNodeItems
+#define X(V) V ## Src,
+	WarpPoints
+#undef X
+#define X(V) V ## Dst,
+	WarpPoints
+#undef X
+#define X(V) V ## Front,
+	FogGateNames
+#undef X
+#define X(V) V ## Back,
+	FogGateNames
+#undef X
+#define X(V) V,
+	OtherWarpNodes
 #undef X
 	__WarpNodeCount,
 } WarpNode;
 
+#define CONCAT(a, b) #a #b
+
 const char *WarpNodeNames[] = {
+#define X(name) CONCAT(name, Src),
+  WarpPoints
+#undef X
+#define X(name) CONCAT(name, Dst),
+  WarpPoints
+#undef X
+#define X(name) CONCAT(name, Front),
+  FogGateNames
+#undef X
+#define X(name) CONCAT(name, Back),
+  FogGateNames
+#undef X
 #define X(name) #name,
-  WarpNodeItems
+  OtherWarpNodes
 #undef X
 };
 
@@ -742,7 +611,7 @@ static WarpPoint warp_points[] = {
 	[AncientDragonFront]           = NEW_WARP_PT(.map = DragonAerieDragonShrine, .obj_id = "o00_0502_0000"),
 
 	[DragonAerieToAldiasKeepBack]  = NEW_WARP_PT(.map = DragonAerieDragonShrine, .obj_id = "o00_0501_0000", .pvp = true, .reverse = true),
-	[AncientDragonBack]            = NEW_WARP_PT(.map = DragonAerieDragonShrine, .obj_id = "o00_0502_0000", .boss = AncientDragon),
+	[AncientDragonBack]            = NEW_WARP_PT(.map = DragonAerieDragonShrine, .obj_id = "o00_0502_0000", .boss = AncientDragonBoss),
 
 	// Shaded woods -> Majula
 	[ShadedWoodsFromMajulaFront] = NEW_WARP_PT(.map = MajulaShadedWoods, .obj_id = "o00_0500_0100", .pvp = true),
@@ -842,7 +711,7 @@ static WarpPoint warp_points[] = {
 	[VelsdatEntryBack]                     = NEW_WARP_PT(.map = UndeadCrypt, .obj_id = "o00_0501_0000", .boss = VelstadtTheRoyalAegis),
 	[VelsdatExitBack]                      = NEW_WARP_PT(.map = UndeadCrypt, .obj_id = "o00_0501_0001"),
 	[UndeadCryptFromAgdayneToBonfireBack]  = NEW_WARP_PT(.map = UndeadCrypt, .obj_id = "o00_0502_0000", .pvp = true),
-	[VendrickBack]                         = NEW_WARP_PT(.map = UndeadCrypt, .obj_id = "o00_0505_0000", .boss = Vendrick),
+	[VendrickBack]                         = NEW_WARP_PT(.map = UndeadCrypt, .obj_id = "o00_0505_0000", .boss = VendrickBoss),
 	
 	// Dark chasm of old
 	[DarkChasmFromBlackGulchExitFront]      = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0000"),
@@ -983,10 +852,9 @@ typedef struct {
 Connections connections = {0};
 
 #define connection_init(from, n_elem) do {\
-	if (connections.items[from].count == 0) {\
-		da_init(&connections.items[from], n_elem);\
-		connections.count++;\
-	}\
+	assert(connections.items[from].count == 0);\
+	da_init(&connections.items[from], n_elem);\
+	connections.count++;\
 } while (0)
 
 #define connection_add(from, ...) da_append(&connections.items[(from)], ((Connection){.is_warp = false, .type = Conn_None, __VA_ARGS__}));
@@ -1137,14 +1005,12 @@ void generate_connections() {
 	connection_add(Tutorial3ExitBack, .to = MajulaToShadedWoodsFront);
 	warp_node_count++;
 
-#define connection_two_way_n(src, dst, n, ...) do {\
-	connection_init((src), (n));\
+#define connection_two_way(src, dst, ...) do {\
+	connection_init((src), 1);\
 	connection_add((src), .to = (dst), __VA_ARGS__);\
-	connection_init((dst), (n));\
+	connection_init((dst), 1);\
 	connection_add((dst), .to = (src), __VA_ARGS__);\
 } while (0)
-
-#define connection_two_way(src, dst, ...) connection_two_way_n(src, dst, 1, __VA_ARGS__)
 
 	// forest of fallen giants
 
@@ -1169,6 +1035,9 @@ void generate_connections() {
 
 	connection_init(GiantLordMemoryEntryDst, 1);
 	connection_add(GiantLordMemoryEntryDst, .to = GiantLordEntryFront);
+	warp_node_count++;
+
+	connection_init(GiantLordEntryFront, 0);
 	warp_node_count++;
 
 	connection_two_way(GiantLordEntryBack, GiantLordExitFront);
@@ -1404,6 +1273,9 @@ void generate_connections() {
 	connection_add(RuinSentinesUpperExitBack, .to = LostBastilleToBelfryLunaFront, .type = Conn_PharrosLockstone);
 	warp_node_count++;
 
+	connection_init(LostBastilleToSinnersRiseFront, 0);
+	warp_node_count++;
+
 	connection_init(LostBastilleToSinnersRiseBack, 1);
 	connection_add(LostBastilleToSinnersRiseBack, .to = LostSinnerEntryFront);
 	warp_node_count++;
@@ -1518,16 +1390,19 @@ void generate_connections() {
 	warp_node_count++;
 	warp_node_count++;
 
-	connection_two_way_n(HuntsmanCopseToMajulaBack, ChariotEntryFront, 2);
-	warp_node_count++;
-	warp_node_count++;
-
-	connection_two_way_n(HuntsmanCopseToMajulaBack, SkeletonLordsEntryFront, 2);
-	warp_node_count++;
+	connection_init(HuntsmanCopseToMajulaBack, 2);
+	connection_add(HuntsmanCopseToMajulaBack, .to = ChariotEntryFront);
+	connection_add(HuntsmanCopseToMajulaBack, .to = SkeletonLordsEntryFront);
 	warp_node_count++;
 
-	connection_two_way_n(ChariotEntryFront, SkeletonLordsEntryFront, 2);
+	connection_init(ChariotEntryFront, 2);
+	connection_add(ChariotEntryFront, .to = HuntsmanCopseToMajulaBack);
+	connection_add(ChariotEntryFront, .to = SkeletonLordsEntryFront);
 	warp_node_count++;
+
+	connection_init(SkeletonLordsEntryFront, 2);
+	connection_add(SkeletonLordsEntryFront, .to = HuntsmanCopseToMajulaBack);
+	connection_add(SkeletonLordsEntryFront, .to = ChariotEntryFront);
 	warp_node_count++;
 
 	connection_two_way(ChariotEntryBack, ChariotExitFront);
@@ -1721,6 +1596,9 @@ void generate_connections() {
 	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = BrumeTowerToScorchingIronSceptorKeyFront, .type = Conn_ActivateBrumeTower);
 	warp_node_count++;
 
+	connection_init(BrumeTowerToScorchingIronSceptorKeyBack, 0);
+	warp_node_count++;
+
 	connection_init(SirAlonneArmorDLCEntrySrc, 1);
 	connection_add(SirAlonneArmorDLCEntrySrc, .to = SirAlonneArmorDLCEntryDst, .is_warp = true);
 	warp_node_count++;
@@ -1742,6 +1620,7 @@ void generate_connections() {
 
 	connection_init(SirAlonneMemoryExitSrc, 1);
 	connection_add(SirAlonneMemoryExitSrc, .to = SirAlonneMemoryExitDst, .is_warp = true);
+	warp_node_count++;
 
 	connection_init(SirAlonneMemoryExitDst, 6);
 	connection_add(SirAlonneMemoryExitDst, .to = SirAlonneArmorDLCEntrySrc, .type = Conn_AshenMistHeart);
@@ -2184,10 +2063,6 @@ void generate_connections() {
 	connection_init(EleumLoyceAfterGettingEyeToSeeGhostsFront, 0);
 	warp_node_count++;
 
-	
-	connection_init(EleumLoyceAfterGettingEyeToSeeGhostsFront, 0);
-	warp_node_count++;
-
 	connection_init(EleumLoyceAfterGettingEyeToSeeGhostsBack, 6);
 	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = AavaTheKingsPetEntryFront);
 	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = DLC3EntranceDLC, .type = Conn_DLC3Key);
@@ -2444,6 +2319,43 @@ void free_connections() {
 		da_free(*cg);
 	}
 	da_free(connections);
+}
+
+WarpNode default_connections[__WarpNodeCount] = {0};
+
+typedef Ht(WarpNode, WarpNode) Warps;
+
+void warp_add(Warps *warps, WarpNode src) {
+	WarpNode *added = ht_find(warps, src);
+	if (!added) {
+		WarpNode dst = default_connections[src];
+		*ht_put(warps, src) = dst;
+		ConnectionGroup cg = connections.items[dst];
+		da_foreach(Connection, node, &cg) {
+			warp_add(warps, node->to);
+		}
+	}
+}
+
+void generate_default_connections() {
+#define X(val) default_connections[val ## Src] = val ## Dst;
+	WarpPoints
+#undef X
+#define X(val) default_connections[val ## Front] = val ## Back;
+	FogGateNames
+#undef X
+#define X(val) default_connections[val ## Back] = val ## Front;
+	FogGateNames
+#undef X
+	default_connections[NearPursuerBirdEntry] = NearPursuerBirdExit;
+	default_connections[PirateShipWharf] = PirateShipBastille;
+	default_connections[DLC1EntranceBaseGame] = DLC1EntranceDLC;
+	default_connections[DLC2EntranceBaseGame] = DLC2EntranceDLC;
+	default_connections[DLC3EntranceBaseGame] = DLC3EntranceDLC;
+	default_connections[DLC1EntranceDLC] = DLC1EntranceBaseGame;
+	default_connections[DLC2EntranceDLC] = DLC2EntranceBaseGame;
+	default_connections[DLC3EntranceDLC] = DLC3EntranceBaseGame;
+
 }
 
 // not considered in logic:
