@@ -8,6 +8,13 @@
 #include "common.h"
 #include "foggates.c"
 
+// #define LOG_GENERATED_FILES
+
+#ifndef LOG_GENERATED_FILES
+#define NOB_NO_ECHO
+#endif
+
+
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
@@ -17,8 +24,6 @@
 
 #define OUT_FOLDER_PATH "output/"
 
-
-// #define LOG_GENERATED_FILES
 
 // [          FILE        ]
 // [Header][ModelInfo][...]
@@ -5178,12 +5183,13 @@ int test_loading_enc_reg() {
 #define WHITE_DOOR_PARAM_NAME "MapObjectWhiteDoorParam.param"
 
 bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path) {
-	printf("[DISABLING-FOG-GATES]\n");
 	String_Builder sb = {0};
 	if (!nob_read_entire_file(input_path, &sb)) {
 		return false;
 	}
+#ifdef LOG_GENERATED_FILES
 	printf("[Read] %s: %zu bytes\n", input_path, sb.count);
+#endif
 	BinaryReader br = sb_to_br(sb);
 	DCX dcx = decompress_dcx(br);
 	BND4 bnd4 = read_bnd4(&dcx);
@@ -5253,7 +5259,9 @@ bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path
 	compress_dcx(&wsb, &dcx, &bnd4_sb);
 
 	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
+#ifdef LOG_GENERATED_FILES
 	printf("[Generated] %s\n", output_path);
+#endif
 
 	da_free(out_param_sb);
 	free_PARAM(&param);
@@ -5263,7 +5271,6 @@ bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path
 	free_bnd4(&bnd4);
 	da_free(bnd4_sb);
 	da_free(wsb);
-	printf("\n");
 	return true;
 }
 
@@ -5374,12 +5381,13 @@ void write_fmg(String_Builder *sb, FMG *fmg) {
 #define PIRATE_SHIP_ARRIVAL_MSG L"Ghost ship in No Mans Wharf not docked"
 
 bool add_pirate_ship_msg_to_game_files(const char *input_path, const char *output_path, int *msg_id) {
-	printf("[ADDING-CUSTOM-MSGS]\n");
 	String_Builder sb = {0};
 	if (!nob_read_entire_file(input_path, &sb)) {
 		return false;
 	}
+#ifdef LOG_GENERATED_FILES
 	printf("[Read] %s: %zu bytes\n", input_path, sb.count);
+#endif
 	BinaryReader br = sb_to_br(sb);
 	FMG fmg = read_fmg(&br);
 	da_foreach(FMG_Entry, entry, &fmg.entries) {
@@ -5398,12 +5406,14 @@ bool add_pirate_ship_msg_to_game_files(const char *input_path, const char *outpu
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"menu/text/english")) return false;
 
 	if (!write_entire_file(output_path, wsb.items, wsb.count)) return 1;
+
+#ifdef LOG_GENERATED_FILES
 	printf("[Generated] %s\n", output_path);
+#endif
 
 	free_fmg(&fmg);
 	da_free(sb);
 	da_free(wsb);
-	printf("\n");
 	return true;
 }
 
@@ -6041,7 +6051,10 @@ bool load_map_from_name(String_Builder *sb, MapName name, MSB2 *map) {
 	if (!nob_read_entire_file(map_path, sb)) {
 		return false;
 	}
+#ifdef LOG_GENERATED_FILES
 	printf("[Read] %s: %zu bytes\n", map_path, sb->count);
+#endif
+
 	String_View sv = sb_to_sv(*sb);
 	*map = load_map(map_path, sv);
 	return true;
@@ -6052,10 +6065,11 @@ bool load_map_from_name(String_Builder *sb, MapName name, MSB2 *map) {
 bool write_map_from_name(String_Builder *wsb, MapName name, MSB2 *map) {
 	if (!write_map(wsb, map) != 0) return false;
 	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", map_paths[name]);
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"map")) return false;
 	if (!mkdir_if_not_exists(temp_sprintf(OUT_FOLDER_PATH"map/%s", map_names[name]))) return false;
 	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
-	printf("[Generated] %s\n\n", output_path);
+#ifdef LOG_GENERATED_FILES
+	printf("[Generated] %s\n", output_path);
+#endif
 	free_map(map);
 	return true;
 }
@@ -6066,7 +6080,9 @@ bool load_obj_inst_param_from_map_name(String_Builder *sb, MapName name, PARAM *
 	if (!nob_read_entire_file(param_path, sb)) {
 		return false;
 	}
+#ifdef LOG_GENERATED_FILES
 	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
+#endif
 	String_View sv = sb_to_sv(*sb);
 	*param = load_param(&sv, Cell_MapObjInstanceParam);
 	return true;
@@ -6076,7 +6092,9 @@ bool load_event_param_from_map_name(String_Builder *sb, MapName name, PARAM *par
 	if (!nob_read_entire_file(event_param_paths[name], sb)) {
 		return false;
 	}
+#ifdef LOG_GENERATED_FILES
 	printf("[Read] %s: %zu bytes\n", event_param_paths[name], sb->count);
+#endif
 	String_View sv = sb_to_sv(*sb);
 	*param = load_param(&sv, Cell_EventParam);
 	return true;
@@ -6086,7 +6104,9 @@ bool load_event_loc_from_map_name(String_Builder *sb, MapName name, PARAM *param
 	if (!nob_read_entire_file(event_loc_paths[name], sb)) {
 		return false;
 	}
+#ifdef LOG_GENERATED_FILES
 	printf("[Read] %s: %zu bytes\n", event_loc_paths[name], sb->count);
+#endif
 	String_View sv = sb_to_sv(*sb);
 	*param = load_param(&sv, Cell_EventLoc);
 	return true;
@@ -6094,9 +6114,10 @@ bool load_event_loc_from_map_name(String_Builder *sb, MapName name, PARAM *param
 
 bool write_param_from_map_name(String_Builder *wsb, const char *output_path, PARAM *param) {
 	write_param(wsb, param);
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return false;
 	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
-	printf("[Generated] %s\n\n", output_path);
+#ifdef LOG_GENERATED_FILES
+	printf("[Generated] %s\n", output_path);
+#endif
 	free_PARAM(param);
 	return true;
 }
@@ -6106,7 +6127,9 @@ bool load_esd_from_map_name(String_Builder *sb, MapName name, ESD *esd) {
 	if (!nob_read_entire_file(esd_paths[name], sb)) {
 		return false;
 	}
+#ifdef LOG_GENERATED_FILES
 	printf("[Read] %s: %zu bytes\n", esd_paths[name], sb->count);
+#endif
 	String_View sv = sb_to_sv(*sb);
 	*esd = read_esd(sv);
 	return true;
@@ -6115,9 +6138,10 @@ bool load_esd_from_map_name(String_Builder *sb, MapName name, ESD *esd) {
 bool write_esd_from_map_name(String_Builder *wsb, MapName name, ESD *esd) {
 	write_esd(wsb, esd);
 	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_paths[name]);
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
 	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
+#ifdef LOG_GENERATED_FILES
 	printf("[Generated] %s\n", output_path);
+#endif
 	free_esd(esd);
 	return true;
 }
@@ -6236,7 +6260,10 @@ bool generate_map_objects(Editor *editor) {
 	String_Builder name_buf = {0};
 	da_init(&name_buf, 1024);
 	da_init(&editor->bytecode_buf, 10*1024*1024); // 10mb for holding bytecode
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"map")) return false;
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return false;
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
+		printf("Loading maps %d/%d\r", map_name_id, __MapNameCount-1);
 		ht_reset(&completed_ids);
 		name_buf.count = 0;
 		editor->map_sb.count = 0;
@@ -6453,9 +6480,11 @@ bool generate_map_objects(Editor *editor) {
 		if (!write_param_from_map_name(&editor->write_buf, output_path, &param)) return false;
 		temp_rewind(mark);
 	}
+	printf("\n");
 	ht_free(&completed_ids);
 
 	for (WarpNode i=FogGateStart; i<=FogGateEnd; i++) {
+		printf("Adding warps %d/%d\r", i, FogGateEnd);
 		WarpNode j = default_connections[i];
 		WarpPoint *wp1 = &warp_points[i];
 		WarpPoint *wp2 = &warp_points[j];
@@ -6475,7 +6504,9 @@ bool generate_map_objects(Editor *editor) {
 		add_esd_event(esd_src, &editor->bytecode_buf, wp2->map, wp2->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id);
 		add_esd_event(esd_dst, &editor->bytecode_buf, wp1->map, wp1->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id);
 	}
+	printf("\n");
 
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
 		editor->write_buf.count = 0;
 		if (!write_esd_from_map_name(&editor->write_buf, map_name_id, &editor->esd_sbs.items[map_name_id].esd)) return false;
@@ -6499,5 +6530,6 @@ int main() {
 	// Warps warps = {0};
 	// warp_add(&warps, GameStartSpawnSrc);
 	// free_connections();
+	printf("Done!\n");
 	return 0;
 }
