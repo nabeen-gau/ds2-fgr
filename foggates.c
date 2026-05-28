@@ -315,12 +315,33 @@ const char *WarpNodeNames[] = {
 #undef X
 };
 
+#define FogGateStart Tutorial1EntryFront
+#define FogGateEnd EleumLoyceCathedraEntranceFront
+
+#define CUTSCENES_COUNT 8
+
+bool point_has_cutscene(WarpNode node) {
+	if (node == LastGiantEntryBack
+		|| node == PursuerEntryBack
+		|| node == LostSinnerEntryBack
+		|| node == ChariotEntryBack
+		|| node == OldIronKingEntryBack
+		|| node == DukesDearFreyjaEntryBack
+		|| node == TheRottenEntryBack
+		|| node == VelsdatEntryBack
+	) return true;
+	return false;
+}
+
 typedef struct {
 	bool is_foggate;
 	int fog_gate_id; // can be generated when reading the map_file
-	int loc_id; // needs to be filled dynamically when generating event loc
+	int warp_pt_id; // needs to be filled dynamically when generating event loc
+	int event_param_id; // needs to be filled when reading files
+	int warp_obj_inst_id; // needs to be filled when reading files
 	MapName map;
 	WarpNode cutscene_gate_id;
+	int cutscene_event_id; // needs to be filled when generating files
 	bool pvp;
 	bool reverse; // to reverse the logic of generation of warp points
 	BossName boss;
@@ -332,9 +353,12 @@ typedef struct {
 #define NEW_WARP_PT(...) (WarpPoint) {\
 	.is_foggate = true,\
 	.fog_gate_id = -1,\
-	.loc_id = -1,\
+	.warp_pt_id = -1,\
+	.event_param_id = -1,\
+	.warp_obj_inst_id = -1,\
 	.map = __MapNameCount,\
 	.cutscene_gate_id = __WarpNodeCount,\
+	.cutscene_event_id = -1,\
 	.pvp = false,\
 	.reverse = false,\
 	.boss = Boss_None,\

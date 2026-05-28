@@ -5595,6 +5595,23 @@ void add_event_param_warpobj(PARAM *param, int32_t event_param_id, int32_t warp_
 	param->rowCount++;
 }
 
+void add_event_param_cutscene_trigger(PARAM *param, int32_t event_param_id) {
+	Row row = {
+		.ID = event_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+	};
+	Cell cell = {
+		.as.event_param = {
+			.event_id = event_param_id, .flag_id = 0,
+			.Unk08 = 0, .Unk09 = 0, .Unk0A = 0, .Unk0B = 2, .Unk0C = 1, 
+			.Unk0D = 0, .Unk0E = 0, .Unk0F = 0,
+		}
+	};
+	da_append(&param->rows, row);
+	da_append(&param->cells, cell);
+	param->rowCount++;
+}
+
+
 void add_event_loc_warpobj(PARAM *param, int32_t warp_point_begin, V3f pos, V3f rot, size_t insert_loc) {
 	Row row = {
 		.ID = warp_point_begin, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
@@ -5636,6 +5653,8 @@ Evaluator evaluator_condition_group(String_Builder *bytecode_buf, size_t group_i
 
 #define FunctionEventMessageDisplay 130432
 #define FunctionCutsceneWarpEnded 132101
+#define FunctionCompareObjStateId 131653
+#define FunctionInGame 132202
 
 Evaluator cond_wait_until_msg_is_displayed(String_Builder *bytecode_buf) {
 	// binop => lhs rhs op
@@ -5668,6 +5687,37 @@ Evaluator cond_cutscene_warp_ended(String_Builder *bytecode_buf) {
 	return e;
 }
 
+Evaluator evaluator_compare_obj_state_id(String_Builder *bytecode_buf, size_t obj_id) {
+	assert(bytecode_buf->capacity - bytecode_buf->count > 9);
+	Evaluator e = {0};
+	e.items = (uint8_t *)(bytecode_buf->items + bytecode_buf->count);
+	e.count = 18;
+	sb_append(bytecode_buf, (char)EzS32);
+	sb_append_sint32(bytecode_buf, FunctionCompareObjStateId);
+	sb_append(bytecode_buf, (char)EzS32);
+	sb_append_sint32(bytecode_buf, obj_id);
+	sb_append(bytecode_buf, (char)EzS32);
+	sb_append_sint32(bytecode_buf, 100);
+	sb_append(bytecode_buf, (char)1+64);
+	sb_append(bytecode_buf, (char)EzFuncCall4);
+	sb_append(bytecode_buf, (char)EzFin);
+	return e;
+}
+
+Evaluator cond_in_game(String_Builder *bytecode_buf) {
+	assert(bytecode_buf->capacity - bytecode_buf->count > 10);
+	Evaluator e = {0};
+	e.items = (uint8_t *)(bytecode_buf->items + bytecode_buf->count);
+	e.count = 10;
+	sb_append(bytecode_buf, (char)EzS32);
+	sb_append_sint32(bytecode_buf, FunctionInGame);
+	sb_append(bytecode_buf, (char)EzFuncCall1);
+	sb_append(bytecode_buf, (char)0+64);
+	sb_append(bytecode_buf, (char)EzNeq);
+	sb_append(bytecode_buf, (char)EzTry);
+	sb_append(bytecode_buf, (char)EzFin);
+	return e;
+}
 
 size_t state_init(ESD *esd, size_t target_state_id, String_Builder *bytecode_buf) {
 	State state = {0};
@@ -5734,6 +5784,13 @@ Command command_restart_machine() {
 	return comm;
 }
 
+Command command_end_machine() {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 130001;
+	return comm;
+}
+
 Command command_disable_obj_keyguide(ESD *esd, int obj_inst_id) {
 	Command comm = {0};
 	comm.command_bank = 1;
@@ -5769,6 +5826,26 @@ Command command_play_cutscene_and_warp(ESD *esd, int map_id, int dst_id) {
 	da_append(&comm.args_ids, create_arg_s32(esd, map_id));
 	da_append(&comm.args_ids, create_arg_s32(esd, dst_id));
 	da_append(&comm.args_ids, create_arg_number(esd, 0));
+	return comm;
+}
+
+Command command_is_player_inside_point(ESD *esd, int group_id, int32_t trigger_id) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 140132;
+	da_append(&comm.args_ids, create_arg_number(esd, group_id));
+	da_append(&comm.args_ids, create_arg_s32(esd, trigger_id));
+	da_append(&comm.args_ids, create_arg_s32(esd, trigger_id));
+	da_append(&comm.args_ids, create_arg_number(esd, 1));
+	return comm;
+}
+
+Command command_change_obj_state(ESD *esd, int32_t obj_id) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 131636;
+	da_append(&comm.args_ids, create_arg_s32(esd, obj_id));
+	da_append(&comm.args_ids, create_arg_s32(esd, 100));
 	return comm;
 }
 
@@ -5820,6 +5897,19 @@ size_t restart_state(ESD *esd, int id) {
 	state.id = id;
 
 	Command comm = command_restart_machine();
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t end_machine(ESD *esd, int id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm = command_end_machine();
 	da_append(&state.entry_commands_ids, esd->commands.count);
 	da_append(&esd->commands, comm);
 
@@ -5880,6 +5970,65 @@ size_t warp_to_location(ESD *esd, String_Builder *bytecode_buf, int id, int targ
 	Condition cond = {0};
 	cond.target_state_id = target_state_id;
 	cond.evaluator =  cond_cutscene_warp_ended(bytecode_buf);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t is_player_inside_point(ESD *esd, String_Builder *bytecode_buf, int id, int target_state_id, int trigger_id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	int group_id = 0;
+	Command comm = command_is_player_inside_point(esd, group_id, trigger_id);
+
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+	cond.evaluator =  evaluator_condition_group(bytecode_buf, group_id);
+
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t is_player_inside_game(ESD *esd, String_Builder *bytecode_buf, int id, int target_state_id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+	cond.evaluator =  cond_in_game(bytecode_buf);
+
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t create_change_obj_state(ESD *esd, String_Builder *bytecode_buf, int id, int target_state_id, int obj_id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm = command_change_obj_state(esd, obj_id);
+
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+	cond.evaluator =  evaluator_compare_obj_state_id(bytecode_buf, obj_id);
+
 	da_append(&state.conditions_id, esd->conditions.count);
 	da_append(&esd->conditions, cond);
 
@@ -5996,6 +6145,18 @@ void add_esd_event(ESD *esd, String_Builder *string_buffer,
 	da_append(&sg.states_ids, warp_to_location(esd, string_buffer, state_id++, esd->states.count + 1, map_ids[dst_map_name_id], dst_loc_id)); 
 	// da_append(&sg.states_ids, display_ring_bell_msg(esd, string_buffer, state_id++, esd->states.count + 1, msg_id)); 
 	da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, restart_state(esd, state_id++)); 
+	da_append(&esd->state_groups, sg);
+}
+
+void add_esd_cutscene_trigger(ESD *esd, String_Builder *bytecode_buf, size_t ep_id, size_t trigger_id, size_t fog_obj_inst_id) {
+	StateGroup sg = {0};
+	sg.id = ep_id;
+	size_t state_id = 1;
+	da_append(&sg.states_ids, state_init(esd, esd->states.count + 1, bytecode_buf)); 
+	da_append(&sg.states_ids, is_player_inside_game(esd, bytecode_buf, state_id++, esd->states.count + 1)); 
+	da_append(&sg.states_ids, is_player_inside_point(esd, bytecode_buf, state_id++, esd->states.count + 1, trigger_id)); 
+	da_append(&sg.states_ids, create_change_obj_state(esd, bytecode_buf, state_id++, esd->states.count + 1, fog_obj_inst_id)); 
 	da_append(&sg.states_ids, restart_state(esd, state_id++)); 
 	da_append(&esd->state_groups, sg);
 }
@@ -6156,7 +6317,7 @@ bool generate_map_objects(Editor *editor) {
 		assert(oip_insert_loc >= 0);
 
 		if (!load_event_param_from_map_name(&editor->ep_sb, map_name_id, &ev_param)) return false;
-		size_t event_param_id = find_row_id_gap(ev_param.rows, n_warp_points).from;
+		size_t event_param_id = find_row_id_gap(ev_param.rows, n_warp_points + CUTSCENES_COUNT).from;
 
 		assert(event_param_id >= 0);
 
@@ -6173,60 +6334,110 @@ bool generate_map_objects(Editor *editor) {
 		if (!load_esd_from_map_name(&esd_sb_orig, map_name_id, &esd_orig)) return false;
 		da_append(&editor->esd_sbs, ((ESD_Data){esd_sb_orig, esd_orig}));
 
+		// get the instance id from map name
 		for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
-			WarpPoint wp = warp_points[i];
-			if (wp.map != map_name_id) continue;
-			if (!wp.is_foggate) continue;
+			WarpPoint *wp = &warp_points[i];
+			if (!wp->is_foggate) continue;
+			if (wp->map != map_name_id) continue;
+			da_foreach(Part, part, &map.parts.Objects) {
+				if (str_wchar_eq(part->name, wp->obj_id)) {
+					wp->fog_gate_id = part->type_data.object.map_object_instance_param_id;
+				}
+			}
+		}
+
+
+		for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
+			WarpPoint *wp = &warp_points[i];
+			if (wp->map != map_name_id) continue;
+			if (!wp->is_foggate) continue;
 			Part *fog_gate = NULL;
 			bool *found = NULL;
 			for (size_t j=0; j<map.parts.Objects.count; j++) {
 				Part *p = &map.parts.Objects.items[j];
-				if (str_wchar_eq(p->name, wp.obj_id)) {
+				if (str_wchar_eq(p->name, wp->obj_id)) {
 					found = ht_find(&completed_ids, j);
 					if (found == NULL) {
 						*ht_put(&completed_ids, j) = true;
-						fog_gate = p;
 					}
+					fog_gate = p;
 					break;
 				}
 			}
-			if (found) continue;
+
 			assert(fog_gate != NULL && "Could not find the foggate name in the map");
 
+			// if it is a pvp gate set its param id to 100250 and 0x18 Unk04 to 6;
+			if (wp->pvp) {
+				for(size_t k=0; k<obj_inst_param.rows.count; k++) {
+					Row *row = &obj_inst_param.rows.items[k];
+					if (row->ID == wp->fog_gate_id) {
+						Cell *cell = &obj_inst_param.cells.items[k];
+						cell->as.map_obj_instance_param.headerID = 100450;
+						cell->as.map_obj_instance_param.Unk04 = 6;
+						break;
+					}
+				}
+			}
 			for (size_t i=0; i<ARRAY_LEN(warp_part.part.disp_groups); i++) {
 				warp_part.part.disp_groups[i] = fog_gate->part.draw_groups[i];
 			}
 
-			V3f pos = v3f_add(wp.offset, fog_gate->part.position);
-			V3f rot = wp.reverse ? v3f_flip_y(fog_gate->part.rotation) : fog_gate->part.rotation;
-
-			size_t woi_id1 = warp_obj_inst_id++;
-			size_t woi_id2 = warp_obj_inst_id++;
-			da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, rot, woi_id1, name_id++, &name_buf, model_index));
-			da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, v3f_flip_y(rot), woi_id2, name_id++, &name_buf, model_index));
+			V3f pos = v3f_add(wp->offset, fog_gate->part.position);
+			V3f rot = wp->reverse ? v3f_flip_y(fog_gate->part.rotation) : fog_gate->part.rotation;
 
 
-			// add the object instance for the warp part
-			add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id1, oip_insert_loc++);
-			add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id2, oip_insert_loc++);
+			// if it is front side
+			if (!found) {
+				size_t woi_id1 = warp_obj_inst_id++;
+				da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, rot, woi_id1, name_id++, &name_buf, model_index));
 
-			// create and add new event param for infront and back of fog door
-			size_t ep_id1 = event_param_id++;
-			size_t ep_id2 = event_param_id++;
-			add_event_param_warpobj(&ev_param, ep_id1, woi_id1);
-			add_event_param_warpobj(&ev_param, ep_id2, woi_id2);
+				// add the object instance for the warp part
+				add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id1, oip_insert_loc++);
 
-			// create and add the new warp points behind and front of the fog door
-			size_t wp1 = warp_point_begin++;
-			size_t wp2 = warp_point_begin++;
-			add_event_loc_warpobj(&param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
-			add_event_loc_warpobj(&param, wp2, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), v3f_flip_y(rot), el_insert_loc++);
+				// create and add new event param for infront and back of fog door
+				size_t ep_id1 = event_param_id++;
+				add_event_param_warpobj(&ev_param, ep_id1, woi_id1);
 
-			ESD *esd_src = &editor->esd_sbs.items[wp.map].esd;
-			ESD *esd_dst = &editor->esd_sbs.items[wp.map].esd;
-			add_esd_event(esd_src, &editor->bytecode_buf, map_name_id, ep_id1, woi_id1, wp1);
-			add_esd_event(esd_dst, &editor->bytecode_buf, map_name_id, ep_id2, woi_id2, wp2);
+				// create and add the new warp points behind and front of the fog door
+				size_t wp2 = warp_point_begin++;
+				add_event_loc_warpobj(&param, wp2, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), v3f_flip_y(rot), el_insert_loc++);
+
+				wp->warp_pt_id = wp2;
+				wp->event_param_id = ep_id1;
+				wp->warp_obj_inst_id = woi_id1;
+			} else { // if it is back size
+				size_t woi_id2 = warp_obj_inst_id++;
+				da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, v3f_flip_y(rot), woi_id2, name_id++, &name_buf, model_index));
+				add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id2, oip_insert_loc++);
+				size_t ep_id2 = event_param_id++;
+				add_event_param_warpobj(&ev_param, ep_id2, woi_id2);
+				size_t wp1 = warp_point_begin++;
+				add_event_loc_warpobj(&param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
+
+				wp->warp_pt_id = wp1;
+				wp->event_param_id = ep_id2;
+				wp->warp_obj_inst_id = woi_id2;
+
+				if (wp->boss != Boss_None && point_has_cutscene(i)) {
+					wp->cutscene_event_id = event_param_id++;
+					add_event_param_cutscene_trigger(&ev_param, wp->cutscene_event_id);
+				}
+
+			}
 		}
+
+		for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
+			WarpPoint *wp = &warp_points[i];
+			if (wp->map != map_name_id) continue;
+			if (!wp->is_foggate) continue;
+			if (wp->boss == Boss_None) continue;
+			if (wp->cutscene_gate_id == __WarpNodeCount) continue;
+			wp->cutscene_event_id = event_param_id++;
+			add_event_param_cutscene_trigger(&ev_param, wp->cutscene_event_id);
+		}
+
+
 
 
 		editor->write_buf.count = 0;
@@ -6244,6 +6455,27 @@ bool generate_map_objects(Editor *editor) {
 	}
 	ht_free(&completed_ids);
 
+	for (WarpNode i=FogGateStart; i<=FogGateEnd; i++) {
+		WarpNode j = default_connections[i];
+		WarpPoint *wp1 = &warp_points[i];
+		WarpPoint *wp2 = &warp_points[j];
+		ESD *esd_src = &editor->esd_sbs.items[wp1->map].esd;
+		ESD *esd_dst = &editor->esd_sbs.items[wp2->map].esd;
+
+		if (wp2->boss != Boss_None && point_has_cutscene(j)) {
+			assert(wp2->cutscene_event_id >= 0);
+			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp2->cutscene_event_id, wp2->warp_pt_id, wp2->fog_gate_id);
+		} 
+		if (wp1->boss != Boss_None && wp1->cutscene_gate_id != __WarpNodeCount) {
+			WarpPoint *wn = &warp_points[wp1->cutscene_gate_id];
+			assert(wp1->cutscene_event_id >= 0);
+			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp1->cutscene_event_id, wp1->warp_pt_id, wn->fog_gate_id);
+		}
+
+		add_esd_event(esd_src, &editor->bytecode_buf, wp2->map, wp2->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id);
+		add_esd_event(esd_dst, &editor->bytecode_buf, wp1->map, wp1->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id);
+	}
+
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
 		editor->write_buf.count = 0;
 		if (!write_esd_from_map_name(&editor->write_buf, map_name_id, &editor->esd_sbs.items[map_name_id].esd)) return false;
@@ -6260,9 +6492,9 @@ int main() {
 	// int ship_arrival_msg_id = -1;
 	// if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
 	Editor editor = {0};
+	generate_default_connections();
 	if (!generate_map_objects(&editor)) return 1;
 	free_editor(&editor);
-	// generate_default_connections();
 	// generate_connections();
 	// Warps warps = {0};
 	// warp_add(&warps, GameStartSpawnSrc);
