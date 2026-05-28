@@ -5746,6 +5746,14 @@ Command command_disable_obj_keyguide(ESD *esd, int obj_inst_id) {
 	return comm;
 }
 
+Command command_disable_player_movement(ESD *esd) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 132243;
+	da_append(&comm.args_ids, create_arg_number(esd, 1));
+	return comm;
+}
+
 Command command_enable_obj_keyguide(ESD *esd, int obj_inst_id) {
 	Command comm = {0};
 	comm.command_bank = 1;
@@ -5822,14 +5830,17 @@ size_t restart_state(ESD *esd, int id) {
 	return state_id;
 }
 
-size_t disable_obj_keyguide(ESD *esd, String_Builder *bytecode_buf, int id, int target_state_id, int obj_inst_id) {
+size_t prepare_to_warp(ESD *esd, String_Builder *bytecode_buf, int id, int target_state_id, int obj_inst_id) {
 	size_t state_id = esd->states.count;
 	State state = {0};
 	state.id = id;
 
-	Command comm = command_disable_obj_keyguide(esd, obj_inst_id);
+	Command dok = command_disable_obj_keyguide(esd, obj_inst_id);
 	da_append(&state.entry_commands_ids, esd->commands.count);
-	da_append(&esd->commands, comm);
+	da_append(&esd->commands, dok);
+	Command dpm = command_disable_player_movement(esd);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, dpm);
 
 	Condition cond = {0};
 	cond.target_state_id = target_state_id;
@@ -5984,12 +5995,44 @@ void add_esd_event(ESD *esd, String_Builder *string_buffer,
 	// size_t msg_id = 1003;
 	da_append(&sg.states_ids, state_init(esd, esd->states.count + 1, string_buffer)); 
 	da_append(&sg.states_ids, wait_until_interact_with_obj(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
-	da_append(&sg.states_ids, disable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, prepare_to_warp(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	da_append(&sg.states_ids, warp_to_location(esd, string_buffer, state_id++, esd->states.count + 1, map_ids[dst_map_name_id], dst_loc_id)); 
 	// da_append(&sg.states_ids, display_ring_bell_msg(esd, string_buffer, state_id++, esd->states.count + 1, msg_id)); 
 	da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	da_append(&sg.states_ids, restart_state(esd, state_id++)); 
 	da_append(&esd->state_groups, sg);
+}
+
+int compr_moip_id(const void *a, const void *b) {
+    return ((Row *)a)->ID - ((Row *)b)->ID;
+}
+
+// Returns the starting position where n new unique IDs can fit
+// or -1 if no suitable gap exists
+Pair find_row_id_gap(Rows rows, int n) {
+    if (rows.count == 0) return (Pair){-1, -1};
+    
+    qsort(rows.items, rows.count, sizeof(Row), compr_moip_id);
+    
+    for (size_t i = 0; i < rows.count - 1; i++) {
+        int gap_size = rows.items[i + 1].ID - rows.items[i].ID - 1;
+        if (gap_size >= n) {
+            return (Pair){rows.items[i].ID + 1, i + 1};
+        }
+    }
+    
+    return (Pair){-1, -1};
+}
+
+size_t compute_n_warp_points(MapName name) {
+	size_t count = 0;
+	for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
+		WarpPoint wp = warp_points[i];
+		if (wp.map != name) continue;
+		if (!wp.is_foggate) continue;
+		count++;
+	}
+	return count;
 }
 
 bool generate_map_objects_name(MapName map_name_id) {
@@ -6016,11 +6059,8 @@ bool generate_map_objects_name(MapName map_name_id) {
 	for (size_t i=0; i<ARRAY_LEN(warp_part.part.draw_groups); i++) {
 		warp_part.part.draw_groups[i] = 0;
 	}
-	size_t name_id = 1001;
-	size_t warp_obj_inst_id = 10020411;
-	size_t oip_insert_loc = 3;
-	size_t event_param_id = 1021;
-	size_t warp_point_begin = 100201;
+	size_t name_id = 1001; // hardcoded should not break as far as I have tested
+	// size_t warp_point_begin = 100201;
 
 	PARAM obj_inst_param, ev_param, param;
 
@@ -6028,22 +6068,38 @@ bool generate_map_objects_name(MapName map_name_id) {
 	String_Builder oip_wsb = {0};
 	if (!load_obj_inst_param_from_map_name(&oip_sb, map_name_id, &obj_inst_param)) return false;
 
+	size_t n_warp_points = compute_n_warp_points(map_name_id);
+	Pair pair = find_row_id_gap(obj_inst_param.rows, n_warp_points);
+	size_t warp_obj_inst_id = pair.from;
+	size_t oip_insert_loc = pair.to;
+
+	assert(warp_obj_inst_id >= 0);
+	assert(oip_insert_loc >= 0);
+
 	String_Builder ep_sb = {0};
 	String_Builder ep_wsb = {0};
 	if (!load_event_param_from_map_name(&ep_sb, map_name_id, &ev_param)) return false;
+	size_t event_param_id = find_row_id_gap(ev_param.rows, n_warp_points).from;
+
+	assert(event_param_id >= 0);
 
 	Ht(size_t, bool) completed_ids = {0};
 
 	String_Builder el_sb = {0};
 	String_Builder el_wsb = {0};
 	if (!load_event_loc_from_map_name(&el_sb, map_name_id, &param)) return false;
-	size_t el_insert_loc = 1;
+	pair = find_row_id_gap(param.rows, n_warp_points);
+	size_t warp_point_begin = pair.from;
+	size_t el_insert_loc = pair.to;
+
+	assert(warp_point_begin >= 0);
+	assert(el_insert_loc >= 0);
 
 	ESD esd;
 	String_Builder sb = {0};
 	String_Builder wsb = {0};
 	if (!load_esd_from_map_name(&sb, map_name_id, &esd)) return false;
-	size_t sg_id = esd.state_groups.count;
+	// size_t sg_id = esd.state_groups.count;
 
 	for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
 		WarpPoint wp = warp_points[i];
@@ -6070,7 +6126,8 @@ bool generate_map_objects_name(MapName map_name_id) {
 		}
 
 		V3f pos = v3f_add(wp.offset, fog_gate->part.position);
-		V3f rot = fog_gate->part.rotation;
+		V3f rot = wp.reverse ? v3f_flip_y(fog_gate->part.rotation) : fog_gate->part.rotation;
+
 		size_t woi_id1 = warp_obj_inst_id++;
 		size_t woi_id2 = warp_obj_inst_id++;
 		da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, rot, woi_id1, name_id++, &string_buffer));
@@ -6090,7 +6147,7 @@ bool generate_map_objects_name(MapName map_name_id) {
 		size_t wp1 = warp_point_begin++;
 		size_t wp2 = warp_point_begin++;
 		add_event_loc_warpobj(&param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
-		add_event_loc_warpobj(&param, wp2, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), rot, el_insert_loc++);
+		add_event_loc_warpobj(&param, wp2, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), v3f_flip_y(rot), el_insert_loc++);
 
 		add_esd_event(&esd, &string_buffer, map_name_id, ep_id1, woi_id1, wp1);
 		add_esd_event(&esd, &string_buffer, map_name_id, ep_id2, woi_id2, wp2);
@@ -6106,14 +6163,14 @@ bool generate_map_objects_name(MapName map_name_id) {
 	if (!write_param_from_map_name(&el_wsb, output_path, &param)) return false;
 
 	if (!write_esd_from_map_name(&wsb, map_name_id, &esd)) return false;
-	sb.count = 0;
-	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_paths[map_name_id]);
-	if (!nob_read_entire_file(output_path, &sb)) return false;
-	esd = read_esd(sb_to_sv(sb));
-	for (size_t i=sg_id; i<esd.state_groups.count; i++) {
-		print_state_group(&esd, &esd.state_groups.items[i]);
-	}
-	free_esd(&esd);
+	// sb.count = 0;
+	// output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_paths[map_name_id]);
+	// if (!nob_read_entire_file(output_path, &sb)) return false;
+	// esd = read_esd(sb_to_sv(sb));
+	// for (size_t i=sg_id; i<esd.state_groups.count; i++) {
+	// 	print_state_group(&esd, &esd.state_groups.items[i]);
+	// }
+	// free_esd(&esd);
 
 
 	ht_free(&completed_ids);
