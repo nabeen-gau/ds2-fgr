@@ -1,1 +1,7 @@
 *.exe
+/.temp
+*.hexproj
+/output
+test.c
+/other/ChangeLog.md
+/other/examples/
