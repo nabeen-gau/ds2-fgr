@@ -118,17 +118,16 @@ typedef struct {
 	__Entry entry;
 	utf16_t *name;
 } Entry;
+
 DA(Entry, Model);
 
-void entry_copy(Entry *copy, const Entry *src, String_Builder *buf) {
+void entry_copy(Entry *copy, const Entry *src, const char *buf, size_t size) {
 	size_t str_len = wcslen(src->name);
-	assert(buf->capacity > buf->count + str_len);
-	wchar_t *dst = (wchar_t *)(buf->items + buf->count);
-	size_t dst_size = buf->capacity - buf->count;
+	assert(size > str_len);
+	wchar_t *dst = (wchar_t *)(buf);
 	*copy = *src;
-	assert(wcscpy_s(dst, dst_size, src->name) == 0);
+	assert(wcscpy_s(dst, size, src->name) == 0);
 	copy->name = dst;
-	buf->count += str_len;
 }
 
 typedef packed_struct {
@@ -550,15 +549,13 @@ typedef struct {
 	PartTypeData type_data;
 } Part;
 
-void part_copy(Part *copy, const Part *src, String_Builder *buf) {
+void part_copy(Part *copy, const Part *src, const char *buf, size_t size) {
 	size_t str_len = wcslen(src->name);
-	assert(buf->capacity > buf->count + str_len);
-	wchar_t *dst = (wchar_t *)(buf->items + buf->count);
-	size_t dst_size = buf->capacity - buf->count;
+	assert(size > str_len);
+	wchar_t *dst = (wchar_t *)(buf);
 	*copy = *src;
-	assert(wcscpy_s(dst, dst_size, src->name) == 0);
+	assert(wcscpy_s(dst, size, src->name) == 0);
 	copy->name = dst;
-	buf->count += str_len;
 }
 
 
@@ -1922,9 +1919,8 @@ size_t write_param_header(String_Builder *sb, ParamSt *p, utf16_t *name, DArrz *
 
 void write_model_param(String_Builder *sb, ModelParam *param) {
 	DArrz offset_positions = {0};
-	// TODO: this might be necessary
-	// size_t total_entries = param->MapPieces.count + param->Objects.count + param->Collisions.count + param->Navmeshes.count;
-	// param->param.offset_count = total_entries + 1;
+	size_t total_entries = param->MapPieces.count + param->Objects.count + param->Collisions.count + param->Navmeshes.count;
+	param->param.offset_count = total_entries + 1;
 	size_t next_param_offset = write_param_header(sb, &param->param, param->name, &offset_positions);
 
 	size_t entries_count = 0;
@@ -5544,13 +5540,14 @@ wchar_t * write_cstr_to_wchar(const char *src, String_Builder *dst_sb) {
 	return (wchar_t *)loc;
 }
 
-Part warp_part_new(const Part *src, V3f pos, V3f rot, int32_t instance_id, size_t name_id, String_Builder *name_buf) {
+Part warp_part_new(const Part *src, V3f pos, V3f rot, int32_t instance_id, size_t name_id, String_Builder *name_buf, int model_index) {
 	size_t mark = temp_save();
 	Part part = *src;
 	part.part.position = pos;
 	part.part.rotation = rot;
 	part.type_data.object.map_object_instance_param_id = instance_id;
 	part.name = write_cstr_to_wchar(temp_sprintf(WARP_OBJ_MODEL_NAME"_%zu", name_id), name_buf);
+	part.part.model_index = model_index;
 	temp_rewind(mark);
 	return part;
 }
@@ -6035,157 +6032,223 @@ size_t compute_n_warp_points(MapName name) {
 	return count;
 }
 
-bool generate_map_objects_name(MapName map_name_id) {
-	size_t mark = temp_save();
-	String_Builder string_buffer = {0};
-	da_init(&string_buffer, 2048);
-	String_Builder map_sb = {0};  // for reading the files
-	String_Builder map_wsb = {0}; // for writing the files
-	MSB2 map;
-	if (!load_map_from_name(&map_sb, map_name_id, &map)) return false;
-	V3f pos_offs_event_loc = map.events.MapOffsets.count > 0 ?\
-							 map.events.MapOffsets.items[0].type_data.map_offset.translation :\
-							 (V3f){0, 0, 0};
-	Part warp_part = {0};
-	for (size_t j=0; j<map.parts.Objects.count; j++) {
-		Part *part = &map.parts.Objects.items[j];
-		if (wcscmp(part->name, L""WARP_OBJ_NAME) == 0) {
-			part_copy(&warp_part, part, &string_buffer);
-			break;
-		}
-	}
-	assert(warp_part.name != NULL);
-	// disabling the visibility of warp_part
-	for (size_t i=0; i<ARRAY_LEN(warp_part.part.draw_groups); i++) {
-		warp_part.part.draw_groups[i] = 0;
-	}
-	size_t name_id = 1001; // hardcoded should not break as far as I have tested
-	// size_t warp_point_begin = 100201;
-
-	PARAM obj_inst_param, ev_param, param;
-
-	String_Builder oip_sb = {0};
-	String_Builder oip_wsb = {0};
-	if (!load_obj_inst_param_from_map_name(&oip_sb, map_name_id, &obj_inst_param)) return false;
-
-	size_t n_warp_points = compute_n_warp_points(map_name_id);
-	Pair pair = find_row_id_gap(obj_inst_param.rows, n_warp_points);
-	size_t warp_obj_inst_id = pair.from;
-	size_t oip_insert_loc = pair.to;
-
-	assert(warp_obj_inst_id >= 0);
-	assert(oip_insert_loc >= 0);
-
-	String_Builder ep_sb = {0};
-	String_Builder ep_wsb = {0};
-	if (!load_event_param_from_map_name(&ep_sb, map_name_id, &ev_param)) return false;
-	size_t event_param_id = find_row_id_gap(ev_param.rows, n_warp_points).from;
-
-	assert(event_param_id >= 0);
-
-	Ht(size_t, bool) completed_ids = {0};
-
-	String_Builder el_sb = {0};
-	String_Builder el_wsb = {0};
-	if (!load_event_loc_from_map_name(&el_sb, map_name_id, &param)) return false;
-	pair = find_row_id_gap(param.rows, n_warp_points);
-	size_t warp_point_begin = pair.from;
-	size_t el_insert_loc = pair.to;
-
-	assert(warp_point_begin >= 0);
-	assert(el_insert_loc >= 0);
-
+typedef struct {
+	String_Builder sb;
 	ESD esd;
-	String_Builder sb = {0};
-	String_Builder wsb = {0};
-	if (!load_esd_from_map_name(&sb, map_name_id, &esd)) return false;
-	// size_t sg_id = esd.state_groups.count;
+} ESD_Data;
 
-	for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
-		WarpPoint wp = warp_points[i];
-		if (wp.map != map_name_id) continue;
-		if (!wp.is_foggate) continue;
-		Part *fog_gate = NULL;
-		bool *found = NULL;
-		for (size_t j=0; j<map.parts.Objects.count; j++) {
-			Part *p = &map.parts.Objects.items[j];
-			if (str_wchar_eq(p->name, wp.obj_id)) {
-				found = ht_find(&completed_ids, j);
-				if (found == NULL) {
-					*ht_put(&completed_ids, j) = true;
-					fog_gate = p;
+void free_esd_data(ESD_Data *data) {
+	free_esd(&data->esd);
+	da_free(data->sb);
+}
+
+DA(ESD_Data, DA_ESD_Data);
+
+typedef struct {
+	String_Builder map_sb;
+	String_Builder oip_sb;
+	String_Builder ep_sb;
+	String_Builder el_sb;
+	DA_ESD_Data esd_sbs;
+
+	String_Builder write_buf;
+	String_Builder bytecode_buf;
+} Editor;
+
+void free_editor(Editor *editor) {
+	da_free(editor->map_sb);
+	da_free(editor->oip_sb);
+	da_free(editor->ep_sb);
+	da_free(editor->el_sb);
+	// ESD is freed when writing to output
+	da_free(editor->esd_sbs);
+	da_free(editor->write_buf);
+	da_free(editor->bytecode_buf);
+}
+
+bool generate_map_objects(Editor *editor) {
+	Ht(size_t, bool) completed_ids = {0};
+	Part warp_part = {0};
+	Entry warp_model = {0};
+	const char warp_part_name_buf[128];
+	const char warp_model_name_buf[128];
+	String_Builder name_buf = {0};
+	da_init(&name_buf, 1024);
+	da_init(&editor->bytecode_buf, 10*1024*1024); // 10mb for holding bytecode
+	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
+		ht_reset(&completed_ids);
+		name_buf.count = 0;
+		editor->map_sb.count = 0;
+		editor->oip_sb.count = 0;
+		editor->ep_sb.count = 0;
+		editor->el_sb.count = 0;
+		size_t mark = temp_save();
+		// String_Builder memory_buf = {0};
+		// da_init(&memory_buf, 2048);
+		MSB2 map;
+		if (!load_map_from_name(&editor->map_sb, map_name_id, &map)) return false;
+		V3f pos_offs_event_loc = map.events.MapOffsets.count > 0 ?\
+								 map.events.MapOffsets.items[0].type_data.map_offset.translation :\
+								 (V3f){0, 0, 0};
+		int model_index = -1;
+		if (map_name_id == ThingsBetwixt) {
+			for (size_t j=0; j<map.parts.Objects.count; j++) {
+				Part *part = &map.parts.Objects.items[j];
+				if (wcscmp(part->name, L""WARP_OBJ_NAME) == 0) {
+					part_copy(&warp_part, part, warp_part_name_buf, sizeof(warp_part_name_buf));
+					break;
 				}
-				break;
+			}
+			for (size_t j=0; j<map.models.Objects.count; j++) {
+				Entry *model = &map.models.Objects.items[j];
+				if (wcscmp(model->name, L""WARP_OBJ_MODEL_NAME) == 0) {
+					entry_copy(&warp_model, model, warp_model_name_buf, sizeof(warp_model_name_buf));
+					model_index = j + map.models.MapPieces.count;
+					break;
+				}
+			}
+		} else {
+			assert(warp_model.name != NULL);
+			model_index = map.models.Objects.count + map.models.MapPieces.count;
+			da_append(&map.models.Objects, warp_model);
+
+			// after adding new objects the other references must be updated
+			for (size_t k=0; k<map.parts.MapPieces.count; k++) {
+				Part *part = &map.parts.MapPieces.items[k];
+				if (part->part.model_index >= model_index) part->part.model_index += 1;
+			}
+			for (size_t k=0; k<map.parts.Objects.count; k++) {
+				Part *part = &map.parts.Objects.items[k];
+				if (part->part.model_index >= model_index) part->part.model_index += 1;
+			}
+			for (size_t k=0; k<map.parts.Collisions.count; k++) {
+				Part *part = &map.parts.Collisions.items[k];
+				if (part->part.model_index >= model_index) part->part.model_index += 1;
+			}
+			for (size_t k=0; k<map.parts.ConnectCollisions.count; k++) {
+				Part *part = &map.parts.ConnectCollisions.items[k];
+				if (part->part.model_index >= model_index) part->part.model_index += 1;
+			}
+			for (size_t k=0; k<map.parts.Navmeshes.count; k++) {
+				Part *part = &map.parts.Navmeshes.items[k];
+				if (part->part.model_index >= model_index) part->part.model_index += 1;
 			}
 		}
-		if (found) continue;
-		assert(fog_gate != NULL && "Could not find the foggate name in the map");
+		assert(model_index != -1);
+		assert(warp_model.name != NULL);
+		assert(warp_part.name != NULL);
+		// disabling the visibility of warp_part
+		for (size_t i=0; i<ARRAY_LEN(warp_part.part.draw_groups); i++) {
+			warp_part.part.draw_groups[i] = 0;
+		}
+		size_t name_id = 1001; // hardcoded should not break as far as I have tested
 
-		for (size_t i=0; i<ARRAY_LEN(warp_part.part.disp_groups); i++) {
-			warp_part.part.disp_groups[i] = fog_gate->part.draw_groups[i];
+		PARAM obj_inst_param, ev_param, param;
+
+		if (!load_obj_inst_param_from_map_name(&editor->oip_sb, map_name_id, &obj_inst_param)) return false;
+
+		size_t n_warp_points = compute_n_warp_points(map_name_id);
+		Pair pair = find_row_id_gap(obj_inst_param.rows, n_warp_points);
+		size_t warp_obj_inst_id = pair.from;
+		size_t oip_insert_loc = pair.to;
+
+		assert(warp_obj_inst_id >= 0);
+		assert(oip_insert_loc >= 0);
+
+		if (!load_event_param_from_map_name(&editor->ep_sb, map_name_id, &ev_param)) return false;
+		size_t event_param_id = find_row_id_gap(ev_param.rows, n_warp_points).from;
+
+		assert(event_param_id >= 0);
+
+		if (!load_event_loc_from_map_name(&editor->el_sb, map_name_id, &param)) return false;
+		pair = find_row_id_gap(param.rows, n_warp_points);
+		size_t warp_point_begin = pair.from;
+		size_t el_insert_loc = pair.to;
+
+		assert(warp_point_begin >= 0);
+		assert(el_insert_loc >= 0);
+
+		ESD esd_orig;
+		String_Builder esd_sb_orig = {0};
+		if (!load_esd_from_map_name(&esd_sb_orig, map_name_id, &esd_orig)) return false;
+		da_append(&editor->esd_sbs, ((ESD_Data){esd_sb_orig, esd_orig}));
+
+		for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
+			WarpPoint wp = warp_points[i];
+			if (wp.map != map_name_id) continue;
+			if (!wp.is_foggate) continue;
+			Part *fog_gate = NULL;
+			bool *found = NULL;
+			for (size_t j=0; j<map.parts.Objects.count; j++) {
+				Part *p = &map.parts.Objects.items[j];
+				if (str_wchar_eq(p->name, wp.obj_id)) {
+					found = ht_find(&completed_ids, j);
+					if (found == NULL) {
+						*ht_put(&completed_ids, j) = true;
+						fog_gate = p;
+					}
+					break;
+				}
+			}
+			if (found) continue;
+			assert(fog_gate != NULL && "Could not find the foggate name in the map");
+
+			for (size_t i=0; i<ARRAY_LEN(warp_part.part.disp_groups); i++) {
+				warp_part.part.disp_groups[i] = fog_gate->part.draw_groups[i];
+			}
+
+			V3f pos = v3f_add(wp.offset, fog_gate->part.position);
+			V3f rot = wp.reverse ? v3f_flip_y(fog_gate->part.rotation) : fog_gate->part.rotation;
+
+			size_t woi_id1 = warp_obj_inst_id++;
+			size_t woi_id2 = warp_obj_inst_id++;
+			da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, rot, woi_id1, name_id++, &name_buf, model_index));
+			da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, v3f_flip_y(rot), woi_id2, name_id++, &name_buf, model_index));
+
+
+			// add the object instance for the warp part
+			add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id1, oip_insert_loc++);
+			add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id2, oip_insert_loc++);
+
+			// create and add new event param for infront and back of fog door
+			size_t ep_id1 = event_param_id++;
+			size_t ep_id2 = event_param_id++;
+			add_event_param_warpobj(&ev_param, ep_id1, woi_id1);
+			add_event_param_warpobj(&ev_param, ep_id2, woi_id2);
+
+			// create and add the new warp points behind and front of the fog door
+			size_t wp1 = warp_point_begin++;
+			size_t wp2 = warp_point_begin++;
+			add_event_loc_warpobj(&param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
+			add_event_loc_warpobj(&param, wp2, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), v3f_flip_y(rot), el_insert_loc++);
+
+			ESD *esd_src = &editor->esd_sbs.items[wp.map].esd;
+			ESD *esd_dst = &editor->esd_sbs.items[wp.map].esd;
+			add_esd_event(esd_src, &editor->bytecode_buf, map_name_id, ep_id1, woi_id1, wp1);
+			add_esd_event(esd_dst, &editor->bytecode_buf, map_name_id, ep_id2, woi_id2, wp2);
 		}
 
-		V3f pos = v3f_add(wp.offset, fog_gate->part.position);
-		V3f rot = wp.reverse ? v3f_flip_y(fog_gate->part.rotation) : fog_gate->part.rotation;
 
-		size_t woi_id1 = warp_obj_inst_id++;
-		size_t woi_id2 = warp_obj_inst_id++;
-		da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, rot, woi_id1, name_id++, &string_buffer));
-		da_append(&map.parts.Objects, warp_part_new(&warp_part, pos, v3f_flip_y(rot), woi_id2, name_id++, &string_buffer));
-
-		// add the object instance for the warp part
-		add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id1, oip_insert_loc++);
-		add_map_obj_instance_param_warpobj(&obj_inst_param, woi_id2, oip_insert_loc++);
-
-		// create and add new event param for infront and back of fog door
-		size_t ep_id1 = event_param_id++;
-		size_t ep_id2 = event_param_id++;
-		add_event_param_warpobj(&ev_param, ep_id1, woi_id1);
-		add_event_param_warpobj(&ev_param, ep_id2, woi_id2);
-
-		// create and add the new warp points behind and front of the fog door
-		size_t wp1 = warp_point_begin++;
-		size_t wp2 = warp_point_begin++;
-		add_event_loc_warpobj(&param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
-		add_event_loc_warpobj(&param, wp2, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), v3f_flip_y(rot), el_insert_loc++);
-
-		add_esd_event(&esd, &string_buffer, map_name_id, ep_id1, woi_id1, wp1);
-		add_esd_event(&esd, &string_buffer, map_name_id, ep_id2, woi_id2, wp2);
+		editor->write_buf.count = 0;
+		if (!write_map_from_name(&editor->write_buf, map_name_id, &map)) return false;
+		const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", obj_inst_param_paths[map_name_id]);
+		editor->write_buf.count = 0;
+		if (!write_param_from_map_name(&editor->write_buf, output_path, &obj_inst_param)) return false;
+		output_path = temp_sprintf(OUT_FOLDER_PATH"%s", event_param_paths[map_name_id]);
+		editor->write_buf.count = 0;
+		if (!write_param_from_map_name(&editor->write_buf, output_path, &ev_param)) return false;
+		output_path = temp_sprintf(OUT_FOLDER_PATH"%s", event_loc_paths[map_name_id]);
+		editor->write_buf.count = 0;
+		if (!write_param_from_map_name(&editor->write_buf, output_path, &param)) return false;
+		temp_rewind(mark);
 	}
-	if (!write_map_from_name(&map_wsb, map_name_id, &map)) return false;
-	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", obj_inst_param_paths[map_name_id]);
-	if (!write_param_from_map_name(&oip_wsb, output_path, &obj_inst_param)) return false;
-	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", event_param_paths[map_name_id]);
-	write_param(&ep_wsb, &ev_param);
-	if (!write_param_from_map_name(&ep_wsb, output_path, &ev_param)) return false;
-	write_param(&el_wsb, &param);
-	output_path = temp_sprintf(OUT_FOLDER_PATH"%s", event_loc_paths[map_name_id]);
-	if (!write_param_from_map_name(&el_wsb, output_path, &param)) return false;
-
-	if (!write_esd_from_map_name(&wsb, map_name_id, &esd)) return false;
-	// sb.count = 0;
-	// output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_paths[map_name_id]);
-	// if (!nob_read_entire_file(output_path, &sb)) return false;
-	// esd = read_esd(sb_to_sv(sb));
-	// for (size_t i=sg_id; i<esd.state_groups.count; i++) {
-	// 	print_state_group(&esd, &esd.state_groups.items[i]);
-	// }
-	// free_esd(&esd);
-
-
 	ht_free(&completed_ids);
-	da_free(string_buffer);
-	da_free(map_sb);
-	da_free(map_wsb);
-	da_free(oip_sb);
-	da_free(oip_wsb);
-	da_free(ep_sb);
-	da_free(ep_wsb);
-	da_free(el_sb);
-	da_free(el_wsb);
-	da_free(sb);
-	da_free(wsb);
-	temp_rewind(mark);
+
+	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
+		editor->write_buf.count = 0;
+		if (!write_esd_from_map_name(&editor->write_buf, map_name_id, &editor->esd_sbs.items[map_name_id].esd)) return false;
+	}
+
 	return true;
 }
 
@@ -6196,7 +6259,9 @@ int main() {
 	if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
 	// int ship_arrival_msg_id = -1;
 	// if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
-	if (!generate_map_objects_name(ThingsBetwixt)) return 1;
+	Editor editor = {0};
+	if (!generate_map_objects(&editor)) return 1;
+	free_editor(&editor);
 	// generate_default_connections();
 	// generate_connections();
 	// Warps warps = {0};
