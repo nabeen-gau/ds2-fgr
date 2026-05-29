@@ -8,13 +8,6 @@
 #include "common.c"
 #include "foggates.c"
 
-// #define LOG_GENERATED_FILES
-
-#ifndef LOG_GENERATED_FILES
-#define NOB_NO_ECHO
-#endif
-
-
 #include "miniz.h"
 
 #define COMPRESSION_ALLOC_SIZE 10*1024*1024
@@ -4665,7 +4658,7 @@ bool generate_map_objects(Editor *editor) {
 		}
 		size_t name_id = 1001; // hardcoded should not break as far as I have tested
 
-		PARAM obj_inst_param, ev_param, param;
+		PARAM obj_inst_param, ev_param, el_param;
 
 		if (!load_obj_inst_param_from_map_name(&editor->oip_sb, map_name_id, &obj_inst_param)) return false;
 
@@ -4682,8 +4675,8 @@ bool generate_map_objects(Editor *editor) {
 
 		assert(event_param_id >= 0);
 
-		if (!load_event_loc_from_map_name(&editor->el_sb, map_name_id, &param)) return false;
-		pair = find_row_id_gap(param.rows, n_warp_points);
+		if (!load_event_loc_from_map_name(&editor->el_sb, map_name_id, &el_param)) return false;
+		pair = find_row_id_gap(el_param.rows, n_warp_points);
 		size_t warp_point_begin = pair.from;
 		size_t el_insert_loc = pair.to;
 
@@ -4744,9 +4737,22 @@ bool generate_map_objects(Editor *editor) {
 				warp_part.part.disp_groups[i] = fog_gate->part.draw_groups[i];
 			}
 
+			// adjust the boss spawn event loc to the warp point if the boss should spawn
+			int event_loc_id = get_boss_spawn_event_loc(i);
+			if (event_loc_id != -1) {
+				for (size_t k=0; k<el_param.rows.count; k++) {
+					Row *row = &el_param.rows.items[k];
+					Cell *cell = &el_param.cells.items[k];
+					if (row->ID == event_loc_id) {
+						cell->as.event_loc.position.x = fog_gate->part.position.x - pos_offs_event_loc.x;
+						cell->as.event_loc.position.z = fog_gate->part.position.z - pos_offs_event_loc.z;
+					}
+				}
+			}
+
+
 			V3f pos = v3f_add(wp->offset, fog_gate->part.position);
 			V3f rot = wp->reverse ? v3f_flip_y(fog_gate->part.rotation) : fog_gate->part.rotation;
-
 
 			// if it is front side
 			if (!found) {
@@ -4762,7 +4768,7 @@ bool generate_map_objects(Editor *editor) {
 
 				// create and add the new warp points behind and front of the fog door
 				size_t wp2 = warp_point_begin++;
-				add_event_loc_warpobj(&param, wp2, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), v3f_flip_y(rot), el_insert_loc++);
+				add_event_loc_warpobj(&el_param, wp2, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, 1.0f), v3f_flip_y(rot), el_insert_loc++);
 
 				wp->warp_pt_id = wp2;
 				wp->event_param_id = ep_id1;
@@ -4774,7 +4780,7 @@ bool generate_map_objects(Editor *editor) {
 				size_t ep_id2 = event_param_id++;
 				add_event_param_warpobj(&ev_param, ep_id2, woi_id2);
 				size_t wp1 = warp_point_begin++;
-				add_event_loc_warpobj(&param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
+				add_event_loc_warpobj(&el_param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
 
 				wp->warp_pt_id = wp1;
 				wp->event_param_id = ep_id2;
@@ -4808,7 +4814,7 @@ bool generate_map_objects(Editor *editor) {
 		if (!write_param_from_map_name(&editor->write_buf, output_path, &ev_param)) return false;
 		output_path = temp_sprintf(OUT_FOLDER_PATH"%s", event_loc_paths[map_name_id]);
 		editor->write_buf.count = 0;
-		if (!write_param_from_map_name(&editor->write_buf, output_path, &param)) return false;
+		if (!write_param_from_map_name(&editor->write_buf, output_path, &el_param)) return false;
 		temp_rewind(mark);
 	}
 	printf("\n");
@@ -4840,16 +4846,10 @@ bool generate_map_objects(Editor *editor) {
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
 		editor->write_buf.count = 0;
+		printf("Saving maps %d/%d\r", map_name_id, __MapNameCount-1);
 		if (!write_esd_from_map_name(&editor->write_buf, map_name_id, &editor->esd_sbs.items[map_name_id].esd)) return false;
 	}
-
-	// editor->map_sb.count = 0;
-	// if (!nob_read_entire_file(temp_sprintf("./output/ezstate/event_%s.esd", map_names[DrangleicCastleThroneofWant]), &editor->map_sb)) {
-	// 	return false;
-	// }
-	// ESD esd = read_esd(sb_to_sv(editor->map_sb));
-	// print_state_group(&esd, &esd.state_groups.items[317]);
-	// free_esd(&esd);
+	printf("\n");
 
 	return true;
 }

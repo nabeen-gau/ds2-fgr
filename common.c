@@ -9,6 +9,11 @@
 #endif
 
 #include <stdint.h>
+// #define LOG_GENERATED_FILES
+
+#ifndef LOG_GENERATED_FILES
+#define NOB_NO_ECHO
+#endif
 
 #define NOB_DA_INIT_CAP 32
 #define NOB_IMPLEMENTATION

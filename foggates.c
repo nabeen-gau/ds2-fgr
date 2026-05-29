@@ -548,14 +548,14 @@ static WarpPoint warp_points[] = {
 	[CongregationEntryFront]               = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0500_0000"),
 	[CongregationExitFront]                = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0500_0001", .boss = ProwlingMagusAndCongregation),
 	[BrightstoneCoveToDoorsOfPharrosFront] = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0500_0002", .pvp = true),
-	[DukesDearFreyjaEntryFront]            = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0501_0001", .reverse = true),
-	[DukesDearFreyjaExitFront]             = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0502_0000", .boss = TheDukesDearFreja, .cutscene_gate_id = DukesDearFreyjaEntryBack),
+	[DukesDearFreyjaEntryFront]            = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0502_0000"),
+	[DukesDearFreyjaExitFront]             = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0501_0001", .boss = TheDukesDearFreja, .cutscene_gate_id = DukesDearFreyjaEntryBack, .reverse = true),
 
 	[CongregationEntryBack]                = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0500_0000", .boss = ProwlingMagusAndCongregation),
 	[CongregationExitBack]                 = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0500_0001"),
 	[BrightstoneCoveToDoorsOfPharrosBack]  = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0500_0002", .pvp = true),
-	[DukesDearFreyjaEntryBack]             = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0501_0001", .boss = TheDukesDearFreja, .reverse = true),
-	[DukesDearFreyjaExitBack]              = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0502_0000"),
+	[DukesDearFreyjaEntryBack]             = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0502_0000", .boss = TheDukesDearFreja),
+	[DukesDearFreyjaExitBack]              = NEW_WARP_PT(.map = BrightstoneCoveTseldora, .obj_id = "o00_0501_0001", .reverse = true),
 
 	// Aldias keep
 	[GuardianDragonEntryFront] = NEW_WARP_PT(.map = AldiasKeep, .obj_id = "o00_0501_0000"),
@@ -2422,6 +2422,16 @@ void generate_default_connections() {
 	default_connections[DLC3EntranceDLC] = DLC3EntranceBaseGame;
 
 }
+
+int get_boss_spawn_event_loc(WarpNode name) {
+	switch (name) {
+		case DukesDearFreyjaEntryBack: return 100000;
+		case OldIronKingEntryBack: return 1500000;
+		case DarkLurkerExitFront: return 200000; // TODO: verify this
+		default: return -1;
+	}
+};
+
 
 // not considered in logic:
 // 1. Jump down from bonfire above dragonrider
