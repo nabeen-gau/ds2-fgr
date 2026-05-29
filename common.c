@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #define NOB_DA_INIT_CAP 32
+#define NOB_IMPLEMENTATION
 #include "nob.h"
 
 #define HT_IMPLEMENTATION

@@ -15,9 +15,6 @@
 #endif
 
 
-#define NOB_IMPLEMENTATION
-#include "nob.h"
-
 #include "miniz.h"
 
 #define COMPRESSION_ALLOC_SIZE 10*1024*1024

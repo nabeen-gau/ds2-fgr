@@ -10,3 +10,6 @@ memcheck: main.c
 
 test: test.c
 	gcc -ggdb -Wall -Wextra -Iother -o test test.c other/miniz.c
+
+dump-esd: dump-esd.c
+	gcc -O3 $(CFLAGS) -o dump-esd dump-esd.c
