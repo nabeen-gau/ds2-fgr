@@ -782,12 +782,12 @@ static WarpPoint warp_points[] = {
 	[DarkChasmFromBlackGulchExitFront]      = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0000"),
 	[DarkChasmFromDrangleicCastleExitFront] = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0001"),
 	[DarkChasmFromShadedWoodsExitFront]     = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0002"),
-	[DarkLurkerExitFront]                   = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0003", .reverse = true, .offset = (V3f){0.0f, 13.792f - 11.966f, 0.0f}, .boss = Darklurker),
+	[DarkLurkerExitFront]                   = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0003", .offset = (V3f){0.0f, 13.792f - 11.966f, 0.0f}, .boss = Darklurker),
 
 	[DarkChasmFromBlackGulchExitBack]       = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0000"),
 	[DarkChasmFromDrangleicCastleExitBack]  = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0001"),
 	[DarkChasmFromShadedWoodsExitBack]      = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0002"),
-	[DarkLurkerExitBack]                    = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0003", .reverse = true, .offset = (V3f){0.0f, 13.792f - 11.966f, 0.0f}),
+	[DarkLurkerExitBack]                    = NEW_WARP_PT(.map = DarkChasmofOld, .obj_id = "o00_0501_0003", .offset = (V3f){0.0f, 13.792f - 11.966f, 0.0f}),
 
 	// Shulva sanctum city
 	[SihnTheSlumberingDragonEntryFront] = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0500_0001", .offset = (V3f){0.0f, 79.928f - 79.436f, 0.0f}),
@@ -2432,6 +2432,50 @@ int get_boss_spawn_event_loc(WarpNode name) {
 	}
 };
 
+typedef struct {
+	size_t count;
+	int items[6];
+} FixedIntArray;
+
+FixedIntArray BlackGulchChasmEnemyIds = {
+	.count = 6,
+	.items = {1005, 1006, 1007, 1008, 3200, 3210 }
+};
+FixedIntArray DrangleicCastleChasmEnemyIds = {
+	.count = 4,
+	.items = {1004, 1009, 1012, 3100}
+};
+FixedIntArray ShadedWoodsChasmEnemyIds = {
+	.count = 4,
+	.items = {1000, 1002, 1003, 3000}
+};
+
+FixedIntArray get_chasm_door_enemy_ids(WarpNode name) {
+	switch (name) {
+		case DarkChasmFromBlackGulchExitFront:
+			return BlackGulchChasmEnemyIds;
+		case DarkChasmFromShadedWoodsExitFront:
+			return ShadedWoodsChasmEnemyIds;
+		case DarkChasmFromDrangleicCastleExitFront:
+			return DrangleicCastleChasmEnemyIds;
+		default:
+			return (FixedIntArray){0};
+	}
+}
+
+int get_chasm_event_flag(WarpNode name) {
+	switch (name) {
+		case DarkChasmFromShadedWoodsExitFront:
+			return 403000001;
+		case DarkChasmFromDrangleicCastleExitFront:
+			return 403000002;
+		case DarkChasmFromBlackGulchExitFront:
+			return 403000003;
+		default:
+			return -1;
+	}
+}
+
 
 // not considered in logic:
 // 1. Jump down from bonfire above dragonrider
@@ -2446,3 +2490,5 @@ int get_boss_spawn_event_loc(WarpNode name) {
 // 3. You can drop behind the foggate near the windmill burn location in earthen peak
 // 4. You can drop from the bonfire in 3. to access other parts of earthen peak
 // 5. In shulva after gank fight foggate you can drop and explore whole initial shulva section
+// 6. You do not need to light the sconce in darkchasm dungeons to complete it, just kill all the enemies and exit from fog gate 
+//    to resgister it as completed dungeon

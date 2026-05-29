@@ -4037,6 +4037,25 @@ Command command_disable_obj_keyguide(ESD *esd, int obj_inst_id) {
 	return comm;
 }
 
+Command command_is_chr_dead_or_respawn_over(ESD *esd, int group_id, int id) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 140113;
+	da_append(&comm.args_ids, create_arg_number(esd, group_id));
+	da_append(&comm.args_ids, create_arg_s32(esd, id));
+	da_append(&comm.args_ids, create_arg_number(esd, 1));
+	return comm;
+}
+
+Command command_set_event_flag(ESD *esd, int flag) {
+	Command comm = {0};
+	comm.command_bank = 1;
+	comm.command_id = 130101;
+	da_append(&comm.args_ids, create_arg_s32(esd, flag));
+	da_append(&comm.args_ids, create_arg_number(esd, 1));
+	return comm;
+}
+
 Command command_compare_event_flag(ESD *esd, int group_id, int flag) {
 	Command comm = {0};
 	comm.command_bank = 1;
@@ -4228,6 +4247,31 @@ size_t wait_until_boss_is_dead(ESD *esd, String_Builder *bytecode_buf, int id, i
 	return state_id;
 }
 
+size_t wait_until_all_enemies_are_dead(ESD *esd, String_Builder *bytecode_buf, int id, int target_state_id, int obj_inst_id, FixedIntArray enemy_ids) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm = command_disable_obj_keyguide(esd, obj_inst_id);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+	int group_id = 8;
+	for (size_t i=0; i<enemy_ids.count; i++) {
+		Command comm2 = command_is_chr_dead_or_respawn_over(esd, group_id, enemy_ids.items[i]);
+		da_append(&state.entry_commands_ids, esd->commands.count);
+		da_append(&esd->commands, comm2);
+	}
+
+	Condition cond = {0};
+	cond.target_state_id = target_state_id;
+	cond.evaluator =  evaluator_condition_group(bytecode_buf, group_id);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
 size_t check_if_boss_is_aggro(ESD *esd, String_Builder *bytecode_buf, int id, int target_if_true, int target_if_false, int hostility_flag) {
 	size_t state_id = esd->states.count;
 	State state = {0};
@@ -4270,6 +4314,31 @@ size_t check_if_flag_is_set(ESD *esd, String_Builder *bytecode_buf, int id, int 
 	cond2.evaluator =  evaluator_1(bytecode_buf);
 	da_append(&state.conditions_id, esd->conditions.count);
 	da_append(&esd->conditions, cond2);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t set_event_flag(ESD *esd, String_Builder *bytecode_buf, int id, int target_state, int flag_id) {
+	assert(flag_id != -1);
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm = command_set_event_flag(esd, flag_id);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	int group_id = 0;
+	Command comm2 = command_compare_event_flag(esd, group_id, flag_id);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm2);
+
+	Condition cond = {0};
+	cond.target_state_id = target_state;
+	cond.evaluator =  evaluator_condition_group(bytecode_buf, group_id);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
 
 	da_append(&esd->states, state);
 	return state_id;
@@ -4466,7 +4535,7 @@ bool str_wchar_eq(wchar_t *ws, const char *s) {
 #define VendrickHostilityFlag 224000088
 #define GiantLordDefeatFlag 100972
 
-void add_esd_event(ESD *esd, String_Builder *string_buffer,
+void add_esd_event(ESD *esd, String_Builder *string_buffer, WarpNode node,
 		MapName dst_map_name_id, size_t event_param_id, size_t warp_obj_inst_id, size_t dst_loc_id, BossName boss) 
 {
 	StateGroup sg = {0};
@@ -4474,6 +4543,7 @@ void add_esd_event(ESD *esd, String_Builder *string_buffer,
 	size_t state_id = 1;
 	// size_t msg_id = 1003;
 	da_append(&sg.states_ids, state_init(esd, esd->states.count + 1, string_buffer)); 
+	FixedIntArray enemy_ids = get_chasm_door_enemy_ids(node);
 	if (boss != Boss_None) {
 		if (boss == VendrickBoss) {
 			da_append(&sg.states_ids, check_if_boss_is_aggro(esd, string_buffer, state_id++, esd->states.count + 1, esd->states.count + 3, VendrickHostilityFlag)); 
@@ -4484,6 +4554,9 @@ void add_esd_event(ESD *esd, String_Builder *string_buffer,
 			da_append(&sg.states_ids, restart_state(esd, state_id++)); 
 		}
 		da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	} else if (enemy_ids.count > 0) {
+		da_append(&sg.states_ids, wait_until_all_enemies_are_dead(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id, enemy_ids)); 
+		da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	}
 	da_append(&sg.states_ids, wait_until_interact_with_obj(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	if (boss == VendrickBoss) {
@@ -4491,6 +4564,9 @@ void add_esd_event(ESD *esd, String_Builder *string_buffer,
 		da_append(&sg.states_ids, wait_until_boss_is_dead(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id, boss_destruction_flags[boss])); 
 		da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 		da_append(&sg.states_ids, wait_until_interact_with_obj(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	}
+	if (enemy_ids.count > 0) {
+		da_append(&sg.states_ids, set_event_flag(esd, string_buffer, state_id++, esd->states.count + 1, get_chasm_event_flag(node))); 
 	}
 	da_append(&sg.states_ids, prepare_to_warp(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	da_append(&sg.states_ids, warp_to_location(esd, string_buffer, state_id++, esd->states.count + 1, map_ids[dst_map_name_id], dst_loc_id)); 
@@ -4838,8 +4914,8 @@ bool generate_map_objects(Editor *editor) {
 			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp1->cutscene_event_id, wp1->warp_pt_id, wn->fog_gate_id);
 		}
 
-		add_esd_event(esd_src, &editor->bytecode_buf, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss);
-		add_esd_event(esd_dst, &editor->bytecode_buf, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss);
+		add_esd_event(esd_src, &editor->bytecode_buf, i, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss);
+		add_esd_event(esd_dst, &editor->bytecode_buf, j, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss);
 	}
 	printf("\n");
 
