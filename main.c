@@ -4883,6 +4883,9 @@ bool generate_map_objects(Editor *editor) {
 				warp_part.part.disp_groups[i] = fog_gate->part.draw_groups[i];
 			}
 
+			V3f pos = v3f_add(wp->offset, fog_gate->part.position);
+			V3f rot = wp->reverse ? v3f_flip_y(fog_gate->part.rotation) : fog_gate->part.rotation;
+
 			// adjust the boss spawn event loc to the warp point if the boss should spawn
 			int event_loc_id = get_boss_spawn_event_loc(i);
 			if (event_loc_id != -1) {
@@ -4892,13 +4895,12 @@ bool generate_map_objects(Editor *editor) {
 					if (row->ID == event_loc_id) {
 						cell->as.event_loc.position.x = fog_gate->part.position.x - pos_offs_event_loc.x;
 						cell->as.event_loc.position.z = fog_gate->part.position.z - pos_offs_event_loc.z;
+						cell->as.event_loc.scale.x = 1.0f;
+						cell->as.event_loc.scale.z = 1.0f;
+						cell->as.event_loc.position = v3f_move(cell->as.event_loc.position, rot, i == DarkLurkerExitFront ? 2.0f: -2.0f);
 					}
 				}
 			}
-
-
-			V3f pos = v3f_add(wp->offset, fog_gate->part.position);
-			V3f rot = wp->reverse ? v3f_flip_y(fog_gate->part.rotation) : fog_gate->part.rotation;
 
 			// if it is front side
 			if (!found) {
@@ -4974,8 +4976,8 @@ bool generate_map_objects(Editor *editor) {
 		printf("Adding warps %d/%d\r", i, FogGateEnd);
 		WarpNode j = default_connections[i];
 
-		if (i == Tutorial1EntryFront) j = FlexileSentryEntryBack;
-		else if (i == FlexileSentryEntryBack) j = Tutorial1EntryFront;
+		if (i == Tutorial1EntryFront) j = DukesDearFreyjaEntryBack;
+		else if (i == DukesDearFreyjaEntryBack) j = Tutorial1EntryFront;
 
 		WarpPoint *wp1 = &warp_points[i];
 		WarpPoint *wp2 = &warp_points[j];

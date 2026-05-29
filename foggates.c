@@ -2427,7 +2427,7 @@ int get_boss_spawn_event_loc(WarpNode name) {
 	switch (name) {
 		case DukesDearFreyjaEntryBack: return 100000;
 		case OldIronKingEntryBack: return 1500000;
-		case DarkLurkerExitFront: return 200000; // TODO: verify this
+		case DarkLurkerExitFront: return 200000;
 		default: return -1;
 	}
 };
