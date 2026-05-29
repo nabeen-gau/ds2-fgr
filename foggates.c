@@ -2,13 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "common.h"
-
-#define NOB_DA_INIT_CAP 32
-#include "nob.h"
-
-#define HT_IMPLEMENTATION
-#include "ht.h"
+#include "common.c"
 
 typedef enum {
 	ThingsBetwixt = 0,
