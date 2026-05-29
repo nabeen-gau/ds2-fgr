@@ -2476,6 +2476,17 @@ int get_chasm_event_flag(WarpNode name) {
 	}
 }
 
+bool is_bell_check_required(WarpNode name) {
+	switch (name) {
+		case FlexileSentryEntryFront:
+		case FlexileSentryEntryBack:
+		case FlexileSentryExitFront:
+		case FlexileSentryExitBack:
+			return true;
+		default:
+			return false;
+	}
+}
 
 // not considered in logic:
 // 1. Jump down from bonfire above dragonrider

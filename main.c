@@ -4138,10 +4138,40 @@ size_t wait_until_interact_with_obj(ESD *esd, String_Builder *bytecode_buf, int 
 	return state_id;
 }
 
-size_t display_ring_bell_msg(ESD *esd, String_Builder *bytecode_buf, int id, int32_t target_state_id, int msg_id) {
+size_t check_if_wharf_bell_has_been_rang(ESD *esd, String_Builder *bytecode_buf, int id, int32_t target_if_true, int32_t target_if_false, int ship_event_flag) {
 	size_t state_id = esd->states.count;
 	State state = {0};
 	state.id = id;
+
+	int group_id = 0;
+	Command comm = command_compare_event_flag(esd, group_id, ship_event_flag);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	Condition cond = {0};
+	cond.target_state_id = target_if_true;
+	cond.evaluator =  evaluator_condition_group(bytecode_buf, group_id);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	Condition cond2 = {0};
+	cond2.target_state_id = target_if_false;
+	cond2.evaluator =  evaluator_1(bytecode_buf);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond2);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
+size_t display_ring_bell_msg(ESD *esd, String_Builder *bytecode_buf, int id, int32_t target_state_id, int warp_obj_inst_id, int msg_id) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	Command comm2 = command_disable_obj_keyguide(esd, warp_obj_inst_id);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm2);
 
 	Command comm = command_display_event_msg(esd, msg_id);
 	da_append(&state.entry_commands_ids, esd->commands.count);
@@ -4534,44 +4564,62 @@ bool str_wchar_eq(wchar_t *ws, const char *s) {
 
 #define VendrickHostilityFlag 224000088
 #define GiantLordDefeatFlag 100972
+#define ShipGlobalEventFlag 102002
+#define ShipArrivalLocalFlag  118000010
 
-void add_esd_event(ESD *esd, String_Builder *string_buffer, WarpNode node,
-		MapName dst_map_name_id, size_t event_param_id, size_t warp_obj_inst_id, size_t dst_loc_id, BossName boss) 
+void esd_add_ship_check_fog_gate_event(ESD *esd, String_Builder *bytecode_buf, size_t event_param_id) {
+	StateGroup sg = {0};
+	sg.id = event_param_id;
+	size_t state_id = 1;
+	da_append(&sg.states_ids, state_init(esd, esd->states.count + 1, bytecode_buf)); 
+	da_append(&sg.states_ids, check_if_flag_is_set(esd, bytecode_buf, state_id++, esd->states.count + 1, esd->states.count + 3, ShipArrivalLocalFlag)); 
+	da_append(&sg.states_ids, set_event_flag(esd, bytecode_buf, state_id++, esd->states.count + 1, ShipGlobalEventFlag)); 
+	da_append(&sg.states_ids, end_machine(esd, state_id++)); 
+	da_append(&sg.states_ids, restart_state(esd, state_id++)); 
+	da_append(&esd->state_groups, sg);
+}
+
+void add_esd_event(ESD *esd, String_Builder *bytecode_buf, WarpNode current_node, WarpNode dst_node,
+		MapName dst_map_name_id, size_t event_param_id, size_t warp_obj_inst_id, size_t dst_loc_id, BossName boss, int ship_arrival_msg_id) 
 {
 	StateGroup sg = {0};
 	sg.id = event_param_id;
 	size_t state_id = 1;
-	// size_t msg_id = 1003;
-	da_append(&sg.states_ids, state_init(esd, esd->states.count + 1, string_buffer)); 
-	FixedIntArray enemy_ids = get_chasm_door_enemy_ids(node);
+	da_append(&sg.states_ids, state_init(esd, esd->states.count + 1, bytecode_buf)); 
+	FixedIntArray enemy_ids = get_chasm_door_enemy_ids(current_node);
 	if (boss != Boss_None) {
 		if (boss == VendrickBoss) {
-			da_append(&sg.states_ids, check_if_boss_is_aggro(esd, string_buffer, state_id++, esd->states.count + 1, esd->states.count + 3, VendrickHostilityFlag)); 
+			da_append(&sg.states_ids, check_if_boss_is_aggro(esd, bytecode_buf, state_id++, esd->states.count + 1, esd->states.count + 3, VendrickHostilityFlag)); 
 		}
-		da_append(&sg.states_ids, wait_until_boss_is_dead(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id, boss_destruction_flags[boss])); 
+		da_append(&sg.states_ids, wait_until_boss_is_dead(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id, boss_destruction_flags[boss])); 
 		if (boss == ThroneWatcherAndDefender) {
-			da_append(&sg.states_ids, check_if_flag_is_set(esd, string_buffer, state_id++, esd->states.count + 1, esd->states.count + 2, GiantLordDefeatFlag)); 
+			da_append(&sg.states_ids, check_if_flag_is_set(esd, bytecode_buf, state_id++, esd->states.count + 1, esd->states.count + 2, GiantLordDefeatFlag)); 
 			da_append(&sg.states_ids, restart_state(esd, state_id++)); 
 		}
-		da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+		da_append(&sg.states_ids, enable_obj_keyguide(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	} else if (enemy_ids.count > 0) {
-		da_append(&sg.states_ids, wait_until_all_enemies_are_dead(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id, enemy_ids)); 
-		da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+		da_append(&sg.states_ids, wait_until_all_enemies_are_dead(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id, enemy_ids)); 
+		da_append(&sg.states_ids, enable_obj_keyguide(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	}
-	da_append(&sg.states_ids, wait_until_interact_with_obj(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, wait_until_interact_with_obj(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	if (boss == VendrickBoss) {
-		da_append(&sg.states_ids, check_if_boss_is_aggro(esd, string_buffer, state_id++, esd->states.count + 1, esd->states.count + 4, VendrickHostilityFlag)); 
-		da_append(&sg.states_ids, wait_until_boss_is_dead(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id, boss_destruction_flags[boss])); 
-		da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
-		da_append(&sg.states_ids, wait_until_interact_with_obj(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+		da_append(&sg.states_ids, check_if_boss_is_aggro(esd, bytecode_buf, state_id++, esd->states.count + 1, esd->states.count + 4, VendrickHostilityFlag)); 
+		da_append(&sg.states_ids, wait_until_boss_is_dead(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id, boss_destruction_flags[boss])); 
+		da_append(&sg.states_ids, enable_obj_keyguide(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+		da_append(&sg.states_ids, wait_until_interact_with_obj(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	}
 	if (enemy_ids.count > 0) {
-		da_append(&sg.states_ids, set_event_flag(esd, string_buffer, state_id++, esd->states.count + 1, get_chasm_event_flag(node))); 
+		da_append(&sg.states_ids, set_event_flag(esd, bytecode_buf, state_id++, esd->states.count + 1, get_chasm_event_flag(current_node))); 
 	}
-	da_append(&sg.states_ids, prepare_to_warp(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
-	da_append(&sg.states_ids, warp_to_location(esd, string_buffer, state_id++, esd->states.count + 1, map_ids[dst_map_name_id], dst_loc_id)); 
-	// da_append(&sg.states_ids, display_ring_bell_msg(esd, string_buffer, state_id++, esd->states.count + 1, msg_id)); 
-	da_append(&sg.states_ids, enable_obj_keyguide(esd, string_buffer, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	if (is_bell_check_required(dst_node)) {
+		da_append(&sg.states_ids, check_if_wharf_bell_has_been_rang(esd, bytecode_buf, state_id++, esd->states.count + 4, esd->states.count + 1, ShipGlobalEventFlag)); 
+		da_append(&sg.states_ids, display_ring_bell_msg(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id, ship_arrival_msg_id)); 
+		da_append(&sg.states_ids, enable_obj_keyguide(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+		da_append(&sg.states_ids, restart_state(esd, state_id++)); 
+	}
+	da_append(&sg.states_ids, prepare_to_warp(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
+	da_append(&sg.states_ids, warp_to_location(esd, bytecode_buf, state_id++, esd->states.count + 1, map_ids[dst_map_name_id], dst_loc_id)); 
+	da_append(&sg.states_ids, enable_obj_keyguide(esd, bytecode_buf, state_id++, esd->states.count + 1, warp_obj_inst_id)); 
 	da_append(&sg.states_ids, restart_state(esd, state_id++)); 
 	da_append(&esd->state_groups, sg);
 }
@@ -4653,6 +4701,8 @@ void free_editor(Editor *editor) {
 	da_free(editor->write_buf);
 	da_free(editor->bytecode_buf);
 }
+
+#define MAP_EVENT_TEXT_LOCATION "menu/text/english/mapevent.fmg"
 
 bool generate_map_objects(Editor *editor) {
 	Ht(size_t, bool) completed_ids = {0};
@@ -4747,7 +4797,7 @@ bool generate_map_objects(Editor *editor) {
 		assert(oip_insert_loc >= 0);
 
 		if (!load_event_param_from_map_name(&editor->ep_sb, map_name_id, &ev_param)) return false;
-		size_t event_param_id = find_row_id_gap(ev_param.rows, n_warp_points + CUTSCENES_COUNT).from;
+		size_t event_param_id = find_row_id_gap(ev_param.rows, n_warp_points + CUTSCENES_COUNT + (map_name_id == NomansWharf ? 1 : 0)).from;
 
 		assert(event_param_id >= 0);
 
@@ -4776,6 +4826,26 @@ bool generate_map_objects(Editor *editor) {
 			}
 		}
 
+		// create and add event for checking ringing of bell
+		if (map_name_id == NomansWharf) {
+			size_t bell_ring_param_id = event_param_id++;
+			Row row = {
+				.ID = bell_ring_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+			};
+			Cell cell = {
+				.as.event_param = {
+					.event_id = bell_ring_param_id, .flag_id = 0,
+					.Unk08 = 0, .Unk09 = 0, .Unk0A = 0, .Unk0B = 2, .Unk0C = 1, 
+					.Unk0D = 0, .Unk0E = 0, .Unk0F = 0,
+				}
+			};
+			da_append(&ev_param.rows, row);
+			da_append(&ev_param.cells, cell);
+			ev_param.rowCount++;
+
+			esd_add_ship_check_fog_gate_event(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, bell_ring_param_id);
+
+		}
 
 		for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
 			WarpPoint *wp = &warp_points[i];
@@ -4896,9 +4966,17 @@ bool generate_map_objects(Editor *editor) {
 	printf("\n");
 	ht_free(&completed_ids);
 
+	int ship_arrival_msg_id = -1;
+	if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
+	assert(ship_arrival_msg_id != -1);
+
 	for (WarpNode i=FogGateStart; i<=FogGateEnd; i++) {
 		printf("Adding warps %d/%d\r", i, FogGateEnd);
 		WarpNode j = default_connections[i];
+
+		if (i == Tutorial1EntryFront) j = FlexileSentryEntryBack;
+		else if (i == FlexileSentryEntryBack) j = Tutorial1EntryFront;
+
 		WarpPoint *wp1 = &warp_points[i];
 		WarpPoint *wp2 = &warp_points[j];
 		ESD *esd_src = &editor->esd_sbs.items[wp1->map].esd;
@@ -4914,8 +4992,8 @@ bool generate_map_objects(Editor *editor) {
 			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp1->cutscene_event_id, wp1->warp_pt_id, wn->fog_gate_id);
 		}
 
-		add_esd_event(esd_src, &editor->bytecode_buf, i, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss);
-		add_esd_event(esd_dst, &editor->bytecode_buf, j, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss);
+		add_esd_event(esd_src, &editor->bytecode_buf, i, j, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
+		add_esd_event(esd_dst, &editor->bytecode_buf, j, i, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
 	}
 	printf("\n");
 
@@ -4930,13 +5008,9 @@ bool generate_map_objects(Editor *editor) {
 	return true;
 }
 
-#define MAP_EVENT_TEXT_LOCATION "menu/text/english/mapevent.fmg"
-
 int main() {
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
 	if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
-	// int ship_arrival_msg_id = -1;
-	// if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
 	Editor editor = {0};
 	generate_default_connections();
 	if (!generate_map_objects(&editor)) return 1;
