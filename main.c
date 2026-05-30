@@ -4349,6 +4349,26 @@ size_t check_if_flag_is_set(ESD *esd, String_Builder *bytecode_buf, int id, int 
 	return state_id;
 }
 
+size_t wait_until_event_flag(ESD *esd, String_Builder *bytecode_buf, int id, int target_state, int flag) {
+	size_t state_id = esd->states.count;
+	State state = {0};
+	state.id = id;
+
+	int group_id = 0;
+	Command comm = command_compare_event_flag(esd, group_id, flag);
+	da_append(&state.entry_commands_ids, esd->commands.count);
+	da_append(&esd->commands, comm);
+
+	Condition cond = {0};
+	cond.target_state_id = target_state;
+	cond.evaluator =  evaluator_condition_group(bytecode_buf, group_id);
+	da_append(&state.conditions_id, esd->conditions.count);
+	da_append(&esd->conditions, cond);
+
+	da_append(&esd->states, state);
+	return state_id;
+}
+
 size_t set_event_flag(ESD *esd, String_Builder *bytecode_buf, int id, int target_state, int flag_id) {
 	assert(flag_id != -1);
 	size_t state_id = esd->states.count;
@@ -4566,6 +4586,7 @@ bool str_wchar_eq(wchar_t *ws, const char *s) {
 #define GiantLordDefeatFlag 100972
 #define ShipGlobalEventFlag 102002
 #define ShipArrivalLocalFlag  118000010
+#define AlsannaTalkFlag 537000011
 
 void esd_add_ship_check_fog_gate_event(ESD *esd, String_Builder *bytecode_buf, size_t event_param_id) {
 	StateGroup sg = {0};
@@ -4575,6 +4596,18 @@ void esd_add_ship_check_fog_gate_event(ESD *esd, String_Builder *bytecode_buf, s
 	da_append(&sg.states_ids, check_if_flag_is_set(esd, bytecode_buf, state_id++, esd->states.count + 1, esd->states.count + 3, ShipArrivalLocalFlag)); 
 	da_append(&sg.states_ids, set_event_flag(esd, bytecode_buf, state_id++, esd->states.count + 1, ShipGlobalEventFlag)); 
 	da_append(&sg.states_ids, end_machine(esd, state_id++)); 
+	da_append(&sg.states_ids, restart_state(esd, state_id++)); 
+	da_append(&esd->state_groups, sg);
+}
+
+void esd_add_dlc3_unfreeze_event_script(ESD *esd, String_Builder *bytecode_buf, size_t event_param_id) {
+	StateGroup sg = {0};
+	sg.id = event_param_id;
+	size_t state_id = 1;
+	da_append(&sg.states_ids, state_init(esd, esd->states.count + 1, bytecode_buf)); 
+	da_append(&sg.states_ids, wait_until_event_flag(esd, bytecode_buf, state_id++, esd->states.count + 1, boss_destruction_flags[BurntIvoryKing])); 
+	da_append(&sg.states_ids, check_if_flag_is_set(esd, bytecode_buf, state_id++, esd->states.count + 2, esd->states.count + 1, AlsannaTalkFlag)); 
+	da_append(&sg.states_ids, set_event_flag(esd, bytecode_buf, state_id++, esd->states.count + 1, AlsannaTalkFlag)); 
 	da_append(&sg.states_ids, restart_state(esd, state_id++)); 
 	da_append(&esd->state_groups, sg);
 }
@@ -4796,8 +4829,11 @@ bool generate_map_objects(Editor *editor) {
 		assert(warp_obj_inst_id >= 0);
 		assert(oip_insert_loc >= 0);
 
+		size_t total_event_count = n_warp_points + CUTSCENES_COUNT;
+		if (map_name_id == NomansWharf || map_name_id == FrozenEleumLoyce) total_event_count++;
+
 		if (!load_event_param_from_map_name(&editor->ep_sb, map_name_id, &ev_param)) return false;
-		size_t event_param_id = find_row_id_gap(ev_param.rows, n_warp_points + CUTSCENES_COUNT + (map_name_id == NomansWharf ? 1 : 0)).from;
+		size_t event_param_id = find_row_id_gap(ev_param.rows, total_event_count).from;
 
 		assert(event_param_id >= 0);
 
@@ -4844,8 +4880,26 @@ bool generate_map_objects(Editor *editor) {
 			ev_param.rowCount++;
 
 			esd_add_ship_check_fog_gate_event(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, bell_ring_param_id);
+		} else if (map_name_id == FrozenEleumLoyce) { // create and add event for unfreezing the dlc3
+			size_t unfreeze_param_id = event_param_id++;
+			Row row = {
+				.ID = unfreeze_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+			};
+			Cell cell = {
+				.as.event_param = {
+					.event_id = unfreeze_param_id, .flag_id = 0,
+					.Unk08 = 0, .Unk09 = 0, .Unk0A = 0, .Unk0B = 2, .Unk0C = 1, 
+					.Unk0D = 0, .Unk0E = 0, .Unk0F = 0,
+				}
+			};
+			da_append(&ev_param.rows, row);
+			da_append(&ev_param.cells, cell);
+			ev_param.rowCount++;
 
+			esd_add_dlc3_unfreeze_event_script(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, unfreeze_param_id);
 		}
+		
+
 
 		for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
 			WarpPoint *wp = &warp_points[i];
@@ -4976,8 +5030,8 @@ bool generate_map_objects(Editor *editor) {
 		printf("Adding warps %d/%d\r", i, FogGateEnd);
 		WarpNode j = default_connections[i];
 
-		if (i == Tutorial1EntryFront) j = DukesDearFreyjaEntryBack;
-		else if (i == DukesDearFreyjaEntryBack) j = Tutorial1EntryFront;
+		if (i == Tutorial1EntryFront) j = IvoryKingBack;
+		else if (i == IvoryKingBack) j = Tutorial1EntryFront;
 
 		WarpPoint *wp1 = &warp_points[i];
 		WarpPoint *wp2 = &warp_points[j];
