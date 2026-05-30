@@ -4729,6 +4729,9 @@ void free_editor(Editor *editor) {
 	da_free(editor->oip_sb);
 	da_free(editor->ep_sb);
 	da_free(editor->el_sb);
+	da_foreach(ESD_Data, esd_sb, &editor->esd_sbs) {
+		da_free(esd_sb->sb);
+	}
 	// ESD is freed when writing to output
 	da_free(editor->esd_sbs);
 	da_free(editor->write_buf);
@@ -4736,6 +4739,10 @@ void free_editor(Editor *editor) {
 }
 
 #define MAP_EVENT_TEXT_LOCATION "menu/text/english/mapevent.fmg"
+
+int bell_ring_param_id = -1;
+int unfreeze_param_id = -1;
+int ship_arrival_msg_id = -1;
 
 bool generate_map_objects(Editor *editor) {
 	Ht(size_t, bool) completed_ids = {0};
@@ -4845,9 +4852,15 @@ bool generate_map_objects(Editor *editor) {
 		assert(warp_point_begin >= 0);
 		assert(el_insert_loc >= 0);
 
-		ESD esd_orig;
+		ESD esd_orig = {0};
 		String_Builder esd_sb_orig = {0};
-		if (!load_esd_from_map_name(&esd_sb_orig, map_name_id, &esd_orig)) return false;
+
+		if (!nob_read_entire_file(esd_paths[map_name_id], &esd_sb_orig)) {
+			return false;
+		}
+#ifdef LOG_GENERATED_FILES
+		printf("[Read] %s: %zu bytes\n", esd_paths[name], sb->count);
+#endif
 		da_append(&editor->esd_sbs, ((ESD_Data){esd_sb_orig, esd_orig}));
 
 		// get the instance id from map name
@@ -4864,7 +4877,7 @@ bool generate_map_objects(Editor *editor) {
 
 		// create and add event for checking ringing of bell
 		if (map_name_id == NomansWharf) {
-			size_t bell_ring_param_id = event_param_id++;
+			bell_ring_param_id = event_param_id++;
 			Row row = {
 				.ID = bell_ring_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
 			};
@@ -4878,10 +4891,8 @@ bool generate_map_objects(Editor *editor) {
 			da_append(&ev_param.rows, row);
 			da_append(&ev_param.cells, cell);
 			ev_param.rowCount++;
-
-			esd_add_ship_check_fog_gate_event(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, bell_ring_param_id);
 		} else if (map_name_id == FrozenEleumLoyce) { // create and add event for unfreezing the dlc3
-			size_t unfreeze_param_id = event_param_id++;
+			unfreeze_param_id = event_param_id++;
 			Row row = {
 				.ID = unfreeze_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
 			};
@@ -4895,11 +4906,7 @@ bool generate_map_objects(Editor *editor) {
 			da_append(&ev_param.rows, row);
 			da_append(&ev_param.cells, cell);
 			ev_param.rowCount++;
-
-			esd_add_dlc3_unfreeze_event_script(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, unfreeze_param_id);
 		}
-		
-
 
 		for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
 			WarpPoint *wp = &warp_points[i];
@@ -5022,10 +5029,30 @@ bool generate_map_objects(Editor *editor) {
 	printf("\n");
 	ht_free(&completed_ids);
 
-	int ship_arrival_msg_id = -1;
 	if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
-	assert(ship_arrival_msg_id != -1);
+	return true;
+}
 
+bool randomize_warps(Editor *editor) {
+	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
+		size_t mark = temp_save();
+		
+		String_View sv = sb_to_sv(editor->esd_sbs.items[map_name_id].sb);
+		editor->esd_sbs.items[map_name_id].esd = read_esd(sv);
+
+		// create and add event for checking ringing of bell
+		if (map_name_id == NomansWharf) {
+			assert(bell_ring_param_id != -1);
+			esd_add_ship_check_fog_gate_event(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, bell_ring_param_id);
+		} else if (map_name_id == FrozenEleumLoyce) { // create and add event for unfreezing the dlc3
+			assert(unfreeze_param_id != -1);
+			esd_add_dlc3_unfreeze_event_script(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, unfreeze_param_id);
+		}
+
+		temp_rewind(mark);
+	}
+
+	assert(ship_arrival_msg_id != -1);
 	for (WarpNode i=FogGateStart; i<=FogGateEnd; i++) {
 		printf("Adding warps %d/%d\r", i, FogGateEnd);
 		WarpNode j = default_connections[i];
@@ -5070,6 +5097,7 @@ int main() {
 	Editor editor = {0};
 	generate_default_connections();
 	if (!generate_map_objects(&editor)) return 1;
+	if (!randomize_warps(&editor)) return 1;
 	free_editor(&editor);
 	// generate_connections();
 	// Warps warps = {0};
