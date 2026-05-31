@@ -358,6 +358,12 @@ const char *WarpNodeNames[] = {
 
 #define FogGateStart Tutorial1EntryFront
 #define FogGateEnd EleumLoyceCathedraEntranceFront
+#define AllFogGatesStart FogGateStart
+#define AllFogGatesEnd EleumLoyceCathedraEntranceBack
+#define AllFogGatesCount AllFogGatesEnd - AllFogGatesStart + 1
+#define AllConnectionsStart GameStartSpawnSrc
+#define AllConnectionsEnd DLC3EntranceDLC
+#define AllConnectionsCount AllConnectionsEnd - AllConnectionsStart + 1
 
 #define CUTSCENES_COUNT 8
 
@@ -858,43 +864,44 @@ static WarpPoint warp_points[] = {
 static_assert(ARRAY_LEN(warp_points) == __WarpNodeCount, "Missing warp point definition");
 
 
-typedef enum {
-	Conn_None                 = 0,
-	Conn_OneWay               = 1 << 0,
-	Conn_FragrantBranchOfYore = 1 << 1,
-	Conn_RotundaLockstone     = 1 << 2,
-	Conn_SoldiersKey          = 1 << 3,
-	Conn_KingsRing            = 1 << 4,
-	Conn_FirstFourSouls       = 1 << 5,
-	Conn_Catring              = 1 << 6,
-	Conn_AshenMistHeart       = 1 << 7,
-	Conn_KingMemory           = 1 << 8,
-	Conn_OldKeyInBastille     = 1 << 9,
-	Conn_BastilleKey          = 1 << 10,
-	Conn_PharrosLockstone     = 1 << 11,
-	Conn_ScorchingIronSceptor = 1 << 12,
-	Conn_ActivateBrumeTower   = 1 << 13,
-	Conn_DarkCovenentJoined   = 1 << 14,
-	Conn_ForgottenKey         = 1 << 15,
-	Conn_DLC1Key              = 1 << 16,
-	Conn_DLC2Key              = 1 << 17,
-	Conn_DLC3Key              = 1 << 18,
-	Conn_ShulvaSanctumKey     = 1 << 19,
-	Conn_ActivateDragonStone  = 1 << 20,
-	Conn_DLC3Eye              = 1 << 21,
-	Conn_DLC3Unfreezed        = 1 << 22,
-	Conn_FrigidOutskirtsKey   = 1 << 23,
-	Conn_ShipBellRang         = 1 << 24,
-	Conn_IronKeyToFireLizards = 1 << 25,
-	Conn_DragonStone          = 1 << 26,
-	Conn_BossKilled           = 1 << 27,
-	Conn_LudAndZallenDead     = 1 << 28,
-	Conn_Firebomb             = 1 << 29,
-	Conn_Gilligan_Ladder      = 1 << 30,
-	Conn_DLC2TowerKey         = 1 << 31,
-	Conn_KeyToKingsPassage    = 1 << 32,
+typedef enum ConnectionType: uint64_t {
+	Conn_None                 = 1U << 0,
+	Conn_OneWay               = 1U << 1,
+	Conn_FragrantBranchOfYore = 1U << 2,
+	Conn_RotundaLockstone     = 1U << 3,
+	Conn_SoldiersKey          = 1U << 4,
+	Conn_KingsRing            = 1U << 5,
+	Conn_FirstFourSouls       = 1U << 6,
+	Conn_Catring              = 1U << 7,
+	Conn_AshenMistHeart       = 1U << 8,
+ 	Conn_KingMemory           = 1U << 9,
+	Conn_OldKeyInBastille     = 1U << 10,
+	Conn_BastilleKey          = 1U << 11,
+	Conn_PharrosLockstone     = 1U << 12,
+	Conn_ScorchingIronSceptor = 1U << 13,
+	Conn_ActivateBrumeTower   = 1U << 14,
+	Conn_DarkCovenentJoined   = 1U << 15,
+	Conn_ForgottenKey         = 1U << 16,
+	Conn_DLC1Key              = 1U << 17,
+	Conn_DLC2Key              = 1U << 18,
+	Conn_DLC3Key              = 1U << 19,
+	Conn_ShulvaSanctumKey     = 1U << 20,
+	Conn_ActivateDragonStone  = 1U << 21,
+	Conn_DLC3Eye              = 1U << 22,
+	Conn_DLC3Unfreezed        = 1U << 23,
+	Conn_FrigidOutskirtsKey   = 1U << 24,
+	Conn_ShipBellRang         = 1U << 25,
+	Conn_IronKeyToFireLizards = 1U << 26,
+	Conn_DragonStone          = 1U << 27,
+	Conn_BossKilled           = 1U << 28,
+	Conn_LudAndZallenDead     = 1U << 29,
+	Conn_Firebomb             = 1U << 30,
+	Conn_Gilligan_Ladder      = 1U << 31,
+	Conn_DLC2TowerKey         = 1U << 32,
+	Conn_KeyToKingsPassage    = 1U << 33,
 } ConnectionType;
 
+#define MAX_CONNECTION_TYPES 34
 
 typedef struct {
 	WarpNode to;
@@ -925,13 +932,13 @@ Connections connections = {0};
 #define connection_add(from, ...) da_append(&connections.items[(from)], ((Connection){.is_warp = false, .type = Conn_None, __VA_ARGS__}));
 
 void generate_connections() {
-	assert(connections.items == NULL);
-	da_init(&connections, __WarpNodeCount);
+	// assert(connections.items == NULL); // TODO: fix this 
+	if (connections.capacity != __WarpNodeCount) da_init(&connections, __WarpNodeCount);
 	memset(connections.items, 0, sizeof(*connections.items)*connections.capacity);
 	size_t warp_node_count = 0;
 
 	connection_init(GameStartSpawnSrc, 1);
-	connection_add(GameStartSpawnSrc, .to = GameStartSpawnDst);
+	connection_add(GameStartSpawnSrc, .to = GameStartSpawnDst, .is_warp = true);
 	warp_node_count++;
 
 

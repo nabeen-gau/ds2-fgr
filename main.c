@@ -4713,6 +4713,8 @@ void free_esd_data(ESD_Data *data) {
 
 DA(ESD_Data, DA_ESD_Data);
 
+typedef Ht(int, bool) HashSet;
+
 typedef struct {
 	String_Builder map_sb;
 	String_Builder oip_sb;
@@ -5030,10 +5032,19 @@ bool generate_map_objects(Editor *editor) {
 	ht_free(&completed_ids);
 
 	if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
+
+	// initialize the pool of foggates
+	// da_init(&editor->pool, AllFogGatesEnd - AllFogGatesStart + 1);
+	// generate all the possible connections
+	// generate_connections();
+
 	return true;
 }
 
 bool randomize_warps(Editor *editor) {
+	int seed = 2496; // TODO: set seed dynamically
+	// int seed = time(NULL);
+	srand(seed);
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
 		size_t mark = temp_save();
 		
@@ -5051,8 +5062,10 @@ bool randomize_warps(Editor *editor) {
 
 		temp_rewind(mark);
 	}
-
 	assert(ship_arrival_msg_id != -1);
+
+	// TODO: randomize the connections here
+
 	for (WarpNode i=FogGateStart; i<=FogGateEnd; i++) {
 		printf("Adding warps %d/%d\r", i, FogGateEnd);
 		WarpNode j = default_connections[i];
@@ -5091,18 +5104,363 @@ bool randomize_warps(Editor *editor) {
 	return true;
 }
 
+typedef struct {
+	uint64_t found_keys;
+	size_t branches_count;
+	size_t lockstone_count;
+} Inventory;
+
+void generate_all_nodes(HashSet *hs) {
+	ht_reset(hs);
+	for (size_t i=AllConnectionsStart; i<=AllConnectionsEnd; i++) {
+		*ht_put(hs, i) = true;
+	}
+}
+
+void generate_all_foggates(DArrz *arr) {
+	arr->count = 0;
+	if (arr->capacity != AllFogGatesCount) da_init(arr, AllFogGatesCount);
+	for (size_t i=AllFogGatesStart; i<=AllFogGatesEnd; i++) {
+		da_append(arr, i);
+	}
+}
+
+int da_idx_of(DArrz *arr, size_t value) {
+	for (size_t i=0; i<arr->count; i++) {
+		if (arr->items[i] == value) return i;
+	}
+	return -1;
+}
+
+DA(bool, DBool);
+
+// Helper to run a BFS from a given node and discover all newly reachable fog gates
+void explore_from_node(size_t start_node, HashSet *visited, DArrz *queue, size_t *head, DArrz *fog_gates, DBool *gate_reached) {
+    // Only queue up if we haven't visited it yet
+    if (ht_find(visited, (int)start_node) == NULL) {
+        ht_put(visited, (int)start_node);
+        da_append(queue, start_node);
+    }
+
+    while (*head < queue->count) {
+        size_t curr = queue->items[(*head)++];
+
+        // If the current node is a fog gate, mark it as reached
+        for (size_t i = 0; i < fog_gates->count; i++) {
+            if (fog_gates->items[i] == curr && !gate_reached->items[i]) {
+                gate_reached->items[i] = true;
+            }
+        }
+
+        // Traverse all adjacent fixed paths and current warp connections
+        ConnectionGroup cg = connections.items[curr];
+        for (size_t i = 0; i < cg.count; i++) {
+            size_t next_node = (size_t)cg.items[i].to;
+            if (ht_find(visited, (int)next_node) == NULL) {
+                ht_put(visited, (int)next_node);
+                da_append(queue, next_node);
+            }
+        }
+    }
+}
+
+typedef struct {
+	DArrz reached_unpaired;
+	DArrz unreached_unpaired;
+    HashSet visited;
+    DArrz queue;
+	DArrz matching;
+    DBool gate_reached;
+    DArrz fog_gates;
+	DArrz leftover;
+} Randomizer;
+
+void randomizer_free(Randomizer *r) {
+	da_free(r->reached_unpaired);
+	da_free(r->unreached_unpaired);
+	ht_free(&r->visited);
+	da_free(r->queue);
+	da_free(r->matching);
+	da_free(r->gate_reached);
+	da_free(r->fog_gates);
+	da_free(r->leftover);
+}
+
+void get_connections(Connections *c) {
+    if (connections.count == 0) generate_connections();
+	if (c->capacity == 0) {
+		da_init(c, connections.count);
+		memset(c->items, 0, c->capacity*sizeof(*c->items));
+	}
+	for (size_t i=0; i<connections.count; i++) {
+		ConnectionGroup *cg_orig = &connections.items[i];
+		ConnectionGroup *cg = &c->items[i];
+		if (cg->capacity < cg_orig->capacity) {
+			da_init(cg, cg_orig->capacity + 1);
+		}
+		cg->count = 0;
+		da_append_many(cg, cg_orig->items, cg_orig->count);
+		c->count++;
+	}
+}
+
+void free_connections_by_ref(Connections *c) {
+	for (size_t i=0; i<c->capacity; i++) {
+		da_free(c->items[i]);
+	}
+	da_free(*c);
+}
+
+// Attempts to create a fully connected random matching of all fog gates
+bool attempt_randomization(Randomizer *r, Connections *c) {
+    // 1. Reset and generate base fixed connections
+	get_connections(c);
+
+    // 2. Fetch all gates that need randomizing
+	r->fog_gates.count = 0;
+    generate_all_foggates(&r->fog_gates);
+
+    if (r->fog_gates.count == 0) {
+		r->fog_gates.count = 0;
+        return true; // Nothing to randomize!
+    }
+
+    // Tracks which gate index maps to which gate index (-1 means unpaired)
+	if (r->matching.capacity != r->fog_gates.count) da_init(&r->matching, r->fog_gates.count);
+	if (r->gate_reached.capacity != r->fog_gates.count) da_init(&r->gate_reached, r->fog_gates.count);
+	r->matching.count = 0;
+	r->gate_reached.count = 0;
+	memset(r->gate_reached.items, 0, sizeof(*r->gate_reached.items)*r->gate_reached.capacity);
+    for (size_t i = 0; i < r->fog_gates.count; i++) {
+        r->matching.items[i] = (size_t)-1;
+    }
+
+    // Set up our traversal trackers
+	ht_reset(&r->visited);
+	r->queue.count = 0;
+    size_t queue_head = 0;
+
+    // Discover what is initially reachable from the spawn point via fixed paths
+    explore_from_node((size_t)GameStartSpawnSrc, &r->visited, &r->queue, &queue_head, &r->fog_gates, &r->gate_reached);
+
+    // 3. Keep bridging reached components to unreached components
+    while (true) {
+		r->reached_unpaired.count = 0;
+		r->unreached_unpaired.count = 0;
+
+        // Classify our unpaired gates
+        for (size_t i = 0; i < r->fog_gates.count; i++) {
+            if (r->matching.items[i] == (size_t)-1) {
+                if (r->gate_reached.items[i]) {
+                    da_append(&r->reached_unpaired, i);
+                } else {
+                    da_append(&r->unreached_unpaired, i);
+                }
+            }
+        }
+
+        // If no unreached gates remain, we have successfully chained all components!
+        if (r->unreached_unpaired.count == 0) {
+			r->reached_unpaired.count = 0;
+			r->unreached_unpaired.count = 0;
+            break;
+        }
+
+        // If we have unreached gates but NO available reached gates to link them out,
+        // we hit a localized deadlock. Return false to retry with a new seed.
+        if (r->reached_unpaired.count == 0) {
+			r->reached_unpaired.count = 0;
+			r->unreached_unpaired.count = 0;
+			ht_reset(&r->visited);
+			r->queue.count = 0;
+			r->matching.count = 0;
+			r->gate_reached.count = 0;
+			r->fog_gates.count = 0;
+            return false;
+        }
+
+        // Pick a random reached gate and a random unreached gate to forge a bridge
+        size_t r_idx = rand() % r->reached_unpaired.count;
+        size_t u_idx = rand() % r->unreached_unpaired.count;
+
+        size_t gate_r = r->reached_unpaired.items[r_idx];
+        size_t gate_u = r->unreached_unpaired.items[u_idx];
+
+        // Bind them bidirectionally
+        r->matching.items[gate_r] = gate_u;
+        r->matching.items[gate_u] = gate_r;
+
+        size_t node_r = r->fog_gates.items[gate_r];
+        size_t node_u = r->fog_gates.items[gate_u];
+
+        Connection conn_to_u = { .to = (WarpNode)node_u, .is_warp = true };
+        Connection conn_to_r = { .to = (WarpNode)node_r, .is_warp = true };
+
+        da_append(&c->items[node_r], conn_to_u);
+        da_append(&c->items[node_u], conn_to_r);
+
+        // Resume exploration from the newly reached node to expand our pool
+        explore_from_node(node_u, &r->visited, &r->queue, &queue_head, &r->fog_gates, &r->gate_reached);
+
+		r->reached_unpaired.count = 0;
+		r->unreached_unpaired.count = 0;
+    }
+
+    // 4. Match any leftover gates that are already within our reached network
+	r->leftover.count = 0;
+    for (size_t i = 0; i < r->fog_gates.count; i++) {
+        if (r->matching.items[i] == (size_t)-1) {
+            da_append(&r->leftover, i);
+        }
+    }
+
+    // Fisher-Yates shuffle the leftovers to randomize pairings
+    for (size_t i = r->leftover.count; i > 1; i--) {
+        size_t j = rand() % i;
+        size_t temp = r->leftover.items[i - 1];
+        r->leftover.items[i - 1] = r->leftover.items[j];
+        r->leftover.items[j] = temp;
+    }
+
+    // Pair up the shuffled leftovers
+    for (size_t i = 0; i + 1 < r->leftover.count; i += 2) {
+        size_t gate_a = r->leftover.items[i];
+        size_t gate_b = r->leftover.items[i + 1];
+
+        r->matching.items[gate_a] = gate_b;
+        r->matching.items[gate_b] = gate_a;
+
+        size_t node_a = r->fog_gates.items[gate_a];
+        size_t node_b = r->fog_gates.items[gate_b];
+
+        Connection conn_to_b = { .to = (WarpNode)node_b, .is_warp = true };
+        Connection conn_to_a = { .to = (WarpNode)node_a, .is_warp = true };
+
+        da_append(&c->items[node_a], conn_to_b);
+        da_append(&c->items[node_b], conn_to_a);
+    }
+
+    // Clean up
+	r->leftover.count = 0;
+	ht_reset(&r->visited);
+	r->queue.count = 0;
+	r->matching.count = 0;
+	r->gate_reached.count = 0;
+	r->fog_gates.count = 0;
+    return true;
+}
+
+// 1. Recursive visual formatter (traverses the built BFS tree, not the master graph)
+void print_bfs_tree_node(size_t node, Connections *bfs_tree, const char *prefix, bool is_last, bool is_warp, bool is_root) {
+    // Print the branch lines (skip for the very first root node)
+    if (!is_root) {
+        printf("%s", prefix);
+        if (is_last) {
+            printf(is_warp ? "┗━~> " : "┗━━> ");
+        } else {
+            printf(is_warp ? "┣━~> " : "┣━━> ");
+        }
+    }
+    
+    // Print the node name
+    printf("%s\n", WarpNodeNames[node]);
+    
+    // Get the shortest-path children for this node
+    ConnectionGroup cg = bfs_tree->items[node];
+    
+    // Calculate the prefix for the next level down
+    char next_prefix[512] = {0};
+    if (!is_root) {
+        snprintf(next_prefix, sizeof(next_prefix), "%s%s", prefix, is_last ? "     " : "┃    ");
+    }
+    
+    for (size_t i = 0; i < cg.count; i++) {
+        Connection conn = cg.items[i];
+        bool last_child = (i == cg.count - 1);
+        print_bfs_tree_node((size_t)conn.to, bfs_tree, next_prefix, last_child, conn.is_warp, false);
+    }
+}
+
+// 2. Main builder function
+void print_game_progression_bfs_tree(Connections *c) {
+    printf("\n==================================================\n");
+    printf("PROGRESSION\n");
+    printf("==================================================\n");
+    printf("Legends:\n");
+    printf("  ━━> Fixed Path\n");
+    printf("  ━~> Random Warp Fog Gate\n");
+    printf("--------------------------------------------------\n\n");
+
+    // Allocate a temporary adjacency list strictly for the BFS spanning tree
+    Connections bfs_tree = {0};
+	da_init(&bfs_tree, c->count);
+	memset(bfs_tree.items, 0, sizeof(*bfs_tree.items)*c->count);
+    
+    HashSet visited = {0};
+    DArrz queue = {0};
+    size_t head = 0;
+
+    // Start at the spawn point
+    ht_put(&visited, (int)GameStartSpawnSrc);
+    da_append(&queue, GameStartSpawnSrc);
+
+    // Build the BFS Tree
+    while (head < queue.count) {
+        size_t curr = queue.items[head++];
+        ConnectionGroup cg = c->items[curr];
+
+        for (size_t i = 0; i < cg.count; i++) {
+            Connection conn = cg.items[i];
+            size_t next = (size_t)conn.to;
+
+            // If we have NEVER seen this node before, it is a new BFS discovery
+            if (ht_find(&visited, (int)next) == NULL) {
+                ht_put(&visited, (int)next);
+                da_append(&queue, next);
+
+                // Add this connection to our loop-free BFS tree
+				da_append(&bfs_tree.items[curr], conn);
+            }
+            // If it is in visited, we simply do nothing. 
+        }
+    }
+
+    print_bfs_tree_node(GameStartSpawnSrc, &bfs_tree, "", true, false, true);
+
+    printf("\n==================================================\n");
+
+    // Safely free the temporary BFS tree and trackers
+    for (size_t i = 0; i < c->count; i++) {
+		da_free(bfs_tree.items[i]);
+    }
+	da_free(bfs_tree);
+    ht_free(&visited);
+    da_free(queue);
+}
+
 int main() {
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
-	if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
-	Editor editor = {0};
-	generate_default_connections();
-	if (!generate_map_objects(&editor)) return 1;
-	if (!randomize_warps(&editor)) return 1;
-	free_editor(&editor);
-	// generate_connections();
-	// Warps warps = {0};
-	// warp_add(&warps, GameStartSpawnSrc);
+	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
+	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
+	// Editor editor = {0};
+	// generate_default_connections();
+	// if (!generate_map_objects(&editor)) return 1;
+	// if (!randomize_warps(&editor)) return 1;
+	// free_editor(&editor);
 	// free_connections();
-	printf("Done!\n");
+
+	srand(44);
+	size_t attempt = 0;
+
+	Randomizer r = {0};
+	Connections c = {0};
+
+	while (!attempt_randomization(&r, &c)) {
+		attempt++;
+		if (attempt % 100 == 0) printf("Attempt: %zu\r", attempt);
+	}
+	randomizer_free(&r);
+	printf("Done in %zu attempts\n", attempt);
+	print_game_progression_bfs_tree(&c);
+	free_connections_by_ref(&c);
 	return 0;
 }
