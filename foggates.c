@@ -2510,3 +2510,7 @@ bool is_bell_check_required(WarpNode name) {
 // 5. In shulva after gank fight foggate you can drop and explore whole initial shulva section
 // 6. You do not need to light the sconce in darkchasm dungeons to complete it, just kill all the enemies and exit from fog gate 
 //    to resgister it as completed dungeon
+//
+// TODO: large bosses in old dragon slayer block the player from entering the arena
+// check if it happens with other arenas as well
+// TODO: The fog gate at the exit of elana should disappear when the boss is dead

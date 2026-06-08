@@ -5110,6 +5110,24 @@ typedef struct {
 	size_t lockstone_count;
 } Inventory;
 
+void inventory_add_key(Inventory *i, ConnectionType key) {
+	if (key == Conn_FragrantBranchOfYore) i->branches_count++;
+	else if (key == Conn_PharrosLockstone) i->lockstone_count++;
+	i->found_keys |= key;
+}
+
+bool is_key_consumable(ConnectionType key) {
+	if (key == Conn_FragrantBranchOfYore || key == Conn_PharrosLockstone) return true;
+	return false;
+}
+
+bool inventory_has_key(Inventory *i, ConnectionType key) {
+	if (!is_key_consumable(key)) {
+		return key & i->found_keys;
+	}
+	return false;
+}
+
 void generate_all_nodes(HashSet *hs) {
 	ht_reset(hs);
 	for (size_t i=AllConnectionsStart; i<=AllConnectionsEnd; i++) {
@@ -5135,7 +5153,7 @@ int da_idx_of(DArrz *arr, size_t value) {
 DA(bool, DBool);
 
 // Helper to run a BFS from a given node and discover all newly reachable fog gates
-void explore_from_node(size_t start_node, HashSet *visited, DArrz *queue, size_t *head, DArrz *fog_gates, DBool *gate_reached) {
+void explore_from_node(size_t start_node, HashSet *visited, DArrz *queue, size_t *head, DArrz *fog_gates, DBool *gate_reached, Inventory *inv, HashSet *locked_nodes) {
     // Only queue up if we haven't visited it yet
     if (ht_find(visited, (int)start_node) == NULL) {
         ht_put(visited, (int)start_node);
@@ -5155,7 +5173,19 @@ void explore_from_node(size_t start_node, HashSet *visited, DArrz *queue, size_t
         // Traverse all adjacent fixed paths and current warp connections
         ConnectionGroup cg = connections.items[curr];
         for (size_t i = 0; i < cg.count; i++) {
-            size_t next_node = (size_t)cg.items[i].to;
+			Connection next = cg.items[i];
+            size_t next_node = (size_t)next.to;
+			if (next.type != Conn_None) {
+				if (!inventory_has_key(inv, next.type)) {
+					// TODO: add to a list of nodes to check after getting a key
+					if (ht_find(visited, (int)next_node) == NULL) {
+						if (ht_find(locked_nodes, (size_t)next.to) == NULL) {
+							ht_put(locked_nodes, (size_t)next.to);
+						}
+					}
+					continue;
+				}
+			}
             if (ht_find(visited, (int)next_node) == NULL) {
                 ht_put(visited, (int)next_node);
                 da_append(queue, next_node);
@@ -5173,6 +5203,8 @@ typedef struct {
     DBool gate_reached;
     DArrz fog_gates;
 	DArrz leftover;
+	Inventory inventory;
+	HashSet locked_nodes;
 } Randomizer;
 
 void randomizer_free(Randomizer *r) {
@@ -5184,6 +5216,7 @@ void randomizer_free(Randomizer *r) {
 	da_free(r->gate_reached);
 	da_free(r->fog_gates);
 	da_free(r->leftover);
+	ht_free(&r->locked_nodes);
 }
 
 void get_connections(Connections *c) {
@@ -5215,6 +5248,8 @@ void free_connections_by_ref(Connections *c) {
 bool attempt_randomization(Randomizer *r, Connections *c) {
     // 1. Reset and generate base fixed connections
 	get_connections(c);
+	memset(&r->inventory, 0, sizeof(r->inventory));
+	r->locked_nodes.count = 0;
 
     // 2. Fetch all gates that need randomizing
 	r->fog_gates.count = 0;
@@ -5241,7 +5276,7 @@ bool attempt_randomization(Randomizer *r, Connections *c) {
     size_t queue_head = 0;
 
     // Discover what is initially reachable from the spawn point via fixed paths
-    explore_from_node((size_t)GameStartSpawnSrc, &r->visited, &r->queue, &queue_head, &r->fog_gates, &r->gate_reached);
+    explore_from_node((size_t)GameStartSpawnSrc, &r->visited, &r->queue, &queue_head, &r->fog_gates, &r->gate_reached, &r->inventory, &r->locked_nodes);
 
     // 3. Keep bridging reached components to unreached components
     while (true) {
@@ -5300,7 +5335,7 @@ bool attempt_randomization(Randomizer *r, Connections *c) {
         da_append(&c->items[node_u], conn_to_r);
 
         // Resume exploration from the newly reached node to expand our pool
-        explore_from_node(node_u, &r->visited, &r->queue, &queue_head, &r->fog_gates, &r->gate_reached);
+        explore_from_node(node_u, &r->visited, &r->queue, &queue_head, &r->fog_gates, &r->gate_reached, &r->inventory, &r->locked_nodes);
 
 		r->reached_unpaired.count = 0;
 		r->unreached_unpaired.count = 0;
@@ -5438,16 +5473,7 @@ void print_game_progression_bfs_tree(Connections *c) {
     da_free(queue);
 }
 
-int main() {
-	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
-	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
-	// Editor editor = {0};
-	// generate_default_connections();
-	// if (!generate_map_objects(&editor)) return 1;
-	// if (!randomize_warps(&editor)) return 1;
-	// free_editor(&editor);
-	// free_connections();
-
+void randomizer() {
 	srand(44);
 	size_t attempt = 0;
 
@@ -5462,5 +5488,19 @@ int main() {
 	printf("Done in %zu attempts\n", attempt);
 	print_game_progression_bfs_tree(&c);
 	free_connections_by_ref(&c);
+}
+
+int main() {
+	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
+	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
+	// Editor editor = {0};
+	// generate_default_connections();
+	// if (!generate_map_objects(&editor)) return 1;
+	// if (!randomize_warps(&editor)) return 1;
+	// free_editor(&editor);
+	// free_connections();
+
+	// build the item param
+
 	return 0;
 }

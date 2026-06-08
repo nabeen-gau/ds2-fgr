@@ -1,8 +1,14 @@
 CFLAGS := -ggdb -Wall -Wextra -Wno-unused-function -Wno-initializer-overrides
 CPPFLAGS := -Iother
+DEPS := data/item-lot-formatted.txt other/miniz.c
 SOURCES := main.c other/miniz.c
 
-DS2FGR: $(SOURCES)
+all: DS2FGR
+
+data/item-lot-formatted.txt: data/item-lot.txt
+	python reformat-item-info.py
+
+DS2FGR: $(DEPS)
 	gcc $(CFLAGS) $(CPPFLAGS) -o DS2FGR $(SOURCES)
 
 memcheck: main.c
