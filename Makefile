@@ -1,11 +1,11 @@
 CFLAGS := -ggdb -Wall -Wextra -Wno-unused-function -Wno-initializer-overrides
 CPPFLAGS := -Iother
-DEPS := data/item-lot-formatted.txt other/miniz.c
+DEPS := item_info.c other/miniz.c
 SOURCES := main.c other/miniz.c
 
 all: DS2FGR
 
-data/item-lot-formatted.txt: data/item-lot.txt
+item_info.c: data/item-lot.txt reformat-item-info.py
 	python reformat-item-info.py
 
 DS2FGR: $(DEPS)

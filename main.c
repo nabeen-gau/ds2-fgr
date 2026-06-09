@@ -5491,6 +5491,12 @@ void randomizer() {
 }
 
 int main() {
+	generate_item_infos();
+	ht_foreach(iig, &gate_item_infos) {
+		WarpNode node = ht_key(&gate_item_infos, iig);
+		printf("%s => %zu\n", WarpNodeNames[node], iig->count);
+	}
+	free_item_infos();
 	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
 	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
 	// Editor editor = {0};

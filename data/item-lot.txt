@@ -1,10 +1,10 @@
 #Tutorial1EntryFront
 10026020,10026050,10046000,10046010,10046020,10046030,10046040,10046110,10046120,
-##HouseKey
+##Conn_HouseKey
 10045600,10046070,10046100,
-##Catring
+##Conn_Catring
 10046130,10046060,10046050,10046090,
-###ForgottenKey
+###Conn_ForgottenKey
 10045020,10045030,10045050,10046140,
 
 #Tutorial1EntryBack
@@ -38,7 +38,7 @@
 
 #ForestOfFallenGiantsToCaleFront
 10106050,10106250,10106300,10106490,10106570,
-##Catring
+##Conn_Catring
 10105110,10106350,10106360,10106460,10106470,10106480,
 ##Conn_SoldiersKey
 10106010,10106070,10106080,10106120,10106430,10106510,10106610,10106620,10106630,
@@ -60,9 +60,9 @@
 
 #CongregationExitBack
 10145110,10145120,10146000,10146010,10146020,10146030,10146080,10146090,10146100,10146120,10146170,10146190,10146200,10146210,10146220,10146240,10146250,10146260,10146270,10146280,10146310,10146320,10146330,10146340,10146350,10146360,10146370,10146400,10146410,10146420,10146490,10146510,10146520,
-#TseldoraDenKey
+##Conn_TseldoraDenKey
 10145080,
-#BrightstoneKey
+##Conn_BrightstoneKey
 10145130,
 
 #CongregationEntryFront
@@ -76,7 +76,7 @@
 
 #AldiasKeepEntranceBack
 10155000,10155010,10155030,10156000,10156010,10156050,10156060,10156070,10156100,10156130,10156200,
-##AldiaKey
+##Conn_AldiaKey
 10156040,10156140,
 
 #AldiasKeepEntranceFront
@@ -98,7 +98,7 @@
 
 #LostBastilleToSinnersRiseBack
 10166060,10166090,10166110,10166120,10166230,10166280,10166450,
-#Conn_BastilleKey
+##Conn_BastilleKey
 10166330,
 
 #LostSinnerEntryFront
@@ -108,7 +108,7 @@
 10165000,10165020,10165070,10165110,10165130,10166020,10166040,10166050,10166130,10166150,10166180,10166200,10166260,10166290,10166370,10166380,10166410,10166480,10166490,
 ##Conn_BastilleKey
 10166440,10166441,
-##FireBomb
+##Conn_FireBomb
 10166430,
 
 #LostSinnerExitBack
@@ -180,7 +180,7 @@
 
 #TheGutterFromGraveOfSaintsBack
 10255040,10255100,10255110,10256030,10256060,10256090,10256220,10256230,10256240,10256250,10256260,10256270,10256280,10256290,10256400,10256410,10256420,10256430,10256440,10256450,
-#Conn_ForgottenKey
+##Conn_ForgottenKey
 10256000,
 
 #TheRottenEntryBack
@@ -238,7 +238,7 @@
 10325100,
 ##Conn_FragrantBranchOfYore
 10326230,
-##FangKey
+##Conn_FangKey
 10326160,
 
 #ShadedWoodsToMistyAreaFront
@@ -281,7 +281,7 @@
 ##Conn_PharrosLockstone
 20105030,20105040,
 
-##GiantLordEntryBack
+#GiantLordEntryBack
 20106100,20106120,
 
 
@@ -290,7 +290,7 @@
 
 #ShrineOfAmanaTo2ndBonfireBack
 20115060,20115080,20116030,20116040,20116140,20116190,20116200,20116210,
-##VendrickSoul
+##Conn_VendrickSoul
 20115070,20115500,
 ##Conn_PharrosLockstone
 20115090,
@@ -379,7 +379,7 @@
 50356580,
 50356590,
 50356600,
-##BowCrossbow
+##Conn_BowCrossbow
 50355060,
 50355130,
 50355350,
@@ -523,9 +523,9 @@
 50366870,
 50368080,
 50366760,
-###BrumeTowerKey
+###Conn_BrumeTowerKey
 50366740,
-##BrumeTowerKey
+##Conn_BrumeTowerKey
 50365570,
 50366520,
 
@@ -543,7 +543,7 @@
 #BrumeTowerFrom2ndBonfireToCentralRoomBack
 50366260,
 50366440,
-#Conn_ActivateBrumeTower
+##Conn_ActivateBrumeTower
 50365020,
 50365550,
 50365690,
@@ -614,7 +614,7 @@
 50376770,
 ###Conn_PharrosLockstone
 50375740,
-###Torch
+###Conn_Torch
 50376300,
 50376570,
 50376580,
@@ -680,44 +680,44 @@
 60011000,
 
 #BrumeTowerEntranceFromLiftBack
-##SmelterWedge
+##Conn_SmelterWedge
 60013000,
-##SmelterWedge
+##Conn_SmelterWedge
 60013000,
 
 #BrumeTowerFrom2ndBonfireToCentralRoomBack
-##SmelterWedge
+##Conn_SmelterWedge
 60013000,
 
 #BrumeTowerToFoyerBonfireFromOutsideFront
-##SmelterWedge
+##Conn_SmelterWedge
 60013000,
 
 #BrumeTowerToFoyerBonfireFromOutsideBack
-##BrumeTowerKey
-###SmelterWedge
+##Conn_BrumeTowerKey
+###Conn_SmelterWedge
 60013000,
 
 #SirAlonneArmorDLCEntrySrc
-##SmelterWedge
+##Conn_SmelterWedge
 60013000,
 
 #BrumeTowerFrom2ndBonfireToCentralRoomBack
 ##Conn_ActivateBrumeTower
-###SmelterWedge
+###Conn_SmelterWedge
 60013000,
 
 #SirAlonneExitBack
 60013000,
 
 #FumeKnightEntryFront
-##SmelterWedge
+##Conn_SmelterWedge
 60013000,
-##SmelterWedge
+##Conn_SmelterWedge
 60013000,
-##SmelterWedge
+##Conn_SmelterWedge
 60013000,
-##SmelterWedge
+##Conn_SmelterWedge
 60013000,
 
 #BrumeTowerToScorchingIronSceptorKeyBack
@@ -742,7 +742,7 @@
 60042000,
 
 #AldiasKeepEntranceBack
-##Torch
+##Conn_Torch
 60050000,
 
 #DemonOfSongEntryBack
@@ -763,9 +763,9 @@
 10045000,
 10045001,
 10045002,
-##HouseKey
+##Conn_HouseKey
 10045010,
-##LenigrastKey
+##Conn_LenigrastKey
 10045040,
 
 #ForestOfFallenGiantsToCaleFront
@@ -802,7 +802,7 @@
 10146181,
 10146380,
 10146381,
-##TseldoraDenKey
+##Conn_TseldoraDenKey
 10145070,
 
 #BrightstoneCoveToDoorsOfPharrosBack
@@ -854,7 +854,7 @@
 10175040,
 10175050,
 10175090,
-##Catring
+##Conn_Catring
 10176140,
 
 #CovetousDemonEntryFront
@@ -889,7 +889,7 @@
 10196111,
 10196210,
 10196211,
-##FireDefense
+##Conn_FireDefense
 10195100,
 10195110,
 10196190,
@@ -898,7 +898,7 @@
 10195130,
 
 #IronKeepToEarthenPeakBack
-##FireDefense
+##Conn_FireDefense
 10196140,
 10196180,
 
@@ -1006,7 +1006,7 @@
 20116170,
 20116171,
 
-#TwinDragonriderEntryFront
+#TwinDragonridersEntryFront
 20215010,
 20215011,
 20215020,
@@ -1034,7 +1034,7 @@
 
 #ShulvaEntranceBack
 50355010,
-##BowCrossbow
+##Conn_BowCrossbow
 50355020,
 50355030,
 
@@ -1044,7 +1044,7 @@
 #BrumeTowerToFoyerBonfireFromOutsideBack
 50365540,
 50365590,
-##BrumeTowerKey
+##Conn_BrumeTowerKey
 50365030,
 ##Conn_ActivateBrumeTower
 50366700,
@@ -1177,19 +1177,19 @@
 2240500, Dragonrider - Undead Crypt, Titanite Slab- Petrified Dragon Bone
 
 #AldiasKeepEntranceBack
-##AldiaKey
+##Conn_AldiaKey
 1154200, Undead Aberration in Aldias, Twinkling Titanite
 1154000, Gargoyle drop in Aldias Keep, Twinkling Titanite
 
 #TwinDragonridersExitBack
 2214000, Gargoyle - Castle, Twinkling Titanite
 
-#2ShrineOfAmanaTo2ndBonfireBack
+#ShrineOfAmanaTo2ndBonfireBack
 2115000, Dragonrider - Amana, Titanite Slab- Petrified Dragon Bone
 
 #Tutorial1EntryFront
 1020300, Invader - Things Betwixt after lighting scones, Petrified Something
-##HouseKey
+##Conn_HouseKey
 1040000, Skeletons - Majula house, Human Effigy
 
 #ForestOfFallenGiantsToCaleFront
@@ -1210,7 +1210,7 @@
 1150000, Petrified Ogre in Aldias Keep, Dragon Acolyte Mask
 
 #AldiasKeepEntranceBack
-##AldiaKey
+##Conn_AldiaKey
 1153000, Mimic in Aldias Keep, Malformed Skull- Dark Mask
 1153100, Mimic - Aldia's Keep, Fragrant Branch of Yore
 1153200, Mimic in Aldias Keep, Black Witch's Staff

@@ -60,7 +60,7 @@ for i in his:
         else:
             info = "Area"
 
-        HisInfos.append(Info(index, desc, info, ng))
+        HisInfos.append(Info(index, desc.strip(), info, ng))
 
 his_infos_dict: dict[str, Info] = {};
 for i in HisInfos:
@@ -179,10 +179,10 @@ for i in my[count:]:
 
 with open("./data/item-lot-formatted.txt", "w") as f:
     for v in my_infos.values():
-        f.write(f"{v.gate_name} = {{\n")
+        f.write(f"{v.gate_name}[{len(v.items)}] = {{\n")
         for i in v.items:
             f.write(f"\t{i.item} = {{\n")
-            f.write(f"\t\tKeys = [{", ".join(j.replace("#", "") for j in i.keys)}],\n")
+            f.write(f"\t\tKeys[{len(i.keys)}] = {{{", ".join(j.replace("#", "") for j in i.keys)}}},\n")
             if (i.typ == ""):
                 if his_infos_dict.get(i.item):
                     his_info = his_infos_dict[i.item]
@@ -201,3 +201,33 @@ with open("./data/item-lot-formatted.txt", "w") as f:
                 f.write(f"\t\tDesc = {i.desc}\n")
             f.write("\t},\n")
         f.write("}\n\n")
+
+with open("./item_info.c", "w") as f:
+    f.write("void generate_item_infos() {\n")
+    f.write("\tItemInfoGroup iig;\n")
+    f.write(f"\tKeys keys;\n")
+    for v in my_infos.values():
+        f.write("\tiig = (ItemInfoGroup){0};\n")
+        f.write(f"\tda_init(&iig, {len(v.items)});\n")
+        for i in v.items:
+            f.write(f"\tkeys = (Keys){{0}};\n")
+            f.write(f"\tda_init(&keys, {len(i.keys)});\n")
+            for k in i.keys:
+                f.write(f"\tda_append(&keys, {k.replace("#", "")});\n")
+            if i.typ == "":
+                if his_infos_dict.get(i.item):
+                    his_info = his_infos_dict[i.item]
+                else:
+                    raise ValueError(f"{i.item} not found")
+                i.typ = his_info.info;
+            if i.desc == "":
+                if his_infos_dict.get(i.item):
+                    his_info = his_infos_dict[i.item]
+                else:
+                    raise ValueError(f"{i.item} not found")
+                i.desc = his_info.desc;
+
+            f.write(f"\tda_append(&iig, ((ItemInfo){{.keys = keys, .type = Key{i.typ}, .desc = \"{i.desc}\"}}));\n");
+
+        f.write(f"\t*ht_put(&gate_item_infos, {v.gate_name.replace("#", "")}) = iig;\n\n");
+    f.write("}\n")
