@@ -2184,11 +2184,38 @@ typedef packed_struct {
 	int32_t unk01, unk02, key_guide_id_1, key_guide_id_2, unk04, unk05;
 } MapObjectWhiteDoorParamPARAMDEF;
 
+typedef packed_struct {
+	uint8_t lots_drop_order;
+	uint8_t lots_dropped;
+	uint8_t unk02;
+	uint8_t unk03;
+	uint8_t amount[10];
+	uint8_t reinforcement_level[10];
+	uint8_t infusion[10];
+	uint8_t infinite_drop[10];
+	uint32_t item_id[10];
+	float chance[10];
+} ItemLotParam2ChrPARAMDEF;
+
+typedef packed_struct {
+	int32_t item_id;
+	int32_t unk00;
+	int32_t enable_flag;
+	int32_t disable_flag;
+	int32_t material_id;
+	int32_t duplicate_item_id;
+	int32_t unk01;
+	float price_rate;
+	int32_t quantity;
+} ShopLineupPARAMDEF;
+
 typedef enum {
 	Cell_EventLoc,
 	Cell_EventParam,
 	Cell_MapObjInstanceParam,
 	Cell_MapObjectWhiteDoorParam,
+	Cell_ItemLotParam2_Chr,
+	Cell_ShopLineupParam,
 } CellType;
 
 typedef struct {
@@ -2197,6 +2224,8 @@ typedef struct {
 		EventParamPARAMDEF event_param;
 		MapObjectInstancePARAMDEF map_obj_instance_param;
 		MapObjectWhiteDoorParamPARAMDEF map_obj_white_door_param;
+		ItemLotParam2ChrPARAMDEF itemlot_param2_char;
+		ShopLineupPARAMDEF shop_lineup_param;
 	} as;
 } Cell;
 typedef struct {
@@ -2270,6 +2299,12 @@ void PARAM_apply_paramdef(PARAM *param, CellType type) {
 			break;
 			case Cell_MapObjectWhiteDoorParam:
 				cell.as.map_obj_white_door_param = *(MapObjectWhiteDoorParamPARAMDEF *)(sv.data);
+			break;
+			case Cell_ItemLotParam2_Chr:
+				cell.as.itemlot_param2_char = *(ItemLotParam2ChrPARAMDEF *)(sv.data);
+			break;
+			case Cell_ShopLineupParam:
+				cell.as.shop_lineup_param = *(ShopLineupPARAMDEF *)(sv.data);
 			break;
 		default: TODO("CellType enum not implemented");
 		}
@@ -2463,6 +2498,12 @@ void write_param(String_Builder *sb, PARAM *param) {
 		break;
 		case Cell_MapObjectWhiteDoorParam:
 			length = sizeof(MapObjectWhiteDoorParamPARAMDEF);
+		break;
+		case Cell_ItemLotParam2_Chr:
+			length = sizeof(ItemLotParam2ChrPARAMDEF);
+		break;
+		case Cell_ShopLineupParam:
+			length = sizeof(ShopLineupPARAMDEF);
 		break;
 		default: TODO("CellType enum not implemented");
 		}
@@ -5491,12 +5532,6 @@ void randomizer() {
 }
 
 int main() {
-	generate_item_infos();
-	ht_foreach(iig, &gate_item_infos) {
-		WarpNode node = ht_key(&gate_item_infos, iig);
-		printf("%s => %zu\n", WarpNodeNames[node], iig->count);
-	}
-	free_item_infos();
 	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
 	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
 	// Editor editor = {0};
@@ -5507,6 +5542,105 @@ int main() {
 	// free_connections();
 
 	// build the item param
+	// generate_item_infos();
+	// ht_foreach(iig, &gate_item_infos) {
+	// 	WarpNode node = ht_key(&gate_item_infos, iig);
+	// 	printf("%s => %zu\n", WarpNodeNames[node], iig->count);
+	// }
+	// free_item_infos();
+	if (0) {
+		const char *path = "./Param/ItemLotParam2_Chr.param"; // 3
+		// const char *path = "./Param/ItemLotParam2_Other.param"; // 12
+		String_Builder sb = {0};
+		if (!nob_read_entire_file(path, &sb)) {
+			return false;
+		}
+#ifdef LOG_GENERATED_FILES
+		printf("[Read] %s: %zu bytes\n", param_path, sb->count);
+#endif
+		String_View sv = sb_to_sv(sb);
+		// PARAM param = load_param(&sv, Cell_ItemLotParam2_Chr);
+		PARAM param = load_param(&sv, Cell_ShopLineupParam);
+
+		generate_item_infos();
+		for (size_t i=0; i<param.cells.count; i++) {
+			ItemLotParam2ChrPARAMDEF c = param.cells.items[i].as.itemlot_param2_char;
+			for (size_t j=0; j<ARRAY_LEN(c.item_id); j++) {
+				if (LotID_Item_FragrantBranchOfYore == c.item_id[j]) {
+					int32_t row_id = param.rows.items[i].ID;
+					bool found = false;
+					ht_foreach(iig, &gate_item_infos) {
+						WarpNode wn = ht_key(&gate_item_infos, iig);
+						da_foreach(ItemInfo, ii, iig) {
+							if ((int32_t)ii->id == row_id) {
+								printf("The key (%d) can be found at %s", row_id, WarpNodeNames[wn]);
+								if (ii->keys.count > 0) {
+									printf(" and requires keys (");
+								}
+								for (size_t k=0; k<ii->keys.count; k++) {
+									if (k!=0) printf(", ");
+									print_connection_type(ii->keys.items[k]);
+								}
+								if (ii->keys.count > 0) {
+									printf(")");
+								}
+								printf("\n");
+								found = true;
+							}
+						}
+					}
+					if (!found) printf("The key (%d) was not found\n", row_id);
+				}
+			}
+		}
+		free_PARAM(&param);
+	}
+
+	const char *path = "./Param/ShopLineupParam.param"; // 2
+
+	String_Builder sb = {0};
+	if (!nob_read_entire_file(path, &sb)) {
+		return false;
+	}
+#ifdef LOG_GENERATED_FILES
+	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
+#endif
+	String_View sv = sb_to_sv(sb);
+	// PARAM param = load_param(&sv, Cell_ItemLotParam2_Chr);
+	PARAM param = load_param(&sv, Cell_ShopLineupParam);
+	generate_item_infos();
+
+	for (size_t i=0; i<param.cells.count; i++) {
+		ShopLineupPARAMDEF c = param.cells.items[i].as.shop_lineup_param;
+		if (c.item_id == LotID_Item_FragrantBranchOfYore) {
+			bool found = false;
+			size_t row_id = param.rows.items[i].ID;
+			ht_foreach(iig, &gate_item_infos) {
+				WarpNode wn = ht_key(&gate_item_infos, iig);
+				da_foreach(ItemInfo, ii, iig) {
+					if (ii->id == row_id) {
+						printf("The key (%zu) can be found at %s", row_id, WarpNodeNames[wn]);
+						if (ii->keys.count > 0) {
+							printf(" and requires keys (");
+						}
+						for (size_t k=0; k<ii->keys.count; k++) {
+							if (k!=0) printf(", ");
+							print_connection_type(ii->keys.items[k]);
+						}
+						if (ii->keys.count > 0) {
+							printf(")");
+						}
+						printf("\n");
+						found = true;
+					}
+				}
+			}
+			if (!found) printf("The key (%zu) was not found\n", row_id);
+		}
+	}
+
+	free_PARAM(&param);
+	free_item_infos();
 
 	return 0;
 }

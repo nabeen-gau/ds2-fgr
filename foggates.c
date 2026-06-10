@@ -864,55 +864,117 @@ static WarpPoint warp_points[] = {
 static_assert(ARRAY_LEN(warp_points) == __WarpNodeCount, "Missing warp point definition");
 
 
-typedef enum ConnectionType: uint64_t {
-	Conn_None                 = 1U << 0,
-	Conn_OneWay               = 1U << 1,
-	Conn_FragrantBranchOfYore = 1U << 2,
-	Conn_RotundaLockstone     = 1U << 3,
-	Conn_SoldiersKey          = 1U << 4,
-	Conn_KingsRing            = 1U << 5,
-	Conn_FirstFourSouls       = 1U << 6,
-	Conn_Catring              = 1U << 7,
-	Conn_AshenMistHeart       = 1U << 8,
- 	Conn_KingMemory           = 1U << 9,
-	Conn_OldKeyInBastille     = 1U << 10,
-	Conn_BastilleKey          = 1U << 11,
-	Conn_PharrosLockstone     = 1U << 12,
-	Conn_ScorchingIronSceptor = 1U << 13,
-	Conn_ActivateBrumeTower   = 1U << 14,
-	Conn_DarkCovenentJoined   = 1U << 15,
-	Conn_ForgottenKey         = 1U << 16,
-	Conn_DLC1Key              = 1U << 17,
-	Conn_DLC2Key              = 1U << 18,
-	Conn_DLC3Key              = 1U << 19,
-	Conn_ShulvaSanctumKey     = 1U << 20,
-	Conn_ActivateDragonStone  = 1U << 21,
-	Conn_DLC3Eye              = 1U << 22,
-	Conn_DLC3Unfreezed        = 1U << 23,
-	Conn_FrigidOutskirtsKey   = 1U << 24,
-	Conn_ShipBellRang         = 1U << 25,
-	Conn_IronKeyToFireLizards = 1U << 26,
-	Conn_DragonStone          = 1U << 27,
-	Conn_BossKilled           = 1U << 28,
-	Conn_LudAndZallenDead     = 1U << 29,
-	Conn_Firebomb             = 1U << 30,
-	Conn_Gilligan_Ladder      = 1U << 31,
-	Conn_DLC2TowerKey         = 1U << 32,
-	Conn_KeyToKingsPassage    = 1U << 33,
-	Conn_HouseKey             = 1U << 34,
-	Conn_AldiaKey             = 1U << 35,
-	Conn_FireBomb             = 1U << 36,
-	Conn_FangKey              = 1U << 37,
-	Conn_VendrickSoul         = 1U << 38,
-	Conn_BowCrossbow          = 1U << 39,
-	Conn_BrumeTowerKey        = 1U << 40,
-	Conn_Torch                = 1U << 41,
-	Conn_LenigrastKey         = 1U << 42,
-	Conn_TseldoraDenKey       = 1U << 43,
-	Conn_FireDefense          = 1U << 44,
-	Conn_SmelterWedge         = 1U << 45,
-	Conn_BrightstoneKey = 1U << 46,
-} ConnectionType;
+typedef enum ConnectionType {
+	Conn_None,
+	Conn_OneWay,
+	Conn_FragrantBranchOfYore,
+	Conn_RotundaLockstone,
+	Conn_SoldiersKey,
+	Conn_KingsRing,
+	Conn_FirstFourSouls,
+	Conn_Catring,
+	Conn_AshenMistHeart,
+	Conn_KingMemory,
+	Conn_OldKeyInBastille,
+	Conn_BastilleKey,
+	Conn_PharrosLockstone,
+	Conn_ScorchingIronSceptor,
+	Conn_ActivateBrumeTower,
+	Conn_DarkCovenentJoined,
+	Conn_ForgottenKey,
+	Conn_DLC1Key,
+	Conn_DLC2Key,
+	Conn_DLC3Key,
+	Conn_ShulvaSanctumKey,
+	Conn_ActivateDragonStone,
+	Conn_DLC3Eye,
+	Conn_DLC3Unfreezed,
+	Conn_FrigidOutskirtsKey,
+	Conn_ShipBellRang,
+	Conn_IronKeyToFireLizards,
+	Conn_DragonStone,
+	Conn_BossKilled,
+	Conn_LudAndZallenDead,
+	Conn_Firebomb,
+	Conn_Gilligan_Ladder,
+	Conn_DLC2TowerKey,
+	Conn_KeyToKingsPassage,
+	Conn_HouseKey,
+	Conn_AldiaKey,
+	Conn_FireBomb,
+	Conn_FangKey,
+	Conn_VendrickSoul,
+	Conn_BowCrossbow,
+	Conn_BrumeTowerKey,
+	Conn_Torch,
+	Conn_LenigrastKey,
+	Conn_TseldoraDenKey,
+	Conn_FireDefense,
+	Conn_SmelterWedge,
+	Conn_BrightstoneKey,
+	Conn_RatTail,
+	Conn_TokenOfFidelity,
+	Conn_TokenOfSpite,
+	Conn_DefeatNajka,
+	Conn_RingOfWhispers,
+}ConnectionType;
+
+void print_connection_type(ConnectionType ct) {
+	switch (ct) {
+		case Conn_None                 : printf("None");                 break;
+		case Conn_OneWay               : printf("OneWay");               break;
+		case Conn_FragrantBranchOfYore : printf("FragrantBranchOfYore"); break;
+		case Conn_RotundaLockstone     : printf("RotundaLockstone");     break;
+		case Conn_SoldiersKey          : printf("SoldiersKey");          break;
+		case Conn_KingsRing            : printf("KingsRing");            break;
+		case Conn_FirstFourSouls       : printf("FirstFourSouls");       break;
+		case Conn_Catring              : printf("Catring");              break;
+		case Conn_AshenMistHeart       : printf("AshenMistHeart");       break;
+		case Conn_KingMemory           : printf("KingMemory");           break;
+		case Conn_OldKeyInBastille     : printf("OldKeyInBastille");     break;
+		case Conn_BastilleKey          : printf("BastilleKey");          break;
+		case Conn_PharrosLockstone     : printf("PharrosLockstone");     break;
+		case Conn_ScorchingIronSceptor : printf("ScorchingIronSceptor"); break;
+		case Conn_ActivateBrumeTower   : printf("ActivateBrumeTower");   break;
+		case Conn_DarkCovenentJoined   : printf("DarkCovenentJoined");   break;
+		case Conn_ForgottenKey         : printf("ForgottenKey");         break;
+		case Conn_DLC1Key              : printf("DLC1Key");              break;
+		case Conn_DLC2Key              : printf("DLC2Key");              break;
+		case Conn_DLC3Key              : printf("DLC3Key");              break;
+		case Conn_ShulvaSanctumKey     : printf("ShulvaSanctumKey");     break;
+		case Conn_ActivateDragonStone  : printf("ActivateDragonStone");  break;
+		case Conn_DLC3Eye              : printf("DLC3Eye");              break;
+		case Conn_DLC3Unfreezed        : printf("DLC3Unfreezed");        break;
+		case Conn_FrigidOutskirtsKey   : printf("FrigidOutskirtsKey");   break;
+		case Conn_ShipBellRang         : printf("ShipBellRang");         break;
+		case Conn_IronKeyToFireLizards : printf("IronKeyToFireLizards"); break;
+		case Conn_DragonStone          : printf("DragonStone");          break;
+		case Conn_BossKilled           : printf("BossKilled");           break;
+		case Conn_LudAndZallenDead     : printf("LudAndZallenDead");     break;
+		case Conn_Firebomb             : printf("Firebomb");             break;
+		case Conn_Gilligan_Ladder      : printf("Gilligan_Ladder");      break;
+		case Conn_DLC2TowerKey         : printf("DLC2TowerKey");         break;
+		case Conn_KeyToKingsPassage    : printf("KeyToKingsPassage");    break;
+		case Conn_HouseKey             : printf("HouseKey");             break;
+		case Conn_AldiaKey             : printf("AldiaKey");             break;
+		case Conn_FireBomb             : printf("FireBomb");             break;
+		case Conn_FangKey              : printf("FangKey");              break;
+		case Conn_VendrickSoul         : printf("VendrickSoul");         break;
+		case Conn_BowCrossbow          : printf("BowCrossbow");          break;
+		case Conn_BrumeTowerKey        : printf("BrumeTowerKey");        break;
+		case Conn_Torch                : printf("Torch");                break;
+		case Conn_LenigrastKey         : printf("LenigrastKey");         break;
+		case Conn_TseldoraDenKey       : printf("TseldoraDenKey");       break;
+		case Conn_FireDefense          : printf("FireDefense");          break;
+		case Conn_SmelterWedge         : printf("SmelterWedge");         break;
+		case Conn_BrightstoneKey       : printf("BrightstoneKey");       break;
+		case Conn_RatTail              : printf("RatTail");              break;
+		case Conn_TokenOfFidelity      : printf("TokenOfFidelity");      break;
+		case Conn_TokenOfSpite         : printf("TokenOfSpite");         break;
+		case Conn_DefeatNajka          : printf("Conn_DefeatNajka");     break;
+		case Conn_RingOfWhispers       : printf("Conn_RingOfWhispers");  break;
+	}
+}
 
 #define MAX_CONNECTION_TYPES 34
 
@@ -2517,9 +2579,11 @@ typedef enum {
 	KeyEvent,
 	KeyGuranteedDrop,
 	KeyNPC,
+	KeyShop,
 } KeyType;
 
 typedef struct {
+	size_t id;
 	Keys keys;
 	KeyType type;
 	const char *desc;
@@ -2542,6 +2606,21 @@ void free_item_infos() {
 	ht_free(&gate_item_infos);
 }
 
+WarpNode get_item_warp_node(size_t item_id) {
+	ht_foreach(iig, &gate_item_infos) {
+		WarpNode wn = ht_key(&gate_item_infos, iig);
+		da_foreach(ItemInfo, ii, iig) {
+			if (ii->id == item_id) {
+				return wn;
+			}
+		}
+	}
+	return __WarpNodeCount;
+}
+
+#define LotID_Chr_BrightstoneKey 50830000
+#define LotID_Item_FragrantBranchOfYore 60537000
+
 // not considered in logic:
 // 1. Jump down from bonfire above dragonrider
 // 2. Jump down from Gilligan ladder location in earthen peak to harvest valley
@@ -2561,3 +2640,4 @@ void free_item_infos() {
 // TODO: large bosses in old dragon slayer block the player from entering the arena
 // check if it happens with other arenas as well
 // TODO: The fog gate at the exit of elana should disappear when the boss is dead
+// TODO: Try to get the homies to drop in Ivory King fight

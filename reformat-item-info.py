@@ -146,6 +146,8 @@ for i in my:
 # this is parsing the guranteed drops
 cur_key: list[str] = []
 for i in my[count:]:
+    count += 1;
+    if ("BeginShopItems" in i): break; # after this is parsed later
     i = i.strip()
     if (i == ""): continue;
     split = i.split(",")
@@ -158,6 +160,40 @@ for i in my[count:]:
         it = Item(item, cur_key.copy())
         it.desc = ", ".join(j.strip() for j in desc)
         it.typ = "GuranteedDrop"
+        my_infos[cur_gate].items.append(it)
+    elif (i.startswith("##")): # is a key
+        hash_count = i.count("#")
+        prev_count = 0
+        if (len(cur_key) > 0):
+            prev_count = cur_key[-1].count("#")
+        if (hash_count > prev_count):
+            cur_key.append(i);
+        elif (hash_count == prev_count):
+            cur_key[-1] = i
+        else:
+            cur_key[-2] = cur_key[-1]
+            cur_key.pop()
+    else: # is a gate
+        cur_gate = i;
+        if my_infos.get(i) == None:
+            my_infos[i] = MyInfo(i, [])
+        cur_key.clear()
+
+cur_key: list[str] = []
+for i in my[count:]:
+    count += 1;
+    i = i.strip()
+    if (i == ""): continue;
+    split = i.split(",")
+    if (len(split) != 1): # is item id 
+        item, *desc = i.split(",")
+        if all_items.get(item) == None:
+            all_items[item] = True;
+        else:
+            raise ValueError(f"{item} already added")
+        it = Item(item, cur_key.copy())
+        it.desc = ", ".join(j.strip() for j in desc)
+        it.typ = "Shop"
         my_infos[cur_gate].items.append(it)
     elif (i.startswith("##")): # is a key
         hash_count = i.count("#")
@@ -227,7 +263,8 @@ with open("./item_info.c", "w") as f:
                     raise ValueError(f"{i.item} not found")
                 i.desc = his_info.desc;
 
-            f.write(f"\tda_append(&iig, ((ItemInfo){{.keys = keys, .type = Key{i.typ}, .desc = \"{i.desc}\"}}));\n");
+            f.write(f"\tda_append(&iig, ((ItemInfo){{.id = {i.item}, .keys = keys, .type = Key{i.typ}, .desc = \"{i.desc}\"}}));\n");
 
         f.write(f"\t*ht_put(&gate_item_infos, {v.gate_name.replace("#", "")}) = iig;\n\n");
     f.write("}\n")
+

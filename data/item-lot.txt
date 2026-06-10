@@ -1312,3 +1312,292 @@
 
 #EleumLoyceAfterGettingEyeToSeeGhostsBack
 5037200, Mimic - Eleum Loyce, Symbol of Avarice
+
+#VelsdatEntryFront
+2240100,[Insolent Knight - Undead Crypt after torching scones],Fragrant Branch of Yore
+
+#ShadedWoodsToMistyAreaBack
+##Conn_DefeatNajka
+###Conn_RingOfWhispers
+1502000,[NPC - Manscorpion Tark] Replaces Fragrant Branch of Yore
+
+#BeginShopItems
+
+#ShadedWoodsToMistyAreaBack
+30700000,[Head of Vengarl] Claymore
+30700001,[Head of Vengarl] Greatsword
+30700300,[Head of Vengarl] Magic Barrier
+30700600,[Head of Vengarl] Gold Pine Resin
+30700601,[Head of Vengarl] Lightning Urn
+30700602,[Head of Vengarl] Destructive Greatarrow
+
+#VelsdatEntryFront
+50600300,[Grave Warden Agdayne] Soul Spear
+50600301,[Grave Warden Agdayne] Soul Vortex
+50600302,[Grave Warden Agdayne] Soul Appease
+50600303,[Grave Warden Agdayne] Warmth
+50600401,[Grave Warden Agdayne] Ring of Thorns+1
+50600600,[Grave Warden Agdayne] Human Effigy
+50600601,[Grave Warden Agdayne] Elizabeth Mushroom
+50600602,[Grave Warden Agdayne] Dark Arrow
+50600603,[Grave Warden Agdayne] Dark Bolt
+
+#CovetousDemonExitBack
+70400000,[Laddersmith Gilligan - Earthen Peak] Reinforced Club
+70400001,[Laddersmith Gilligan - Earthen Peak] Claws
+70400002,[Laddersmith Gilligan - Earthen Peak] Whip
+70400003,[Laddersmith Gilligan - Earthen Peak] Wooden Shield
+70400200,[Laddersmith Gilligan - Earthen Peak] Thief Mask
+70400201,[Laddersmith Gilligan - Earthen Peak] Black Leather Armor
+70400202,[Laddersmith Gilligan - Earthen Peak] Black Leather Gloves
+70400203,[Laddersmith Gilligan - Earthen Peak] Black Leather Boots
+70400500,[Laddersmith Gilligan - Earthen Peak] Ladder Miniature
+70400600,[Laddersmith Gilligan - Earthen Peak] Aromatic Ooze
+70400601,[Laddersmith Gilligan - Earthen Peak] Lacerating Knife
+70400602,[Laddersmith Gilligan - Earthen Peak] Bleeding Serum
+
+#DrangleicCastleToShadedWoodsBack
+72110000,[Chancellor Wellager] Flamberge
+72110001,[Chancellor Wellager] Lucerne
+72110303,[Chancellor Wellager] Great Magic Barrier
+72110400,[Chancellor Wellager] Bracing Knuckle Ring+1
+72110600,[Chancellor Wellager] Old Radiant Lifegem
+72110601,[Chancellor Wellager] Wilted Dusk Herb
+72110602,[Chancellor Wellager] Divine Blessing
+72110603,[Chancellor Wellager] Repair Powder
+72110604,[Chancellor Wellager] Magic Arrow
+72110605,[Chancellor Wellager] Lightning Arrow
+72110606,[Chancellor Wellager] Magic Bolt
+72110607,[Chancellor Wellager] Lightning Bolt
+
+#DrangleicCastleToChasmPortalBack
+##Conn_DarkCovenentJoined
+72500300,[Darkdiver Grandahl] Cast Light
+72500301,[Darkdiver Grandahl] Dark Orb
+72500302,[Darkdiver Grandahl] Dark Hail
+72500303,[Darkdiver Grandahl] Darkstorm
+72500304,[Darkdiver Grandahl] Profound Still
+72500600,[Darkdiver Grandahl] Human Effigy
+72500601,[Darkdiver Grandahl] Bonfire Ascetic
+
+#NoMansWharfToHeidesBack
+72600400,[Lonesome Gavlan - No-man's Wharf] Ring of Giants
+72600600,[Lonesome Gavlan] Poison Moss
+72600601,[Lonesome Gavlan] Rotten Pine Resin
+72600602,[Lonesome Gavlan] Poison Throwing Knife
+72600603,[Lonesome Gavlan] Poison Arrow
+
+#ForestOfFallenGiantsToCaleFront
+75400000,[Merchant Hag Melentia] Broken Straight Sword
+75400001,[Merchant Hag Melentia] Hand Axe
+75400002,[Merchant Hag Melentia] Club
+75400003,[Merchant Hag Melentia] Caestus
+75400200,[Merchant Hag Melentia] Traveling Merchant Hat
+75400201,[Merchant Hag Melentia] Traveling Merchant Coat
+75400202,[Merchant Hag Melentia] Traveling Merchant Gloves
+75400203,[Merchant Hag Melentia] Traveling Merchant Boots
+75400300,[Merchant Hag Melentia] Soul Arrow
+75400301,[Merchant Hag Melentia] Heal
+75400500,[Merchant Hag Melentia] Lenigrast's Key
+75400600,[Merchant Hag Melentia - Forest of Fallen Giants] Lifegem
+75400603,[Merchant Hag Melentia] Amber Herb
+75400604,[Merchant Hag Melentia] Throwing Knife
+75400605,[Merchant Hag Melentia] Witching Urn
+75400606,[Merchant Hag Melentia] Firebomb
+75400607,[Merchant Hag Melentia] Human Effigy
+75400608,[Merchant Hag Melentia] Pharros' Lockstone
+75400609,[Merchant Hag Melentia] Brightbug
+75400615,[Merchant Hag Melentia] Fragrant Branch of Yore
+
+#RoyalRatVanguardExitBack
+##Conn_RatTail
+75600600,[The Rat King] Common Fruit
+75600601,[The Rat King] Red Leech Troches
+75600602,[The Rat King] Triclops Snake Troches
+75600603,[The Rat King] Dung Pie
+75600604,[The Rat King] Corrosive Urn
+
+#Tutorial1EntryFront
+76100000,[Maughlin the Armourer] Iron Parma
+76100001,[Maughlin the Armourer] Silver Eagle Kite Shield
+76100002,[Maughlin the Armourer] Twin Dragon Greatshield
+76100200,[Maughlin the Armourer] Standard Helm
+76100201,[Maughlin the Armourer] Hard Leather Armor
+76100202,[Maughlin the Armourer] Hard Leather Gauntlets
+76100203,[Maughlin the Armourer] Hard Leather Boots
+76100204,[Maughlin the Armourer] Falconer Helm
+76100205,[Maughlin the Armourer] Falconer Armor
+76100206,[Maughlin the Armourer] Falconer Gloves
+76100207,[Maughlin the Armourer] Falconer Boots
+76100208,[Maughlin the Armourer] Infantry Armor
+76100209,[Maughlin the Armourer] Infantry Gloves
+76100210,[Maughlin the Armourer] Infantry Boots
+76100211,[Maughlin the Armourer - 1000 Souls] Royal Soldier Helm
+76100212,[Maughlin the Armourer - 1000 Souls] Royal Soldier Armor
+76100213,[Maughlin the Armourer - 1000 Souls] Royal Soldier Gauntlet
+76100214,[Maughlin the Armourer - 1000 Souls] Royal Soldier Leggings
+76100215,[Maughlin the Armourer - 1000 Souls] Elite Knight Helm
+76100216,[Maughlin the Armourer - 1000 Souls] Elite Knight Armor
+76100217,[Maughlin the Armourer - 1000 Souls] Elite Knight Gloves
+76100218,[Maughlin the Armourer - 1000 Souls] Elite Knight Leggings
+76100227,[Maughlin the Armourer - 15000 Souls] Alva Helm
+76100228,[Maughlin the Armourer - 15000 Souls] Alva Armor
+76100229,[Maughlin the Armourer - 15000 Souls] Alva Gauntlets
+76100230,[Maughlin the Armourer - 15000 Souls] Alva Leggings
+
+#HarvestValleyToSkeletonLordsBack
+76200300,[Stone Trader Chloanne] Soul Appease
+76200301,[Stone Trader Chloanne] Dead Again
+76200600,[Stone Trader Chloanne] Titanite Shard
+76200618,[Stone Trader Chloanne] Bonfire Ascetic
+
+#Tutorial1EntryFront
+##Conn_LenigrastKey
+76400000,[Blacksmith Lenigrast] Longsword
+76400001,[Blacksmith Lenigrast] Broadsword
+76400002,[Blacksmith Lenigrast] Estoc
+76400003,[Blacksmith Lenigrast] Rapier
+76400004,[Blacksmith Lenigrast] Falchion
+76400005,[Blacksmith Lenigrast] Battle Axe
+76400006,[Blacksmith Lenigrast] Mace
+76400007,[Blacksmith Lenigrast] Spear
+76400600,[Blacksmith Lenigrast] Wood Arrow
+76400601,[Blacksmith Lenigrast] Iron Arrow
+76400602,[Blacksmith Lenigrast] Wood Bolt
+76400603,[Blacksmith Lenigrast] Heavy Bolt
+76400604,[Blacksmith Lenigrast] Titanite Shard
+76400605,[Blacksmith Lenigrast] Repair Powder
+
+#NearPursuerBirdExit
+76430000,[Steady Hand McDuff] Uchigatana
+76430001,[Steady Hand McDuff] Bastard Sword
+76430002,[Steady Hand McDuff] Greataxe
+76430003,[Steady Hand McDuff] Winged Spear
+76430004,[Steady Hand McDuff] Scythe
+76430005,[Steady Hand McDuff] Long Bow
+76430006,[Steady Hand McDuff] Light Crossbow
+76430100,[Steady Hand McDuff] Royal Kite Shield
+76430600,[Steady Hand McDuff] Wood Arrow
+76430601,[Steady Hand McDuff] Iron Arrow
+76430602,[Steady Hand McDuff] Wood Bolt
+76430603,[Steady Hand McDuff] Heavy Bolt
+76430604,[Steady Hand McDuff] Iron Greatarrow
+76430605,[Steady Hand McDuff] Large Titanite Shard
+76430606,[Steady Hand McDuff] Repair Powder
+
+#NoMansWharfToHeidesBack
+76600000,[Carhillion of the Fold] Sorcerer's Staff
+76600300,[Carhillion of the Fold] Soul Arrow
+76600301,[Carhillion of the Fold] Great Soul Arrow
+76600302,[Carhillion of the Fold] Heavy Soul Arrow
+76600303,[Carhillion of the Fold] Great Heavy Soul Arrow
+76600304,[Carhillion of the Fold] Shockwave
+76600305,[Carhillion of the Fold] Soul Spear Barrage
+76600306,[Carhillion of the Fold] Magic Weapon
+76600307,[Carhillion of the Fold] Yearn
+76600400,[Carhillion of the Fold] Spell Quartz Ring
+76600401,[Carhillion of the Fold] Clear Bluestone Ring
+76600600,[Carhillion of the Fold] Amber Herb
+76600601,[Carhillion of the Fold] Twilight Herb
+76600602,[Carhillion of the Fold] Simpleton's Spice
+
+#RuinSentinesUpperExitBack
+##Conn_FragrantBranchOfYore
+76800300,[Straid of Olaphis] Homing Soul Arrow
+76800301,[Straid of Olaphis] Resplendent Life
+76800302,[Straid of Olaphis - Velstadt] Great Lightning Spear
+76800303,[Straid of Olaphis] Unveil
+76800304,[Straid of Olaphis - Velstadt] Sunlight Blade
+76800305,[Straid of Olaphis] Lingering Flame
+76800306,[Straid of Olaphis] Flame Swathe
+76800307,[Straid of Olaphis] Dark Orb
+76800308,[Straid of Olaphis] Dark Hail
+76800309,[Straid of Olaphis] Dark Fog
+76800310,[Straid of Olaphis] Affinity
+76800311,[Straid of Olaphis] Strong Magic Shield
+76800312,[Straid of Olaphis] Cast Light
+76800400,[Straid of Olaphis] Ring of Knowledge
+76800401,[Straid of Olaphis] Lingering Dragoncrest Ring
+76800402,[Straid of Olaphis] Agape Ring
+76800600,[Straid of Olaphis] Rouge Water
+
+#SmeltorDemonEntryFront
+77200200,[Magerold of Lanafir] Spiked Bandit Helm
+77200201,[Magerold of Lanafir] Bandit Armor
+77200202,[Magerold of Lanafir] Bandit Gauntlets
+77200203,[Magerold of Lanafir] Bandit Boots
+77200204,[Magerold of Lanafir] Jester's Cap
+77200205,[Magerold of Lanafir] Jester's Robes
+77200206,[Magerold of Lanafir] Jester's Gloves
+77200207,[Magerold of Lanafir] Jester's Tights
+77200300,[Magerold of Lanafir] Soul Arrow
+77200301,[Magerold of Lanafir] Great Soul Arrow
+77200302,[Magerold of Lanafir] Heavy Soul Arrow
+77200303,[Magerold of Lanafir] Great Heavy Soul Arrow
+77200304,[Magerold of Lanafir] Dark Hail
+77200305,[Magerold of Lanafir] Darkstorm
+77200306,[Magerold of Lanafir] Fall Control
+77200400,[Magerold of Lanafir] Cursebite Ring
+77200500,[Magerold of Lanafir] Hello Carving
+77200501,[Magerold of Lanafir] Thank You Carving
+77200502,[Magerold of Lanafir] I'm Sorry Carving
+77200503,[Magerold of Lanafir] Very Good! Carving
+77200600,[Magerold of Lanafir] Green Blossom
+77200601,[Magerold of Lanafir] Charcoal Pine Resin
+77200602,[Magerold of Lanafir] Black Firebomb
+77200603,[Magerold of Lanafir] Rusted Coin
+77200604,[Magerold of Lanafir] Repair Powder
+77200605,[Magerold of Lanafir] Human Effigy
+77200606,[Magerold of Lanafir] Fragrant Branch of Yore
+
+#Tutorial1EntryFront
+77700400,[Sweet Shalquoir] Silvercat Ring
+77700401,[Sweet Shalquoir] Redeye ring
+77700402,[Sweet Shalquoir] Name-engraved Ring
+77700403,[Sweet Shalquoir] Ring of Whispers
+77700404,[Sweet Shalquoir] Ring of the Evil Eye
+77700600,[Sweet Shalquoir] Prism Stone
+77700601,[Sweet Shalquoir] Alluring Skull
+77700602,[Sweet Shalquoir] Lloyd's Talisman
+77700603,[Sweet Shalquoir] Homeward Bone
+
+#ChariotExitBack
+##Conn_TokenOfSpite
+78300000,[Titchy Gren] Great Scythe
+78300001,[Titchy Gren] Priest's Chime
+78300300,[Titchy Gren] Firestorm
+78300301,[Titchy Gren] Great Combustion
+78300302,[Titchy Gren] Fire Whip
+78300400,[Titchy Gren] Delicate String
+78300600,[Titchy Gren] Red Sign Soapstone
+78300601,[Titchy Gren] Silver Talisman
+78300602,[Titchy Gren] Hexing Urn
+78300604,[Titchy Gren] Cracked Red Eye Orb
+
+#CongregationExitBack
+78400200,[Cromwell the Pardoner] White Priest Headpiece
+78400201,[Cromwell the Pardoner] White Priest Robe
+78400202,[Cromwell the Pardoner] White Priest Gloves
+78400203,[Cromwell the Pardoner] White Priest Skirt
+78400300,[Cromwell the Pardoner] Great Heal
+78400301,[Cromwell the Pardoner] Replenishment
+78400302,[Cromwell the Pardoner] Caressing Prayer
+78400303,[Cromwell the Pardoner] Force
+78400304,[Cromwell the Pardoner] Emit Force
+78400305,[Cromwell the Pardoner] Heavenly Thunder
+78400306,[Cromwell the Pardoner] Perseverance
+78400307,[Cromwell the Pardoner] Scraps of Life
+78400400,[Cromwell the Pardoner] Poisonbite Ring
+78400401,[Cromwell the Pardoner] Bloodbite Ring
+78400402,[Cromwell the Pardoner] Cursebite Ring
+78400600,[Cromwell the Pardoner] Dark Troches
+
+#OldDragonslayerExitBack
+##Conn_TokenOfFidelity
+78500000,[Blue Sentinel Targray] Morning Star
+78500001,[Blue Sentinel Targray] Halberd
+78500300,[Blue Sentinel Targray] Emit Force
+78500301,[Blue Sentinel Targray] Heavenly Thunder
+78500600,[Blue Sentinel Targray] Monastery Charm
+78500601,[Blue Sentinel Targray] Holy Water Urn
+78500602,[Blue Sentinel Targray] Boltstone

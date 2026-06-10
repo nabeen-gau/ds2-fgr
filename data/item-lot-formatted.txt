@@ -1,4 +1,4 @@
-#Tutorial1EntryFront[32] = {
+#Tutorial1EntryFront[81] = {
 	10026020 = {
 		Keys[0] = {},
 		Type = Area
@@ -158,6 +158,251 @@
 		Keys[1] = {Conn_HouseKey},
 		Type = GuranteedDrop
 		Desc = Skeletons - Majula house, Human Effigy
+	},
+	76100000 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Iron Parma
+	},
+	76100001 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Silver Eagle Kite Shield
+	},
+	76100002 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Twin Dragon Greatshield
+	},
+	76100200 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Standard Helm
+	},
+	76100201 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Hard Leather Armor
+	},
+	76100202 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Hard Leather Gauntlets
+	},
+	76100203 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Hard Leather Boots
+	},
+	76100204 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Falconer Helm
+	},
+	76100205 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Falconer Armor
+	},
+	76100206 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Falconer Gloves
+	},
+	76100207 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Falconer Boots
+	},
+	76100208 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Infantry Armor
+	},
+	76100209 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Infantry Gloves
+	},
+	76100210 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer] Infantry Boots
+	},
+	76100211 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 1000 Souls] Royal Soldier Helm
+	},
+	76100212 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 1000 Souls] Royal Soldier Armor
+	},
+	76100213 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 1000 Souls] Royal Soldier Gauntlet
+	},
+	76100214 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 1000 Souls] Royal Soldier Leggings
+	},
+	76100215 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 1000 Souls] Elite Knight Helm
+	},
+	76100216 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 1000 Souls] Elite Knight Armor
+	},
+	76100217 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 1000 Souls] Elite Knight Gloves
+	},
+	76100218 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 1000 Souls] Elite Knight Leggings
+	},
+	76100227 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 15000 Souls] Alva Helm
+	},
+	76100228 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 15000 Souls] Alva Armor
+	},
+	76100229 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 15000 Souls] Alva Gauntlets
+	},
+	76100230 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Maughlin the Armourer - 15000 Souls] Alva Leggings
+	},
+	76400000 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Longsword
+	},
+	76400001 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Broadsword
+	},
+	76400002 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Estoc
+	},
+	76400003 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Rapier
+	},
+	76400004 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Falchion
+	},
+	76400005 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Battle Axe
+	},
+	76400006 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Mace
+	},
+	76400007 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Spear
+	},
+	76400600 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Wood Arrow
+	},
+	76400601 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Iron Arrow
+	},
+	76400602 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Wood Bolt
+	},
+	76400603 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Heavy Bolt
+	},
+	76400604 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Titanite Shard
+	},
+	76400605 = {
+		Keys[1] = {Conn_LenigrastKey},
+		Type = Shop
+		Desc = [Blacksmith Lenigrast] Repair Powder
+	},
+	77700400 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Sweet Shalquoir] Silvercat Ring
+	},
+	77700401 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Sweet Shalquoir] Redeye ring
+	},
+	77700402 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Sweet Shalquoir] Name-engraved Ring
+	},
+	77700403 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Sweet Shalquoir] Ring of Whispers
+	},
+	77700404 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Sweet Shalquoir] Ring of the Evil Eye
+	},
+	77700600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Sweet Shalquoir] Prism Stone
+	},
+	77700601 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Sweet Shalquoir] Alluring Skull
+	},
+	77700602 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Sweet Shalquoir] Lloyd's Talisman
+	},
+	77700603 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Sweet Shalquoir] Homeward Bone
 	},
 }
 
@@ -373,7 +618,7 @@
 	},
 }
 
-#ForestOfFallenGiantsToCaleFront[26] = {
+#ForestOfFallenGiantsToCaleFront[46] = {
 	10106050 = {
 		Keys[0] = {},
 		Type = Area
@@ -503,6 +748,106 @@
 		Keys[0] = {},
 		Type = GuranteedDrop
 		Desc = Crystal Lizard -Forest of Fallen Giants, Titanite Shard
+	},
+	75400000 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Broken Straight Sword
+	},
+	75400001 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Hand Axe
+	},
+	75400002 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Club
+	},
+	75400003 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Caestus
+	},
+	75400200 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Traveling Merchant Hat
+	},
+	75400201 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Traveling Merchant Coat
+	},
+	75400202 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Traveling Merchant Gloves
+	},
+	75400203 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Traveling Merchant Boots
+	},
+	75400300 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Soul Arrow
+	},
+	75400301 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Heal
+	},
+	75400500 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Lenigrast's Key
+	},
+	75400600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia - Forest of Fallen Giants] Lifegem
+	},
+	75400603 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Amber Herb
+	},
+	75400604 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Throwing Knife
+	},
+	75400605 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Witching Urn
+	},
+	75400606 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Firebomb
+	},
+	75400607 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Human Effigy
+	},
+	75400608 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Pharros' Lockstone
+	},
+	75400609 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Brightbug
+	},
+	75400615 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Merchant Hag Melentia] Fragrant Branch of Yore
 	},
 }
 
@@ -656,7 +1001,7 @@
 	},
 }
 
-#CongregationExitBack[42] = {
+#CongregationExitBack[58] = {
 	10145110 = {
 		Keys[0] = {},
 		Type = Chest
@@ -866,6 +1211,86 @@
 		Keys[0] = {},
 		Type = GuranteedDrop
 		Desc = Crystal Lizard drop in Tseldora, Titanite Chunk- Petrified Dragon Bone
+	},
+	78400200 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] White Priest Headpiece
+	},
+	78400201 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] White Priest Robe
+	},
+	78400202 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] White Priest Gloves
+	},
+	78400203 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] White Priest Skirt
+	},
+	78400300 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Great Heal
+	},
+	78400301 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Replenishment
+	},
+	78400302 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Caressing Prayer
+	},
+	78400303 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Force
+	},
+	78400304 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Emit Force
+	},
+	78400305 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Heavenly Thunder
+	},
+	78400306 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Perseverance
+	},
+	78400307 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Scraps of Life
+	},
+	78400400 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Poisonbite Ring
+	},
+	78400401 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Bloodbite Ring
+	},
+	78400402 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Cursebite Ring
+	},
+	78400600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Cromwell the Pardoner] Dark Troches
 	},
 }
 
@@ -1162,7 +1587,7 @@
 	},
 }
 
-#NearPursuerBirdExit[10] = {
+#NearPursuerBirdExit[25] = {
 	10165140 = {
 		Keys[0] = {},
 		Type = Chest
@@ -1212,6 +1637,81 @@
 		Keys[0] = {},
 		Type = GuranteedDrop
 		Desc = Pursuer in Bastille - Tower Apart, Twinkling Titanite
+	},
+	76430000 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Uchigatana
+	},
+	76430001 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Bastard Sword
+	},
+	76430002 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Greataxe
+	},
+	76430003 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Winged Spear
+	},
+	76430004 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Scythe
+	},
+	76430005 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Long Bow
+	},
+	76430006 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Light Crossbow
+	},
+	76430100 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Royal Kite Shield
+	},
+	76430600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Wood Arrow
+	},
+	76430601 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Iron Arrow
+	},
+	76430602 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Wood Bolt
+	},
+	76430603 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Heavy Bolt
+	},
+	76430604 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Iron Greatarrow
+	},
+	76430605 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Large Titanite Shard
+	},
+	76430606 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Steady Hand McDuff] Repair Powder
 	},
 }
 
@@ -1350,7 +1850,7 @@
 	},
 }
 
-#RuinSentinesUpperExitBack[25] = {
+#RuinSentinesUpperExitBack[42] = {
 	10165000 = {
 		Keys[0] = {},
 		Type = Chest
@@ -1476,6 +1976,91 @@
 		Type = GuranteedDrop
 		Desc = Pursuer in Bastille - Illusory Walls, Twinkling Titanite
 	},
+	76800300 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Homing Soul Arrow
+	},
+	76800301 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Resplendent Life
+	},
+	76800302 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis - Velstadt] Great Lightning Spear
+	},
+	76800303 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Unveil
+	},
+	76800304 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis - Velstadt] Sunlight Blade
+	},
+	76800305 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Lingering Flame
+	},
+	76800306 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Flame Swathe
+	},
+	76800307 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Dark Orb
+	},
+	76800308 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Dark Hail
+	},
+	76800309 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Dark Fog
+	},
+	76800310 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Affinity
+	},
+	76800311 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Strong Magic Shield
+	},
+	76800312 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Cast Light
+	},
+	76800400 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Ring of Knowledge
+	},
+	76800401 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Lingering Dragoncrest Ring
+	},
+	76800402 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Agape Ring
+	},
+	76800600 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = Shop
+		Desc = [Straid of Olaphis] Rouge Water
+	},
 }
 
 #LostSinnerExitBack[1] = {
@@ -1589,7 +2174,7 @@
 	},
 }
 
-#HarvestValleyToSkeletonLordsBack[30] = {
+#HarvestValleyToSkeletonLordsBack[34] = {
 	10175110 = {
 		Keys[0] = {},
 		Type = Chest
@@ -1740,6 +2325,26 @@
 		Type = Area
 		Desc = Skeleton in the first poison valley, NG+. Replaces Titanite Chunk x3
 	},
+	76200300 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Stone Trader Chloanne] Soul Appease
+	},
+	76200301 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Stone Trader Chloanne] Dead Again
+	},
+	76200600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Stone Trader Chloanne] Titanite Shard
+	},
+	76200618 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Stone Trader Chloanne] Bonfire Ascetic
+	},
 }
 
 #CovetousDemonEntryFront[28] = {
@@ -1885,7 +2490,7 @@
 	},
 }
 
-#CovetousDemonExitBack[20] = {
+#CovetousDemonExitBack[32] = {
 	10175120 = {
 		Keys[0] = {},
 		Type = Chest
@@ -1986,9 +2591,69 @@
 		Type = GuranteedDrop
 		Desc = Mimic in Harvest Valley, Work Hook- Dark Gauntlets
 	},
+	70400000 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Reinforced Club
+	},
+	70400001 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Claws
+	},
+	70400002 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Whip
+	},
+	70400003 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Wooden Shield
+	},
+	70400200 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Thief Mask
+	},
+	70400201 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Black Leather Armor
+	},
+	70400202 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Black Leather Gloves
+	},
+	70400203 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Black Leather Boots
+	},
+	70400500 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Ladder Miniature
+	},
+	70400600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Aromatic Ooze
+	},
+	70400601 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Lacerating Knife
+	},
+	70400602 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Laddersmith Gilligan - Earthen Peak] Bleeding Serum
+	},
 }
 
-#NoMansWharfToHeidesBack[28] = {
+#NoMansWharfToHeidesBack[47] = {
 	10185050 = {
 		Keys[0] = {},
 		Type = Chest
@@ -2129,6 +2794,101 @@
 		Type = GuranteedDrop
 		Desc = Crystal Lizard in No Mans Warf, Titanite Shard- Large Titanite Shard
 	},
+	72600400 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Lonesome Gavlan - No-man's Wharf] Ring of Giants
+	},
+	72600600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Lonesome Gavlan] Poison Moss
+	},
+	72600601 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Lonesome Gavlan] Rotten Pine Resin
+	},
+	72600602 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Lonesome Gavlan] Poison Throwing Knife
+	},
+	72600603 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Lonesome Gavlan] Poison Arrow
+	},
+	76600000 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Sorcerer's Staff
+	},
+	76600300 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Soul Arrow
+	},
+	76600301 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Great Soul Arrow
+	},
+	76600302 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Heavy Soul Arrow
+	},
+	76600303 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Great Heavy Soul Arrow
+	},
+	76600304 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Shockwave
+	},
+	76600305 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Soul Spear Barrage
+	},
+	76600306 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Magic Weapon
+	},
+	76600307 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Yearn
+	},
+	76600400 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Spell Quartz Ring
+	},
+	76600401 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Clear Bluestone Ring
+	},
+	76600600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Amber Herb
+	},
+	76600601 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Twilight Herb
+	},
+	76600602 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Carhillion of the Fold] Simpleton's Spice
+	},
 }
 
 #FlexileSentryExitBack[1] = {
@@ -2139,7 +2899,7 @@
 	},
 }
 
-#SmeltorDemonEntryFront[17] = {
+#SmeltorDemonEntryFront[44] = {
 	10195030 = {
 		Keys[0] = {},
 		Type = Chest
@@ -2224,6 +2984,141 @@
 		Keys[0] = {},
 		Type = GuranteedDrop
 		Desc = Crystal Lizard Iron Keep, Large Titanite Shard- Titanite Chunk- Firedrake Stone
+	},
+	77200200 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Spiked Bandit Helm
+	},
+	77200201 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Bandit Armor
+	},
+	77200202 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Bandit Gauntlets
+	},
+	77200203 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Bandit Boots
+	},
+	77200204 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Jester's Cap
+	},
+	77200205 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Jester's Robes
+	},
+	77200206 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Jester's Gloves
+	},
+	77200207 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Jester's Tights
+	},
+	77200300 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Soul Arrow
+	},
+	77200301 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Great Soul Arrow
+	},
+	77200302 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Heavy Soul Arrow
+	},
+	77200303 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Great Heavy Soul Arrow
+	},
+	77200304 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Dark Hail
+	},
+	77200305 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Darkstorm
+	},
+	77200306 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Fall Control
+	},
+	77200400 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Cursebite Ring
+	},
+	77200500 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Hello Carving
+	},
+	77200501 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Thank You Carving
+	},
+	77200502 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] I'm Sorry Carving
+	},
+	77200503 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Very Good! Carving
+	},
+	77200600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Green Blossom
+	},
+	77200601 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Charcoal Pine Resin
+	},
+	77200602 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Black Firebomb
+	},
+	77200603 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Rusted Coin
+	},
+	77200604 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Repair Powder
+	},
+	77200605 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Human Effigy
+	},
+	77200606 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Magerold of Lanafir] Fragrant Branch of Yore
 	},
 }
 
@@ -2468,11 +3363,61 @@
 	},
 }
 
-#ChariotExitBack[1] = {
+#ChariotExitBack[11] = {
 	10236010 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse above the stairs in Undead Purgatory. Replaces Cracked Red Eye Orb x2
+	},
+	78300000 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Great Scythe
+	},
+	78300001 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Priest's Chime
+	},
+	78300300 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Firestorm
+	},
+	78300301 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Great Combustion
+	},
+	78300302 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Fire Whip
+	},
+	78300400 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Delicate String
+	},
+	78300600 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Red Sign Soapstone
+	},
+	78300601 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Silver Talisman
+	},
+	78300602 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Hexing Urn
+	},
+	78300604 = {
+		Keys[1] = {Conn_TokenOfSpite},
+		Type = Shop
+		Desc = [Titchy Gren] Cracked Red Eye Orb
 	},
 }
 
@@ -3027,7 +3972,7 @@
 	},
 }
 
-#OldDragonslayerExitBack[2] = {
+#OldDragonslayerExitBack[9] = {
 	10315010 = {
 		Keys[0] = {},
 		Type = Chest
@@ -3037,6 +3982,41 @@
 		Keys[0] = {},
 		Type = Chest
 		Desc = Heide's Tower of Flame - Chest (Wooden chest in the Cathedral of Blue. Replaces  x3)
+	},
+	78500000 = {
+		Keys[1] = {Conn_TokenOfFidelity},
+		Type = Shop
+		Desc = [Blue Sentinel Targray] Morning Star
+	},
+	78500001 = {
+		Keys[1] = {Conn_TokenOfFidelity},
+		Type = Shop
+		Desc = [Blue Sentinel Targray] Halberd
+	},
+	78500300 = {
+		Keys[1] = {Conn_TokenOfFidelity},
+		Type = Shop
+		Desc = [Blue Sentinel Targray] Emit Force
+	},
+	78500301 = {
+		Keys[1] = {Conn_TokenOfFidelity},
+		Type = Shop
+		Desc = [Blue Sentinel Targray] Heavenly Thunder
+	},
+	78500600 = {
+		Keys[1] = {Conn_TokenOfFidelity},
+		Type = Shop
+		Desc = [Blue Sentinel Targray] Monastery Charm
+	},
+	78500601 = {
+		Keys[1] = {Conn_TokenOfFidelity},
+		Type = Shop
+		Desc = [Blue Sentinel Targray] Holy Water Urn
+	},
+	78500602 = {
+		Keys[1] = {Conn_TokenOfFidelity},
+		Type = Shop
+		Desc = [Blue Sentinel Targray] Boltstone
 	},
 }
 
@@ -3088,7 +4068,7 @@
 	},
 }
 
-#ShadedWoodsToMistyAreaBack[35] = {
+#ShadedWoodsToMistyAreaBack[42] = {
 	10325020 = {
 		Keys[0] = {},
 		Type = Chest
@@ -3263,6 +4243,41 @@
 		Keys[1] = {Conn_FragrantBranchOfYore},
 		Type = GuranteedDrop
 		Desc = Petrified Lion Warrior - Shaded next to Golden Lion, Warlock Mask
+	},
+	1502000 = {
+		Keys[2] = {Conn_DefeatNajka, Conn_RingOfWhispers},
+		Type = GuranteedDrop
+		Desc = [NPC - Manscorpion Tark] Replaces Fragrant Branch of Yore
+	},
+	30700000 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Head of Vengarl] Claymore
+	},
+	30700001 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Head of Vengarl] Greatsword
+	},
+	30700300 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Head of Vengarl] Magic Barrier
+	},
+	30700600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Head of Vengarl] Gold Pine Resin
+	},
+	30700601 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Head of Vengarl] Lightning Urn
+	},
+	30700602 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Head of Vengarl] Destructive Greatarrow
 	},
 }
 
@@ -3494,7 +4509,7 @@
 	},
 }
 
-#RoyalRatVanguardExitBack[4] = {
+#RoyalRatVanguardExitBack[9] = {
 	10346060 = {
 		Keys[0] = {},
 		Type = Area
@@ -3514,6 +4529,31 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton behind metal bars above the wooden bridge, NG+. Replaces Twinkling Titanite, Bleed Stone
+	},
+	75600600 = {
+		Keys[1] = {Conn_RatTail},
+		Type = Shop
+		Desc = [The Rat King] Common Fruit
+	},
+	75600601 = {
+		Keys[1] = {Conn_RatTail},
+		Type = Shop
+		Desc = [The Rat King] Red Leech Troches
+	},
+	75600602 = {
+		Keys[1] = {Conn_RatTail},
+		Type = Shop
+		Desc = [The Rat King] Triclops Snake Troches
+	},
+	75600603 = {
+		Keys[1] = {Conn_RatTail},
+		Type = Shop
+		Desc = [The Rat King] Dung Pie
+	},
+	75600604 = {
+		Keys[1] = {Conn_RatTail},
+		Type = Shop
+		Desc = [The Rat King] Corrosive Urn
 	},
 }
 
@@ -3870,7 +4910,7 @@
 	},
 }
 
-#DrangleicCastleToShadedWoodsBack[12] = {
+#DrangleicCastleToShadedWoodsBack[24] = {
 	20215000 = {
 		Keys[0] = {},
 		Type = Chest
@@ -3930,6 +4970,66 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in the painting room. Replaces Torch x3
+	},
+	72110000 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Flamberge
+	},
+	72110001 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Lucerne
+	},
+	72110303 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Great Magic Barrier
+	},
+	72110400 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Bracing Knuckle Ring+1
+	},
+	72110600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Old Radiant Lifegem
+	},
+	72110601 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Wilted Dusk Herb
+	},
+	72110602 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Divine Blessing
+	},
+	72110603 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Repair Powder
+	},
+	72110604 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Magic Arrow
+	},
+	72110605 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Lightning Arrow
+	},
+	72110606 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Magic Bolt
+	},
+	72110607 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Chancellor Wellager] Lightning Bolt
 	},
 }
 
@@ -4009,11 +5109,46 @@
 	},
 }
 
-#DrangleicCastleToChasmPortalBack[1] = {
+#DrangleicCastleToChasmPortalBack[8] = {
 	20216010 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in the cave under the castle. Replaces Faraam Helm, Faraam Armor, Faraam Gauntlets, Faraam Boots
+	},
+	72500300 = {
+		Keys[1] = {Conn_DarkCovenentJoined},
+		Type = Shop
+		Desc = [Darkdiver Grandahl] Cast Light
+	},
+	72500301 = {
+		Keys[1] = {Conn_DarkCovenentJoined},
+		Type = Shop
+		Desc = [Darkdiver Grandahl] Dark Orb
+	},
+	72500302 = {
+		Keys[1] = {Conn_DarkCovenentJoined},
+		Type = Shop
+		Desc = [Darkdiver Grandahl] Dark Hail
+	},
+	72500303 = {
+		Keys[1] = {Conn_DarkCovenentJoined},
+		Type = Shop
+		Desc = [Darkdiver Grandahl] Darkstorm
+	},
+	72500304 = {
+		Keys[1] = {Conn_DarkCovenentJoined},
+		Type = Shop
+		Desc = [Darkdiver Grandahl] Profound Still
+	},
+	72500600 = {
+		Keys[1] = {Conn_DarkCovenentJoined},
+		Type = Shop
+		Desc = [Darkdiver Grandahl] Human Effigy
+	},
+	72500601 = {
+		Keys[1] = {Conn_DarkCovenentJoined},
+		Type = Shop
+		Desc = [Darkdiver Grandahl] Bonfire Ascetic
 	},
 }
 
@@ -5897,7 +7032,7 @@
 	},
 }
 
-#VelsdatEntryFront[10] = {
+#VelsdatEntryFront[20] = {
 	20245010 = {
 		Keys[0] = {},
 		Type = Chest
@@ -5947,6 +7082,56 @@
 		Keys[0] = {},
 		Type = GuranteedDrop
 		Desc = Dragonrider - Undead Crypt, Titanite Slab- Petrified Dragon Bone
+	},
+	2240100 = {
+		Keys[0] = {},
+		Type = GuranteedDrop
+		Desc = [Insolent Knight - Undead Crypt after torching scones], Fragrant Branch of Yore
+	},
+	50600300 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Grave Warden Agdayne] Soul Spear
+	},
+	50600301 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Grave Warden Agdayne] Soul Vortex
+	},
+	50600302 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Grave Warden Agdayne] Soul Appease
+	},
+	50600303 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Grave Warden Agdayne] Warmth
+	},
+	50600401 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Grave Warden Agdayne] Ring of Thorns+1
+	},
+	50600600 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Grave Warden Agdayne] Human Effigy
+	},
+	50600601 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Grave Warden Agdayne] Elizabeth Mushroom
+	},
+	50600602 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Grave Warden Agdayne] Dark Arrow
+	},
+	50600603 = {
+		Keys[0] = {},
+		Type = Shop
+		Desc = [Grave Warden Agdayne] Dark Bolt
 	},
 }
 
