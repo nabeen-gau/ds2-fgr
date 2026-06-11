@@ -302,7 +302,10 @@
 20216090,
 
 #DrangleicCastleToShadedWoodsBack
-20215000,20215050,20215080,20215130,20215160,20216000,20216030,20216040,20216050,20216110,20216130,20216140,
+20215000,20215050,20215080,20215130,20215160,20216000,20216030,20216040,20216050,20216130,20216140,
+
+#TwinDragonridersEntryFront
+20216110,
 
 #TwinDragonridersExitBack
 20215060,20215070,20215090,20215100,20215110,20215120,20215140,20216100,
@@ -348,7 +351,6 @@
 50355050,
 50355070,
 50355090,
-50355120,
 50355250,
 50355260,
 50355270,
@@ -400,6 +402,7 @@
 50356350,
 50356630,
 50356640,
+50355120,
 
 #NearJesterThomasBack
 50356150,
@@ -410,13 +413,14 @@
 50356510,
 50356520,
 ##Conn_DragonStone
-50356420,
 50356450,
 50356460,
 50356470,
 50356480,
 50356490,
 50356500,
+##Conn_BowCrossbow
+50356420,
 
 #SihnTheSlumberingDragonEntryBack
 50356110,
@@ -1172,6 +1176,18 @@
 1787000,
 
 #GuranteedDrop
+
+#CongregationExitBack
+##Conn_PateCreightonQuest
+1742000,[NPC - Creighton the Wanderer] Replaces Tseldora Den Key
+1744000,[NPC - Mild-mannered Pate] Replaces Tseldora Den Key
+
+#ForestOfFallenGiantsToCaleBack
+1751000, [NPC - Cale the Cartographer] Replaces House Key
+
+#ShadedWoodsToMistyAreaBack
+##Conn_FragrantBranchOfYore
+60009000, Shaded Ruins,Unpetrify Lion Warrior-Fang Key
 
 #VelsdatEntryFront
 2240500, Dragonrider - Undead Crypt, Titanite Slab- Petrified Dragon Bone

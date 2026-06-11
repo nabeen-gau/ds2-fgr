@@ -917,6 +917,7 @@ typedef enum ConnectionType {
 	Conn_TokenOfSpite,
 	Conn_DefeatNajka,
 	Conn_RingOfWhispers,
+	Conn_PateCreightonQuest,
 }ConnectionType;
 
 void print_connection_type(ConnectionType ct) {
@@ -973,6 +974,7 @@ void print_connection_type(ConnectionType ct) {
 		case Conn_TokenOfSpite         : printf("TokenOfSpite");         break;
 		case Conn_DefeatNajka          : printf("Conn_DefeatNajka");     break;
 		case Conn_RingOfWhispers       : printf("Conn_RingOfWhispers");  break;
+		case Conn_PateCreightonQuest   : printf("Conn_PateCreightonQuest");  break;
 	}
 }
 

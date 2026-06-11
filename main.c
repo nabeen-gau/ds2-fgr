@@ -5531,6 +5531,51 @@ void randomizer() {
 	free_connections_by_ref(&c);
 }
 
+typedef struct {
+	WarpNode node;
+	ItemInfo item;
+} ItemValue;
+
+DA(ItemValue, ItemValues);
+
+#define KeyItems\
+	X(40510000, KingsRing)\
+	X(50600000, SoldierKey)\
+	X(50610000, KeytoKingsPassage)\
+	X(50800000, BastilleKey)\
+	X(50810000, IronKey)\
+	X(50820000, ForgottenKey)\
+	X(50830000, BrightstoneKey)\
+	X(50840000, AntiquatedKey)\
+	X(50850000, FangKey)\
+	X(50860000, HouseKey)\
+	X(50870000, LenigrastsKey)\
+	X(50890000, RotundaLockstone)\
+	X(50900000, GiantsKinship)\
+	X(50910000, AshenMistHeart)\
+	X(50920000, SoulofaGiant)\
+	X(50930000, TseldoraDenKey)\
+	X(50970000, UndeadLockawayKey)\
+	X(50990000, DullEmber)\
+	X(51030000, AldiaKey)\
+	X(52000000, DragonTalon)\
+	X(52100000, HeavyIronKey)\
+	X(52200000, FrozenFlower)\
+	X(52300000, EternalSanctumKey)\
+	X(52400000, TowerKey)\
+	X(52500000, GarrisonWardKey)\
+	X(52650000, DragonStone)\
+	X(53100000, ScorchingIronScepter)\
+	X(53600000, EyeofthePriestess)\
+	X(60536000, PharrosLockstone)\
+	X(60537000, FragrantBranchofYore)
+
+typedef enum {
+#define X(v, name) KeyItem ## name = v,
+	KeyItems
+#undef X
+} KeyItemsEnum;
+
 int main() {
 	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
 	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
@@ -5548,99 +5593,172 @@ int main() {
 	// 	printf("%s => %zu\n", WarpNodeNames[node], iig->count);
 	// }
 	// free_item_infos();
-	if (0) {
-		const char *path = "./Param/ItemLotParam2_Chr.param"; // 3
-		// const char *path = "./Param/ItemLotParam2_Other.param"; // 12
-		String_Builder sb = {0};
-		if (!nob_read_entire_file(path, &sb)) {
-			return false;
-		}
-#ifdef LOG_GENERATED_FILES
-		printf("[Read] %s: %zu bytes\n", param_path, sb->count);
-#endif
-		String_View sv = sb_to_sv(sb);
-		// PARAM param = load_param(&sv, Cell_ItemLotParam2_Chr);
-		PARAM param = load_param(&sv, Cell_ShopLineupParam);
+	
+#define ModPath ""
 
-		generate_item_infos();
-		for (size_t i=0; i<param.cells.count; i++) {
-			ItemLotParam2ChrPARAMDEF c = param.cells.items[i].as.itemlot_param2_char;
-			for (size_t j=0; j<ARRAY_LEN(c.item_id); j++) {
-				if (LotID_Item_FragrantBranchOfYore == c.item_id[j]) {
-					int32_t row_id = param.rows.items[i].ID;
-					bool found = false;
-					ht_foreach(iig, &gate_item_infos) {
-						WarpNode wn = ht_key(&gate_item_infos, iig);
-						da_foreach(ItemInfo, ii, iig) {
-							if ((int32_t)ii->id == row_id) {
-								printf("The key (%d) can be found at %s", row_id, WarpNodeNames[wn]);
-								if (ii->keys.count > 0) {
-									printf(" and requires keys (");
-								}
-								for (size_t k=0; k<ii->keys.count; k++) {
-									if (k!=0) printf(", ");
-									print_connection_type(ii->keys.items[k]);
-								}
-								if (ii->keys.count > 0) {
-									printf(")");
-								}
-								printf("\n");
-								found = true;
-							}
-						}
-					}
-					if (!found) printf("The key (%d) was not found\n", row_id);
-				}
+	generate_item_infos();
+	Ht(int, ItemValue) item_locs = {0};
+	ItemValues giant_souls_event_locs = {0};
+#define GiantSoulsEventId 60004000
+#define GiantSoulsEventCount 3
+	da_init(&giant_souls_event_locs, GiantSoulsEventCount);
+	ItemValues nadalia_souls_event_locs = {0};
+#define NadaliaSoulsEventId 60013000
+#define NadaliaSoulsEventCount 12
+	da_init(&nadalia_souls_event_locs, NadaliaSoulsEventCount);
+
+	generate_item_infos();
+	ht_foreach(iig, &gate_item_infos) {
+		WarpNode wn = ht_key(&gate_item_infos, iig);
+		da_foreach(ItemInfo, ii, iig) {
+			if      (ii->id == GiantSoulsEventId)   da_append(&giant_souls_event_locs,   ((ItemValue){.node = wn, .item = *ii}));
+			else if (ii->id == NadaliaSoulsEventId) da_append(&nadalia_souls_event_locs, ((ItemValue){.node = wn, .item = *ii}));
+			else {
+				assert(ht_find(&item_locs, ii->id) == NULL && "Duplicate item id found");
+				*ht_put(&item_locs, ii->id) = (ItemValue){.node = wn, .item = *ii};
 			}
 		}
-		free_PARAM(&param);
 	}
+	Ht(int, DArrz) game_items = {0}; // key = item_id, value = item_loc_id(row_id)
 
-	const char *path = "./Param/ShopLineupParam.param"; // 2
-
+	const char *chr_param_path = ModPath "./Param/ItemLotParam2_Chr.param";
 	String_Builder sb = {0};
-	if (!nob_read_entire_file(path, &sb)) {
+	if (!nob_read_entire_file(chr_param_path, &sb)) {
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
 	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
 #endif
-	String_View sv = sb_to_sv(sb);
-	// PARAM param = load_param(&sv, Cell_ItemLotParam2_Chr);
-	PARAM param = load_param(&sv, Cell_ShopLineupParam);
-	generate_item_infos();
 
+    Ht(int, const char *) key_items = {0};
+#define X(id, name) *ht_put(&key_items, (id)) = #name;
+	KeyItems
+#undef X
+
+	// ht_foreach(value, &key_items) {
+	// 	int key = ht_key(&key_items, value);
+	// 	printf("key = %d\n", key);
+	// }
+
+	// key_items is the list of items which i must find in the game files and store it for quick access
+	// for each item there should be a list of locations (item-instance-id) i can find it in
+	String_View sv = sb_to_sv(sb);
+	PARAM param = load_param(&sv, Cell_ItemLotParam2_Chr);
 	for (size_t i=0; i<param.cells.count; i++) {
-		ShopLineupPARAMDEF c = param.cells.items[i].as.shop_lineup_param;
-		if (c.item_id == LotID_Item_FragrantBranchOfYore) {
-			bool found = false;
-			size_t row_id = param.rows.items[i].ID;
-			ht_foreach(iig, &gate_item_infos) {
-				WarpNode wn = ht_key(&gate_item_infos, iig);
-				da_foreach(ItemInfo, ii, iig) {
-					if (ii->id == row_id) {
-						printf("The key (%zu) can be found at %s", row_id, WarpNodeNames[wn]);
-						if (ii->keys.count > 0) {
-							printf(" and requires keys (");
-						}
-						for (size_t k=0; k<ii->keys.count; k++) {
-							if (k!=0) printf(", ");
-							print_connection_type(ii->keys.items[k]);
-						}
-						if (ii->keys.count > 0) {
-							printf(")");
-						}
-						printf("\n");
-						found = true;
-					}
+		int32_t row_id = param.rows.items[i].ID;
+		ItemLotParam2ChrPARAMDEF c = param.cells.items[i].as.itemlot_param2_char;
+		for (size_t j=0; j<ARRAY_LEN(c.item_id); j++) {
+			if (ht_find(&key_items, c.item_id[j])) {
+				DArrz *items = ht_find(&game_items, c.item_id[j]);
+				if (items != NULL) {
+					da_append(items, row_id);
+				} else {
+					DArrz new = {0};
+					da_init(&new, 4);
+					da_append(&new, row_id);
+					*ht_put(&game_items, c.item_id[j]) = new;
 				}
 			}
-			if (!found) printf("The key (%zu) was not found\n", row_id);
 		}
 	}
 
 	free_PARAM(&param);
+	const char *other_param_path = ModPath "./Param/ItemLotParam2_Other.param";
+	sb.count = 0;
+	if (!nob_read_entire_file(other_param_path, &sb)) {
+		return false;
+	}
+#ifdef LOG_GENERATED_FILES
+	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
+#endif
+	sv = sb_to_sv(sb);
+	param = load_param(&sv, Cell_ItemLotParam2_Chr);
+	for (size_t i=0; i<param.cells.count; i++) {
+		int32_t row_id = param.rows.items[i].ID;
+		ItemLotParam2ChrPARAMDEF c = param.cells.items[i].as.itemlot_param2_char;
+		for (size_t j=0; j<ARRAY_LEN(c.item_id); j++) {
+			if (ht_find(&key_items, c.item_id[j])) {
+				DArrz *items = ht_find(&game_items, c.item_id[j]);
+				if (items != NULL) {
+					da_append(items, row_id);
+				} else {
+					DArrz new = {0};
+					da_init(&new, 4);
+					da_append(&new, row_id);
+					*ht_put(&game_items, c.item_id[j]) = new;
+				}
+			}
+		}
+	}
+
+	free_PARAM(&param);
+	const char *shop_param_path = ModPath "./Param/ShopLineupParam.param";
+	sb.count = 0;
+	if (!nob_read_entire_file(shop_param_path, &sb)) {
+		return false;
+	}
+#ifdef LOG_GENERATED_FILES
+	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
+#endif
+	sv = sb_to_sv(sb);
+	param = load_param(&sv, Cell_ShopLineupParam);
+
+	for (size_t i=0; i<param.cells.count; i++) {
+		int32_t row_id = param.rows.items[i].ID;
+		ShopLineupPARAMDEF c = param.cells.items[i].as.shop_lineup_param;
+		if (ht_find(&key_items, c.item_id)) {
+			DArrz *items = ht_find(&game_items, c.item_id);
+			if (items != NULL) {
+				da_append(items, row_id);
+			} else {
+				DArrz new = {0};
+				da_init(&new, 4);
+				da_append(&new, row_id);
+				*ht_put(&game_items, c.item_id) = new;
+			}
+		}
+	}
+
+
+	free_PARAM(&param);
+	da_free(sb);
+
+
+	ht_foreach(value, &game_items) {
+		int key = ht_key(&game_items, value);
+		printf("key = %s, loc = {\n", *ht_find(&key_items, key));
+		for (size_t i=0; i<value->count; i++) {
+			ItemValue *iv = ht_find(&item_locs, value->items[i]);
+			if (iv != NULL) {
+				printf("\t%s(%zu)", WarpNodeNames[iv->node], iv->item.id);
+				if (iv->item.keys.count > 0) printf("(");
+				for (size_t j=0; j<iv->item.keys.count; j++) {
+					if (j != 0) printf(", ");
+					print_connection_type(iv->item.keys.items[j]);
+				}
+				if (iv->item.keys.count > 0) printf(")");
+				printf(",\n");
+			} else if (value->items[i] == GiantSoulsEventId) {
+				da_foreach(ItemValue, gseid, &giant_souls_event_locs) {
+					printf("\t%s,\n", WarpNodeNames[gseid->node]);
+				}
+			} else {
+				printf("\t%zu", value->items[i]);
+				printf(",\n");
+			}
+		}
+		printf("}\n");
+	}
+
 	free_item_infos();
+	ht_free(&item_locs);
+	ht_free(&key_items);
+	ht_foreach(value, &game_items) {
+		da_free(*value);
+	}
+	ht_free(&game_items);
+	da_free(giant_souls_event_locs);
+	da_free(nadalia_souls_event_locs);
 
 	return 0;
 }

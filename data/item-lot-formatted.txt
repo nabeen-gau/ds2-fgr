@@ -480,7 +480,7 @@
 	},
 }
 
-#ForestOfFallenGiantsToCaleBack[27] = {
+#ForestOfFallenGiantsToCaleBack[28] = {
 	10105030 = {
 		Keys[0] = {},
 		Type = Chest
@@ -615,6 +615,11 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse overlooking the flooded courtyard from the rolling boulder tunnel, NG+. Replaces Wilted Dusk Herb x3
+	},
+	1751000 = {
+		Keys[0] = {},
+		Type = GuranteedDrop
+		Desc = [NPC - Cale the Cartographer] Replaces House Key
 	},
 }
 
@@ -1001,7 +1006,7 @@
 	},
 }
 
-#CongregationExitBack[58] = {
+#CongregationExitBack[60] = {
 	10145110 = {
 		Keys[0] = {},
 		Type = Chest
@@ -1201,6 +1206,16 @@
 		Keys[1] = {Conn_TseldoraDenKey},
 		Type = Chest
 		Desc = Brightstone Cove - Chest - Pate's Fight Room (Wooden chest in Pate's trapped room. Replaces Rusted Coin x10)
+	},
+	1742000 = {
+		Keys[1] = {Conn_PateCreightonQuest},
+		Type = GuranteedDrop
+		Desc = [NPC - Creighton the Wanderer] Replaces Tseldora Den Key
+	},
+	1744000 = {
+		Keys[1] = {Conn_PateCreightonQuest},
+		Type = GuranteedDrop
+		Desc = [NPC - Mild-mannered Pate] Replaces Tseldora Den Key
 	},
 	1141000 = {
 		Keys[0] = {},
@@ -4068,7 +4083,7 @@
 	},
 }
 
-#ShadedWoodsToMistyAreaBack[42] = {
+#ShadedWoodsToMistyAreaBack[43] = {
 	10325020 = {
 		Keys[0] = {},
 		Type = Chest
@@ -4233,6 +4248,11 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse next to the large crumbling planks above the corrosive cave, NG+. Replaces Divine Blessing
+	},
+	60009000 = {
+		Keys[1] = {Conn_FragrantBranchOfYore},
+		Type = GuranteedDrop
+		Desc = Shaded Ruins, Unpetrify Lion Warrior-Fang Key
 	},
 	1321000 = {
 		Keys[0] = {},
@@ -4910,7 +4930,7 @@
 	},
 }
 
-#DrangleicCastleToShadedWoodsBack[24] = {
+#DrangleicCastleToShadedWoodsBack[23] = {
 	20215000 = {
 		Keys[0] = {},
 		Type = Chest
@@ -4955,11 +4975,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton next to the forgotten chamber. Replaces Soul of a Brave Warrior
-	},
-	20216110 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in the storage room in the castle's basement. Replaces Frozen Flower
 	},
 	20216130 = {
 		Keys[0] = {},
@@ -5030,6 +5045,39 @@
 		Keys[0] = {},
 		Type = Shop
 		Desc = [Chancellor Wellager] Lightning Bolt
+	},
+}
+
+#TwinDragonridersEntryFront[6] = {
+	20216110 = {
+		Keys[0] = {},
+		Type = Area
+		Desc = Skeleton in the storage room in the castle's basement. Replaces Frozen Flower
+	},
+	20215010 = {
+		Keys[0] = {},
+		Type = Chest
+		Desc = Drangleic Castle - Chest (Wooden chest in the acid pit. Replaces Corrosive Urn x3)
+	},
+	20215011 = {
+		Keys[0] = {},
+		Type = Chest
+		Desc = Drangleic Castle - Chest (Wooden chest in the acid pit, NG+. Replaces Titanite Slab, Corrosive Urn x3)
+	},
+	20215020 = {
+		Keys[0] = {},
+		Type = Chest
+		Desc = Drangleic Castle - Chest (Wooden chest in the storage room in the castle's basement. Replaces Dark Arrow x15)
+	},
+	20215021 = {
+		Keys[0] = {},
+		Type = Chest
+		Desc = Drangleic Castle - Chest (Wooden chest in the storage room in the castle's basement, NG+. Replaces Dark Arrow x30)
+	},
+	20215170 = {
+		Keys[0] = {},
+		Type = Chest
+		Desc = Drangleic Castle - Chest (Wooden chest in the mask room. Replaces Large Soul of a Brave Warrior, Twinkling Titanite)
 	},
 }
 
@@ -5301,7 +5349,7 @@
 	},
 }
 
-#ShulvaEntranceBack[43] = {
+#ShulvaEntranceBack[42] = {
 	50355050 = {
 		Keys[0] = {},
 		Type = Chest
@@ -5316,11 +5364,6 @@
 		Keys[0] = {},
 		Type = Chest
 		Desc = Shulva - Chest (Metal chest after the vermin room in Dragon's Sanctum. Replaces Flynn's Ring)
-	},
-	50355120 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Shulva - Chest (Metal chest inside sealed alcove in the spiked floor room. Replaces Dragon Stone)
 	},
 	50355250 = {
 		Keys[0] = {},
@@ -5519,7 +5562,7 @@
 	},
 }
 
-#NearJesterThomasFront[13] = {
+#NearJesterThomasFront[14] = {
 	50356360 = {
 		Keys[0] = {},
 		Type = Area
@@ -5580,6 +5623,11 @@
 		Type = Area
 		Desc = Skeleton in Sanctum Knight pit room. Replaces Sanctum Knight Helm
 	},
+	50355120 = {
+		Keys[0] = {},
+		Type = Chest
+		Desc = Shulva - Chest (Metal chest inside sealed alcove in the spiked floor room. Replaces Dragon Stone)
+	},
 	50355110 = {
 		Keys[0] = {},
 		Type = Chest
@@ -5623,11 +5671,6 @@
 		Type = Area
 		Desc = Corpse next to opened metal chests in Sanctum Interior. Replaces Drakeblood Helm, Drakeblood Armor, Drakeblood Gauntlets, Drakeblood Leggings
 	},
-	50356420 = {
-		Keys[1] = {Conn_DragonStone},
-		Type = Area
-		Desc = Corpse next to the Hidden Sanctum Chamber bonfire. Replaces Sanctum Crossbow
-	},
 	50356450 = {
 		Keys[1] = {Conn_DragonStone},
 		Type = Area
@@ -5657,6 +5700,11 @@
 		Keys[1] = {Conn_DragonStone},
 		Type = Area
 		Desc = Corpse in Sanctum Interior. Replaces Vine Balm x3
+	},
+	50356420 = {
+		Keys[1] = {Conn_BowCrossbow},
+		Type = Area
+		Desc = Corpse next to the Hidden Sanctum Chamber bonfire. Replaces Sanctum Crossbow
 	},
 	5035000 = {
 		Keys[1] = {Conn_DragonStone},
@@ -7001,34 +7049,6 @@
 		Keys[0] = {},
 		Type = Chest
 		Desc = Shrine of Amana - Chest (Wooden chest next to stairs before the Rise of the Dead, NG+. Replaces Magic Arrow x30, Dark Arrow x30)
-	},
-}
-
-#TwinDragonridersEntryFront[5] = {
-	20215010 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Drangleic Castle - Chest (Wooden chest in the acid pit. Replaces Corrosive Urn x3)
-	},
-	20215011 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Drangleic Castle - Chest (Wooden chest in the acid pit, NG+. Replaces Titanite Slab, Corrosive Urn x3)
-	},
-	20215020 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Drangleic Castle - Chest (Wooden chest in the storage room in the castle's basement. Replaces Dark Arrow x15)
-	},
-	20215021 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Drangleic Castle - Chest (Wooden chest in the storage room in the castle's basement, NG+. Replaces Dark Arrow x30)
-	},
-	20215170 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Drangleic Castle - Chest (Wooden chest in the mask room. Replaces Large Soul of a Brave Warrior, Twinkling Titanite)
 	},
 }
 
