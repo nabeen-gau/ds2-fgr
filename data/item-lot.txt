@@ -197,7 +197,7 @@
 
 #BlackGulchEntranceBack
 10255090,10255130,10256350,10256370,10256380,10256390,
-##Conn_FragrantBranchOfYore
+##Conn_GulchBranch
 10256360,
 
 #TheRottenExitBack
@@ -210,7 +210,7 @@
 
 #ShadedWoodsFromMajulaBack
 10296000,
-##Conn_FragrantBranchOfYore
+##Conn_RosabethBranch
 10295000,10296020,
 
 #MajulaToShadedWoodsBack
@@ -218,7 +218,7 @@
 
 #NoMansWharfToHeidesFront
 10305020,10306000,10306010,10306020,
-##Conn_FragrantBranchOfYore
+##Conn_WharfBranch
 10306030,10305010,
 
 #OldDragonslayerExitBack
@@ -232,11 +232,11 @@
 
 #ShadedWoodsToMistyAreaBack
 10325020,10325030,10325050,10325060,10325080,10325110,10325120,10326010,10326040,10326060,10326070,10326090,10326100,10326101,10326120,10326130,10326150,10326180,10326210,10326240,
-##Conn_FragrantBranchOfYore
+##Conn_SpellCastSetBranch
 10325040,
-##Conn_FragrantBranchOfYore
+##Conn_RepairSpellBranch
 10325100,
-##Conn_FragrantBranchOfYore
+##Conn_VengralBodyBranch
 10326230,
 ##Conn_FangKey
 10326160,
@@ -682,47 +682,6 @@
 
 #AncientDragonBack
 60011000,
-
-#BrumeTowerEntranceFromLiftBack
-##Conn_SmelterWedge
-60013000,
-##Conn_SmelterWedge
-60013000,
-
-#BrumeTowerFrom2ndBonfireToCentralRoomBack
-##Conn_SmelterWedge
-60013000,
-
-#BrumeTowerToFoyerBonfireFromOutsideFront
-##Conn_SmelterWedge
-60013000,
-
-#BrumeTowerToFoyerBonfireFromOutsideBack
-##Conn_BrumeTowerKey
-###Conn_SmelterWedge
-60013000,
-
-#SirAlonneArmorDLCEntrySrc
-##Conn_SmelterWedge
-60013000,
-
-#BrumeTowerFrom2ndBonfireToCentralRoomBack
-##Conn_ActivateBrumeTower
-###Conn_SmelterWedge
-60013000,
-
-#SirAlonneExitBack
-60013000,
-
-#FumeKnightEntryFront
-##Conn_SmelterWedge
-60013000,
-##Conn_SmelterWedge
-60013000,
-##Conn_SmelterWedge
-60013000,
-##Conn_SmelterWedge
-60013000,
 
 #BrumeTowerToScorchingIronSceptorKeyBack
 60014000,
@@ -1177,6 +1136,47 @@
 
 #GuranteedDrop
 
+#BrumeTowerEntranceFromLiftBack
+##Conn_SmelterWedge
+60012000, Soul of Nadalia
+##Conn_SmelterWedge
+60012100, Soul of Nadalia
+
+#BrumeTowerFrom2ndBonfireToCentralRoomBack
+##Conn_SmelterWedge
+60012050, Soul of Nadalia
+
+#BrumeTowerToFoyerBonfireFromOutsideFront
+##Conn_SmelterWedge
+60012080, Soul of Nadalia
+
+#BrumeTowerToFoyerBonfireFromOutsideBack
+##Conn_BrumeTowerKey
+###Conn_SmelterWedge
+60012070, Soul of Nadalia
+
+#SirAlonneArmorDLCEntrySrc
+##Conn_SmelterWedge
+60012060, Soul of Nadalia
+
+#BrumeTowerFrom2ndBonfireToCentralRoomBack
+##Conn_ActivateBrumeTower
+###Conn_SmelterWedge
+60012090, Soul of Nadalia
+
+#FumeKnightEntryFront
+##Conn_SmelterWedge
+60012010, Soul of Nadalia
+##Conn_SmelterWedge
+60012020, Soul of Nadalia
+##Conn_SmelterWedge
+60012030, Soul of Nadalia
+##Conn_SmelterWedge
+60012040, Soul of Nadalia
+
+#SirAlonneExitBack
+60013000,Memory of Iron King,Sir Alonne gaming chair
+
 #CongregationExitBack
 ##Conn_PateCreightonQuest
 1742000,[NPC - Creighton the Wanderer] Replaces Tseldora Den Key
@@ -1186,7 +1186,7 @@
 1751000, [NPC - Cale the Cartographer] Replaces House Key
 
 #ShadedWoodsToMistyAreaBack
-##Conn_FragrantBranchOfYore
+##Conn_FangKeyBranch
 60009000, Shaded Ruins,Unpetrify Lion Warrior-Fang Key
 
 #VelsdatEntryFront
@@ -1222,7 +1222,7 @@
 1143000, Mimic drop in Tseldora, Staff of Wisdom- Dark Leggings
 
 #AldiasKeepEntranceBack
-##Conn_FragrantBranchOfYore
+##Conn_OgreBranch
 1150000, Petrified Ogre in Aldias Keep, Dragon Acolyte Mask
 
 #AldiasKeepEntranceBack
@@ -1233,9 +1233,9 @@
 1153300, Mimic - Aldia's Keep, Bonfire Ascetic
 1153400, Mimic - Aldia's Keep, Cracked Red Eye Orb
 1153500, Mimic in Aldias Keep, Wilted Dusk Herb
-##Conn_FragrantBranchOfYore
+##Conn_AldiaBranch1
 1157000, Petrified Undead Traveler in Aldias, Bonfire Ascetic #TODO: this is not petrified in randomizer?
-##Conn_FragrantBranchOfYore
+##Conn_AldiaBranch2
 1157100, Petrified Undead Traveler in Aldias, Elizabeth Mushroom- Wilted Dusk Herb #TODO: this is not petrified in randomizer?
 
 #LostBastilleToSinnersRiseBack
@@ -1296,7 +1296,7 @@
 
 #ShadedWoodsToMistyAreaBack
 1321000, Crystal Lizad - Shaded, Titanite Shard- Titanite Chunk- Boltstone
-##Conn_FragrantBranchOfYore
+##Conn_WarlockMaskBranch
 1320100, Petrified Lion Warrior - Shaded next to Golden Lion, Warlock Mask
 
 #ScorpionessNajkaExitBack
@@ -1485,6 +1485,7 @@
 76400605,[Blacksmith Lenigrast] Repair Powder
 
 #NearPursuerBirdExit
+##Conn_DullEmber
 76430000,[Steady Hand McDuff] Uchigatana
 76430001,[Steady Hand McDuff] Bastard Sword
 76430002,[Steady Hand McDuff] Greataxe
@@ -1518,7 +1519,7 @@
 76600602,[Carhillion of the Fold] Simpleton's Spice
 
 #RuinSentinesUpperExitBack
-##Conn_FragrantBranchOfYore
+##Conn_StraidBranch
 76800300,[Straid of Olaphis] Homing Soul Arrow
 76800301,[Straid of Olaphis] Resplendent Life
 76800302,[Straid of Olaphis - Velstadt] Great Lightning Spear
@@ -1536,6 +1537,22 @@
 76800401,[Straid of Olaphis] Lingering Dragoncrest Ring
 76800402,[Straid of Olaphis] Agape Ring
 76800600,[Straid of Olaphis] Rouge Water
+
+#ShadedWoodsFromMajulaBack
+##Conn_RosabethBranch
+76300300,[Rosabeth of Melfia] Fireball
+76300301,[Rosabeth of Melfia] Fire Orb
+76300302,[Rosabeth of Melfia] Combustion
+76300303,[Rosabeth of Melfia] Poison Mist
+76300304,[Rosabeth of Melfia] Flash Sweat
+76300305,[Rosabeth of Melfia] Iron Flesh
+76300400,[Rosabeth of Melfia] Flame Quartz Ring
+76300401,[Rosabeth of Melfia] Thunder Quartz Ring
+76300402,[Rosabeth of Melfia] Dark Quartz Ring
+76300600,[Rosabeth of Melfia] Small Blue Burr
+76300601,[Rosabeth of Melfia] Small Yellow Burr
+76300602,[Rosabeth of Melfia] Small Orange Burr
+76300603,[Rosabeth of Melfia] Fire Seed
 
 #SmeltorDemonEntryFront
 77200200,[Magerold of Lanafir] Spiked Bandit Helm

@@ -1515,7 +1515,7 @@
 		Desc = Gargoyle drop in Aldias Keep, Twinkling Titanite
 	},
 	1150000 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_OgreBranch},
 		Type = GuranteedDrop
 		Desc = Petrified Ogre in Aldias Keep, Dragon Acolyte Mask
 	},
@@ -1550,12 +1550,12 @@
 		Desc = Mimic in Aldias Keep, Wilted Dusk Herb
 	},
 	1157000 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_AldiaBranch1},
 		Type = GuranteedDrop
 		Desc = Petrified Undead Traveler in Aldias, Bonfire Ascetic #TODO: this is not petrified in randomizer?
 	},
 	1157100 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_AldiaBranch2},
 		Type = GuranteedDrop
 		Desc = Petrified Undead Traveler in Aldias, Elizabeth Mushroom- Wilted Dusk Herb #TODO: this is not petrified in randomizer?
 	},
@@ -1654,77 +1654,77 @@
 		Desc = Pursuer in Bastille - Tower Apart, Twinkling Titanite
 	},
 	76430000 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Uchigatana
 	},
 	76430001 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Bastard Sword
 	},
 	76430002 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Greataxe
 	},
 	76430003 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Winged Spear
 	},
 	76430004 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Scythe
 	},
 	76430005 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Long Bow
 	},
 	76430006 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Light Crossbow
 	},
 	76430100 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Royal Kite Shield
 	},
 	76430600 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Wood Arrow
 	},
 	76430601 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Iron Arrow
 	},
 	76430602 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Wood Bolt
 	},
 	76430603 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Heavy Bolt
 	},
 	76430604 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Iron Greatarrow
 	},
 	76430605 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Large Titanite Shard
 	},
 	76430606 = {
-		Keys[0] = {},
+		Keys[1] = {Conn_DullEmber},
 		Type = Shop
 		Desc = [Steady Hand McDuff] Repair Powder
 	},
@@ -1992,87 +1992,87 @@
 		Desc = Pursuer in Bastille - Illusory Walls, Twinkling Titanite
 	},
 	76800300 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Homing Soul Arrow
 	},
 	76800301 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Resplendent Life
 	},
 	76800302 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis - Velstadt] Great Lightning Spear
 	},
 	76800303 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Unveil
 	},
 	76800304 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis - Velstadt] Sunlight Blade
 	},
 	76800305 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Lingering Flame
 	},
 	76800306 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Flame Swathe
 	},
 	76800307 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Dark Orb
 	},
 	76800308 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Dark Hail
 	},
 	76800309 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Dark Fog
 	},
 	76800310 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Affinity
 	},
 	76800311 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Strong Magic Shield
 	},
 	76800312 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Cast Light
 	},
 	76800400 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Ring of Knowledge
 	},
 	76800401 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Lingering Dragoncrest Ring
 	},
 	76800402 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Agape Ring
 	},
 	76800600 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_StraidBranch},
 		Type = Shop
 		Desc = [Straid of Olaphis] Rouge Water
 	},
@@ -3686,7 +3686,7 @@
 		Desc = Corpse in a tipped pot next to the second set of Black Gulch oil puddles. Replaces Radiant Lifegem
 	},
 	10256360 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_GulchBranch},
 		Type = Area
 		Desc = Corpse in a pot next to the second Black Gulch bonfire. Replaces Pharros' Lockstone
 	},
@@ -3928,21 +3928,86 @@
 	},
 }
 
-#ShadedWoodsFromMajulaBack[3] = {
+#ShadedWoodsFromMajulaBack[16] = {
 	10296000 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse in a cell before the Akelarre switch. Replaces Lloyd's Talisman x3
 	},
 	10295000 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_RosabethBranch},
 		Type = Chest
 		Desc = Path to Shaded Woods - Chest (Metal chest in Old Akelarre. Replaces Estus Flask Shard)
 	},
 	10296020 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_RosabethBranch},
 		Type = Area
 		Desc = Corpse in a cell after the Akelarre switch. Replaces Soul of a Proud Knight, Human Effigy
+	},
+	76300300 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Fireball
+	},
+	76300301 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Fire Orb
+	},
+	76300302 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Combustion
+	},
+	76300303 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Poison Mist
+	},
+	76300304 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Flash Sweat
+	},
+	76300305 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Iron Flesh
+	},
+	76300400 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Flame Quartz Ring
+	},
+	76300401 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Thunder Quartz Ring
+	},
+	76300402 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Dark Quartz Ring
+	},
+	76300600 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Small Blue Burr
+	},
+	76300601 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Small Yellow Burr
+	},
+	76300602 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Small Orange Burr
+	},
+	76300603 = {
+		Keys[1] = {Conn_RosabethBranch},
+		Type = Shop
+		Desc = [Rosabeth of Melfia] Fire Seed
 	},
 }
 
@@ -3976,12 +4041,12 @@
 		Desc = Corpse in an alcove on first floor. Replaces Old Knight Halberd
 	},
 	10306030 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_WharfBranch},
 		Type = Area
 		Desc = Corpse on a railing on the flooded floor. Replaces Estus Flask Shard
 	},
 	10305010 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_WharfBranch},
 		Type = Chest
 		Desc = Unseen Path to Heide - Chest (Metal chest on the flooded floor. Replaces Knight Helm, Knight Armor, Knight Gauntlets, Knight Leggings)
 	},
@@ -4185,17 +4250,17 @@
 		Desc = Skull behind Vengarl's head. Replaces Fire Seed
 	},
 	10325040 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_SpellCastSetBranch},
 		Type = Chest
 		Desc = Shaded Woods - Chest (Metal chest in the ruined building filled with cursed pots. Replaces Fragrant Branch of Yore, Lion Mage Robe, Lion Mage Cuffs, Lion Mage Skirt)
 	},
 	10325100 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_RepairSpellBranch},
 		Type = Chest
 		Desc = Shaded Woods - Chest (Metal chest guarded by a petrified lion warrior. Replaces Repair, Human Effigy x3, Bleeding Serum x3)
 	},
 	10326230 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_VengralBodyBranch},
 		Type = Area
 		Desc = Corpse next to Vengarl's body. Replaces Torch
 	},
@@ -4250,7 +4315,7 @@
 		Desc = Corpse next to the large crumbling planks above the corrosive cave, NG+. Replaces Divine Blessing
 	},
 	60009000 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_FangKeyBranch},
 		Type = GuranteedDrop
 		Desc = Shaded Ruins, Unpetrify Lion Warrior-Fang Key
 	},
@@ -4260,7 +4325,7 @@
 		Desc = Crystal Lizad - Shaded, Titanite Shard- Titanite Chunk- Boltstone
 	},
 	1320100 = {
-		Keys[1] = {Conn_FragrantBranchOfYore},
+		Keys[1] = {Conn_WarlockMaskBranch},
 		Type = GuranteedDrop
 		Desc = Petrified Lion Warrior - Shaded next to Golden Lion, Warlock Mask
 	},
@@ -5891,20 +5956,20 @@
 		Type = Area
 		Desc = Corpse on the railing atop Brume Tower. Replaces Baneful Bird Ring
 	},
-	60013000 = {
-		Keys[1] = {Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
-	},
-	60013000 = {
-		Keys[1] = {Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
-	},
 	60019000 = {
 		Keys[0] = {},
 		Type = Event
 		Desc = Replaces Smelter Wedge x6
+	},
+	60012000 = {
+		Keys[1] = {Conn_SmelterWedge},
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
+	},
+	60012100 = {
+		Keys[1] = {Conn_SmelterWedge},
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
 	},
 }
 
@@ -6099,15 +6164,15 @@
 		Type = Area
 		Desc = Ashen corpse past the first lever door. Replaces Old Mundane Stone x2
 	},
-	60013000 = {
-		Keys[1] = {Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
-	},
 	50366800 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Replaces Majestic Greatsword
+	},
+	60012080 = {
+		Keys[1] = {Conn_SmelterWedge},
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
 	},
 }
 
@@ -6212,11 +6277,6 @@
 		Type = Area
 		Desc = Corpse in the cursed area in the Foyer. Replaces Large Titanite Shard x5
 	},
-	60013000 = {
-		Keys[2] = {Conn_BrumeTowerKey, Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
-	},
 	50365540 = {
 		Keys[0] = {},
 		Type = Chest
@@ -6237,6 +6297,11 @@
 		Type = Area
 		Desc = Corpse behind destructible wall in the barrel and moving flamethrower corridor. Replaces Dispelling Ring+1
 	},
+	60012070 = {
+		Keys[2] = {Conn_BrumeTowerKey, Conn_SmelterWedge},
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
+	},
 	5036000 = {
 		Keys[1] = {Conn_ActivateBrumeTower},
 		Type = GuranteedDrop
@@ -6255,25 +6320,25 @@
 		Type = Area
 		Desc = Ashen corpse on the lowermost floor of Brume Tower. Replaces Soul of a Brave Warrior
 	},
-	60013000 = {
+	60012010 = {
 		Keys[1] = {Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
 	},
-	60013000 = {
+	60012020 = {
 		Keys[1] = {Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
 	},
-	60013000 = {
+	60012030 = {
 		Keys[1] = {Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
 	},
-	60013000 = {
+	60012040 = {
 		Keys[1] = {Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
 	},
 }
 
@@ -6371,15 +6436,15 @@
 		Type = Area
 		Desc = Corpse in the barrel and moving flamethrower corridor. Replaces Lacerating Knife x15
 	},
-	60013000 = {
+	60012050 = {
 		Keys[1] = {Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
 	},
-	60013000 = {
+	60012090 = {
 		Keys[2] = {Conn_ActivateBrumeTower, Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
 	},
 }
 
@@ -6901,22 +6966,6 @@
 	},
 }
 
-#SirAlonneArmorDLCEntrySrc[1] = {
-	60013000 = {
-		Keys[1] = {Conn_SmelterWedge},
-		Type = Event
-		Desc = Replaces Smelter Wedge
-	},
-}
-
-#SirAlonneExitBack[1] = {
-	60013000 = {
-		Keys[0] = {},
-		Type = Event
-		Desc = Replaces Smelter Wedge
-	},
-}
-
 #FumeKnightExitBack[1] = {
 	60016000 = {
 		Keys[0] = {},
@@ -7380,6 +7429,22 @@
 		Keys[0] = {},
 		Type = Boss
 		Desc = Afflicted Graverobber- Ancient Soldier Varg & Cerah the Old Explorer (Replaces Twinkling Titanite x3, Petrified Dragon Bone x3, Titanite Slab)
+	},
+}
+
+#SirAlonneArmorDLCEntrySrc[1] = {
+	60012060 = {
+		Keys[1] = {Conn_SmelterWedge},
+		Type = GuranteedDrop
+		Desc = Soul of Nadalia
+	},
+}
+
+#SirAlonneExitBack[1] = {
+	60013000 = {
+		Keys[0] = {},
+		Type = GuranteedDrop
+		Desc = Memory of Iron King, Sir Alonne gaming chair
 	},
 }
 

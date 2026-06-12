@@ -2185,10 +2185,9 @@ typedef packed_struct {
 } MapObjectWhiteDoorParamPARAMDEF;
 
 typedef packed_struct {
-	uint8_t lots_drop_order;
-	uint8_t lots_dropped;
-	uint8_t unk02;
-	uint8_t unk03;
+	uint8_t lot_drop_type;
+	uint8_t lot_count;
+	uint8_t padding[2];
 	uint8_t amount[10];
 	uint8_t reinforcement_level[10];
 	uint8_t infusion[10];
@@ -5152,14 +5151,18 @@ typedef struct {
 } Inventory;
 
 void inventory_add_key(Inventory *i, ConnectionType key) {
-	if (key == Conn_FragrantBranchOfYore) i->branches_count++;
-	else if (key == Conn_PharrosLockstone) i->lockstone_count++;
-	i->found_keys |= key;
+	UNUSED(i); UNUSED(key);
+	TODO("inventory_add_key");
+	// if (key == Conn_FragrantBranchOfYore) i->branches_count++;
+	// else if (key == Conn_PharrosLockstone) i->lockstone_count++;
+	// i->found_keys |= key;
 }
 
 bool is_key_consumable(ConnectionType key) {
-	if (key == Conn_FragrantBranchOfYore || key == Conn_PharrosLockstone) return true;
-	return false;
+	UNUSED(key);
+	TODO("is_key_consumable");
+	// if (key == Conn_FragrantBranchOfYore || key == Conn_PharrosLockstone) return true;
+	// return false;
 }
 
 bool inventory_has_key(Inventory *i, ConnectionType key) {
@@ -5538,7 +5541,63 @@ typedef struct {
 
 DA(ItemValue, ItemValues);
 
-#define KeyItems\
+#define RangedItemsBow\
+	X(4200000, ShortBow)\
+	X(4210000, LongBow)\
+	X(4220000, CompositeBow)\
+	X(4230000, SeaBow)\
+	X(4240000, DragonriderBow)\
+	X(4270000, BellKeeperBow)\
+	X(4280000, BowofWant)\
+	X(4290000, HuntersBlackbow)\
+
+#define RangedItemsGreatBow\
+	X(4400000, AlonneGreatbow)\
+	X(4420000, DragonslayerGreatbow)\
+	X(4430000, PossessedArmorGreatbow)\
+	X(4440000, TwinheadedGreatbow)\
+
+#define RangedItemsCrossbow\
+	X(4600000, LightCrossbow)\
+	X(4610000, HeavyCrossbow)\
+	X(4630000, ShieldCrossbow)\
+	X(4660000, Avelyn)\
+	X(4670000, SanctumCrossbow)\
+	X(4680000, SanctumRepeatingCrossbow)
+
+#define RangedItems RangedItemsBow RangedItemsGreatBow RangedItemsCrossbow
+
+#define RangedAmmoBow\
+	X(60760000, WoodArrow)\
+	X(60770000, IronArrow)\
+	X(60780000, MagicArrow)\
+	X(60790000, LightningArrow)\
+	X(60800000, FireArrow)\
+	X(60810000, DarkArrow)\
+	X(60820000, PoisonArrow)\
+	X(60830000, LaceratingArrow)\
+
+#define RangedAmmoGreatbow\
+	X(60850000, IronGreatarrow)\
+	X(60870000, LightningGreatarrow)\
+	X(60880000, FireGreatarrow)\
+	X(60900000, DestructiveGreatarrow)\
+
+#define RangedAmmoCrossbow\
+	X(60910000, WoodBolt)\
+	X(60920000, HeavyBolt)\
+	X(60930000, MagicBolt)\
+	X(60940000, LightningBolt)\
+	X(60950000, FireBolt)\
+	X(60960000, DarkBolt)\
+
+#define RangedAmmo RangedAmmoBow RangedAmmoGreatbow RangedAmmoCrossbow
+
+#define Firebombs\
+	X(60570000, Firebomb)\
+	X(60575000, BlackFirebomb)
+
+#define ItemList\
 	X(40510000, KingsRing)\
 	X(50600000, SoldierKey)\
 	X(50610000, KeytoKingsPassage)\
@@ -5568,58 +5627,73 @@ DA(ItemValue, ItemValues);
 	X(53100000, ScorchingIronScepter)\
 	X(53600000, EyeofthePriestess)\
 	X(60536000, PharrosLockstone)\
-	X(60537000, FragrantBranchofYore)
+	X(60537000, FragrantBranchofYore)\
+	X(60420000, Torch)\
+	X(40610000, RingofWhispers)\
+	X(62100000, TokenofFidelity)\
+	X(62110000, TokenofSpite)\
+	X(62140000, RatTail)\
+	X(53200000, SmelterWedge)\
+	X(33180000, FlashSweat)\
+	X(5400000, PyromancyFlame)\
+	X(5410000, DarkPyromancyFlame)\
+	X(40420000, SilvercatRing)\
+	RangedItems\
+	RangedAmmo
+	
+	// X(53300000, NadaliaSoul)
 
 typedef enum {
-#define X(v, name) KeyItem ## name = v,
-	KeyItems
+#define X(v, name) Item ## name = v,
+	ItemList
 #undef X
 } KeyItemsEnum;
 
-int main() {
-	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
-	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
-	// Editor editor = {0};
-	// generate_default_connections();
-	// if (!generate_map_objects(&editor)) return 1;
-	// if (!randomize_warps(&editor)) return 1;
-	// free_editor(&editor);
-	// free_connections();
+typedef struct {
+	size_t row_id;
+	int32_t amount;
+} ItemDesc;
 
-	// build the item param
-	// generate_item_infos();
-	// ht_foreach(iig, &gate_item_infos) {
-	// 	WarpNode node = ht_key(&gate_item_infos, iig);
-	// 	printf("%s => %zu\n", WarpNodeNames[node], iig->count);
-	// }
-	// free_item_infos();
-	
+DA(ItemDesc, DAItemDesc);
+
+typedef Ht(int, ItemValue) ItemLocs;
+typedef Ht(int, DAItemDesc) GameItems;
+
+typedef struct {
+	ItemLocs item_locs;
+	GameItems game_items; // key = item_id, value = item_loc_id(row_id)
+} ItemBank;
+
+void free_item_bank(ItemBank *ib) {
+	ht_free(&ib->item_locs);
+	ht_foreach(value, &ib->game_items) {
+		da_free(*value);
+	}
+	ht_free(&ib->game_items);
+}
+
 #define ModPath ""
 
+bool read_item_bank(ItemBank *ib, bool log) {
 	generate_item_infos();
-	Ht(int, ItemValue) item_locs = {0};
+	ItemLocs item_locs = {0};
 	ItemValues giant_souls_event_locs = {0};
 #define GiantSoulsEventId 60004000
 #define GiantSoulsEventCount 3
 	da_init(&giant_souls_event_locs, GiantSoulsEventCount);
-	ItemValues nadalia_souls_event_locs = {0};
-#define NadaliaSoulsEventId 60013000
-#define NadaliaSoulsEventCount 12
-	da_init(&nadalia_souls_event_locs, NadaliaSoulsEventCount);
 
 	generate_item_infos();
 	ht_foreach(iig, &gate_item_infos) {
 		WarpNode wn = ht_key(&gate_item_infos, iig);
 		da_foreach(ItemInfo, ii, iig) {
 			if      (ii->id == GiantSoulsEventId)   da_append(&giant_souls_event_locs,   ((ItemValue){.node = wn, .item = *ii}));
-			else if (ii->id == NadaliaSoulsEventId) da_append(&nadalia_souls_event_locs, ((ItemValue){.node = wn, .item = *ii}));
 			else {
 				assert(ht_find(&item_locs, ii->id) == NULL && "Duplicate item id found");
 				*ht_put(&item_locs, ii->id) = (ItemValue){.node = wn, .item = *ii};
 			}
 		}
 	}
-	Ht(int, DArrz) game_items = {0}; // key = item_id, value = item_loc_id(row_id)
+	GameItems game_items = {0}; // key = item_id, value = item_loc_id(row_id)
 
 	const char *chr_param_path = ModPath "./Param/ItemLotParam2_Chr.param";
 	String_Builder sb = {0};
@@ -5632,7 +5706,7 @@ int main() {
 
     Ht(int, const char *) key_items = {0};
 #define X(id, name) *ht_put(&key_items, (id)) = #name;
-	KeyItems
+	ItemList
 #undef X
 
 	// ht_foreach(value, &key_items) {
@@ -5649,13 +5723,13 @@ int main() {
 		ItemLotParam2ChrPARAMDEF c = param.cells.items[i].as.itemlot_param2_char;
 		for (size_t j=0; j<ARRAY_LEN(c.item_id); j++) {
 			if (ht_find(&key_items, c.item_id[j])) {
-				DArrz *items = ht_find(&game_items, c.item_id[j]);
+				DAItemDesc *items = ht_find(&game_items, c.item_id[j]);
 				if (items != NULL) {
-					da_append(items, row_id);
+					da_append(items, ((ItemDesc){.row_id = row_id, .amount = c.amount[j]}));
 				} else {
-					DArrz new = {0};
+					DAItemDesc new = {0};
 					da_init(&new, 4);
-					da_append(&new, row_id);
+					da_append(&new, ((ItemDesc){.row_id = row_id, .amount = c.amount[j]}));
 					*ht_put(&game_items, c.item_id[j]) = new;
 				}
 			}
@@ -5678,13 +5752,13 @@ int main() {
 		ItemLotParam2ChrPARAMDEF c = param.cells.items[i].as.itemlot_param2_char;
 		for (size_t j=0; j<ARRAY_LEN(c.item_id); j++) {
 			if (ht_find(&key_items, c.item_id[j])) {
-				DArrz *items = ht_find(&game_items, c.item_id[j]);
+				DAItemDesc *items = ht_find(&game_items, c.item_id[j]);
 				if (items != NULL) {
-					da_append(items, row_id);
+					da_append(items, ((ItemDesc){.row_id = row_id, .amount = c.amount[j]}));
 				} else {
-					DArrz new = {0};
+					DAItemDesc new = {0};
 					da_init(&new, 4);
-					da_append(&new, row_id);
+					da_append(&new, ((ItemDesc){.row_id = row_id, .amount = c.amount[j]}));
 					*ht_put(&game_items, c.item_id[j]) = new;
 				}
 			}
@@ -5707,13 +5781,13 @@ int main() {
 		int32_t row_id = param.rows.items[i].ID;
 		ShopLineupPARAMDEF c = param.cells.items[i].as.shop_lineup_param;
 		if (ht_find(&key_items, c.item_id)) {
-			DArrz *items = ht_find(&game_items, c.item_id);
+			DAItemDesc *items = ht_find(&game_items, c.item_id);
 			if (items != NULL) {
-				da_append(items, row_id);
+				da_append(items, ((ItemDesc){.row_id = row_id, .amount = c.quantity}));
 			} else {
-				DArrz new = {0};
+				DAItemDesc new = {0};
 				da_init(&new, 4);
-				da_append(&new, row_id);
+				da_append(&new, ((ItemDesc){.row_id = row_id, .amount = c.quantity}));
 				*ht_put(&game_items, c.item_id) = new;
 			}
 		}
@@ -5723,42 +5797,57 @@ int main() {
 	free_PARAM(&param);
 	da_free(sb);
 
-
-	ht_foreach(value, &game_items) {
-		int key = ht_key(&game_items, value);
-		printf("key = %s, loc = {\n", *ht_find(&key_items, key));
-		for (size_t i=0; i<value->count; i++) {
-			ItemValue *iv = ht_find(&item_locs, value->items[i]);
-			if (iv != NULL) {
-				printf("\t%s(%zu)", WarpNodeNames[iv->node], iv->item.id);
-				if (iv->item.keys.count > 0) printf("(");
-				for (size_t j=0; j<iv->item.keys.count; j++) {
-					if (j != 0) printf(", ");
-					print_connection_type(iv->item.keys.items[j]);
+	if (log) {
+		ht_foreach(value, &game_items) {
+			int key = ht_key(&game_items, value);
+			printf("item = %s, loc = {\n", *ht_find(&key_items, key));
+			for (size_t i=0; i<value->count; i++) {
+				ItemValue *iv = ht_find(&item_locs, value->items[i].row_id);
+				if (iv != NULL) {
+					printf("\t%d: %s(%zu-%s)", value->items[i].amount, WarpNodeNames[iv->node], iv->item.id, iv->item.desc);
+					if (iv->item.keys.count > 0) printf("(");
+					for (size_t j=0; j<iv->item.keys.count; j++) {
+						if (j != 0) printf(", ");
+						print_connection_type(iv->item.keys.items[j]);
+					}
+					if (iv->item.keys.count > 0) printf(")");
+					printf(",\n");
+				} else if (value->items[i].row_id == GiantSoulsEventId) {
+					da_foreach(ItemValue, gseid, &giant_souls_event_locs) {
+						printf("\t%s,\n", WarpNodeNames[gseid->node]);
+					}
+				} else {
+					printf("\t%zu", value->items[i].row_id);
+					printf(",\n");
 				}
-				if (iv->item.keys.count > 0) printf(")");
-				printf(",\n");
-			} else if (value->items[i] == GiantSoulsEventId) {
-				da_foreach(ItemValue, gseid, &giant_souls_event_locs) {
-					printf("\t%s,\n", WarpNodeNames[gseid->node]);
-				}
-			} else {
-				printf("\t%zu", value->items[i]);
-				printf(",\n");
 			}
+			printf("}\n");
 		}
-		printf("}\n");
 	}
 
 	free_item_infos();
-	ht_free(&item_locs);
 	ht_free(&key_items);
-	ht_foreach(value, &game_items) {
-		da_free(*value);
-	}
-	ht_free(&game_items);
 	da_free(giant_souls_event_locs);
-	da_free(nadalia_souls_event_locs);
+	ib->item_locs = item_locs;
+	ib->game_items = game_items;
+	return true;
+}
+
+int main() {
+	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
+	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
+	// Editor editor = {0};
+	// generate_default_connections();
+	// if (!generate_map_objects(&editor)) return 1;
+	// if (!randomize_warps(&editor)) return 1;
+	// free_editor(&editor);
+	// free_connections();
+
+	ItemBank ib;
+	if (!read_item_bank(&ib, false)) return 1;
+	free_item_bank(&ib);
 
 	return 0;
 }
+
+// TODO: search the shops for infinite buying of firebombs and arrows/bolts

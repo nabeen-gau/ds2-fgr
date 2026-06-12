@@ -867,7 +867,6 @@ static_assert(ARRAY_LEN(warp_points) == __WarpNodeCount, "Missing warp point def
 typedef enum ConnectionType {
 	Conn_None,
 	Conn_OneWay,
-	Conn_FragrantBranchOfYore,
 	Conn_RotundaLockstone,
 	Conn_SoldiersKey,
 	Conn_KingsRing,
@@ -918,63 +917,98 @@ typedef enum ConnectionType {
 	Conn_DefeatNajka,
 	Conn_RingOfWhispers,
 	Conn_PateCreightonQuest,
+	Conn_DullEmber,
+	Conn_Tutorial3Branch,
+	Conn_RosabethBranch,
+	Conn_WharfBranch,
+	Conn_BastilleBranch,
+	Conn_StraidBranch,
+	Conn_FangKeyBranch,
+	Conn_RepairSpellBranch,
+	Conn_WarlockMaskBranch,
+	Conn_SpellCastSetBranch,
+	Conn_VengralBodyBranch,
+	Conn_TarkBranch,
+	Conn_GulchBranch,
+	Conn_AmanaBranch,
+	Conn_OgreBranch,
+	Conn_AldiaBranch1,
+	Conn_AldiaBranch2,
+	Conn_DragonAerieBranch,
 }ConnectionType;
 
 void print_connection_type(ConnectionType ct) {
 	switch (ct) {
-		case Conn_None                 : printf("None");                 break;
-		case Conn_OneWay               : printf("OneWay");               break;
-		case Conn_FragrantBranchOfYore : printf("FragrantBranchOfYore"); break;
-		case Conn_RotundaLockstone     : printf("RotundaLockstone");     break;
-		case Conn_SoldiersKey          : printf("SoldiersKey");          break;
-		case Conn_KingsRing            : printf("KingsRing");            break;
-		case Conn_FirstFourSouls       : printf("FirstFourSouls");       break;
-		case Conn_Catring              : printf("Catring");              break;
-		case Conn_AshenMistHeart       : printf("AshenMistHeart");       break;
-		case Conn_KingMemory           : printf("KingMemory");           break;
-		case Conn_OldKeyInBastille     : printf("OldKeyInBastille");     break;
-		case Conn_BastilleKey          : printf("BastilleKey");          break;
-		case Conn_PharrosLockstone     : printf("PharrosLockstone");     break;
-		case Conn_ScorchingIronSceptor : printf("ScorchingIronSceptor"); break;
-		case Conn_ActivateBrumeTower   : printf("ActivateBrumeTower");   break;
-		case Conn_DarkCovenentJoined   : printf("DarkCovenentJoined");   break;
-		case Conn_ForgottenKey         : printf("ForgottenKey");         break;
-		case Conn_DLC1Key              : printf("DLC1Key");              break;
-		case Conn_DLC2Key              : printf("DLC2Key");              break;
-		case Conn_DLC3Key              : printf("DLC3Key");              break;
-		case Conn_ShulvaSanctumKey     : printf("ShulvaSanctumKey");     break;
-		case Conn_ActivateDragonStone  : printf("ActivateDragonStone");  break;
-		case Conn_DLC3Eye              : printf("DLC3Eye");              break;
-		case Conn_DLC3Unfreezed        : printf("DLC3Unfreezed");        break;
-		case Conn_FrigidOutskirtsKey   : printf("FrigidOutskirtsKey");   break;
-		case Conn_ShipBellRang         : printf("ShipBellRang");         break;
-		case Conn_IronKeyToFireLizards : printf("IronKeyToFireLizards"); break;
-		case Conn_DragonStone          : printf("DragonStone");          break;
-		case Conn_BossKilled           : printf("BossKilled");           break;
-		case Conn_LudAndZallenDead     : printf("LudAndZallenDead");     break;
-		case Conn_Firebomb             : printf("Firebomb");             break;
-		case Conn_Gilligan_Ladder      : printf("Gilligan_Ladder");      break;
-		case Conn_DLC2TowerKey         : printf("DLC2TowerKey");         break;
-		case Conn_KeyToKingsPassage    : printf("KeyToKingsPassage");    break;
-		case Conn_HouseKey             : printf("HouseKey");             break;
-		case Conn_AldiaKey             : printf("AldiaKey");             break;
-		case Conn_FireBomb             : printf("FireBomb");             break;
-		case Conn_FangKey              : printf("FangKey");              break;
-		case Conn_VendrickSoul         : printf("VendrickSoul");         break;
-		case Conn_BowCrossbow          : printf("BowCrossbow");          break;
-		case Conn_BrumeTowerKey        : printf("BrumeTowerKey");        break;
-		case Conn_Torch                : printf("Torch");                break;
-		case Conn_LenigrastKey         : printf("LenigrastKey");         break;
-		case Conn_TseldoraDenKey       : printf("TseldoraDenKey");       break;
-		case Conn_FireDefense          : printf("FireDefense");          break;
-		case Conn_SmelterWedge         : printf("SmelterWedge");         break;
-		case Conn_BrightstoneKey       : printf("BrightstoneKey");       break;
-		case Conn_RatTail              : printf("RatTail");              break;
-		case Conn_TokenOfFidelity      : printf("TokenOfFidelity");      break;
-		case Conn_TokenOfSpite         : printf("TokenOfSpite");         break;
-		case Conn_DefeatNajka          : printf("Conn_DefeatNajka");     break;
-		case Conn_RingOfWhispers       : printf("Conn_RingOfWhispers");  break;
-		case Conn_PateCreightonQuest   : printf("Conn_PateCreightonQuest");  break;
+		case Conn_None                 : printf("None");                    break;
+		case Conn_OneWay               : printf("OneWay");                  break;
+		case Conn_RotundaLockstone     : printf("RotundaLockstone");        break;
+		case Conn_SoldiersKey          : printf("SoldiersKey");             break;
+		case Conn_KingsRing            : printf("KingsRing");               break;
+		case Conn_FirstFourSouls       : printf("FirstFourSouls");          break;
+		case Conn_Catring              : printf("Catring");                 break;
+		case Conn_AshenMistHeart       : printf("AshenMistHeart");          break;
+		case Conn_KingMemory           : printf("KingMemory");              break;
+		case Conn_OldKeyInBastille     : printf("OldKeyInBastille");        break;
+		case Conn_BastilleKey          : printf("BastilleKey");             break;
+		case Conn_PharrosLockstone     : printf("PharrosLockstone");        break;
+		case Conn_ScorchingIronSceptor : printf("ScorchingIronSceptor");    break;
+		case Conn_ActivateBrumeTower   : printf("ActivateBrumeTower");      break;
+		case Conn_DarkCovenentJoined   : printf("DarkCovenentJoined");      break;
+		case Conn_ForgottenKey         : printf("ForgottenKey");            break;
+		case Conn_DLC1Key              : printf("DLC1Key");                 break;
+		case Conn_DLC2Key              : printf("DLC2Key");                 break;
+		case Conn_DLC3Key              : printf("DLC3Key");                 break;
+		case Conn_ShulvaSanctumKey     : printf("ShulvaSanctumKey");        break;
+		case Conn_ActivateDragonStone  : printf("ActivateDragonStone");     break;
+		case Conn_DLC3Eye              : printf("DLC3Eye");                 break;
+		case Conn_DLC3Unfreezed        : printf("DLC3Unfreezed");           break;
+		case Conn_FrigidOutskirtsKey   : printf("FrigidOutskirtsKey");      break;
+		case Conn_ShipBellRang         : printf("ShipBellRang");            break;
+		case Conn_IronKeyToFireLizards : printf("IronKeyToFireLizards");    break;
+		case Conn_DragonStone          : printf("DragonStone");             break;
+		case Conn_BossKilled           : printf("BossKilled");              break;
+		case Conn_LudAndZallenDead     : printf("LudAndZallenDead");        break;
+		case Conn_Firebomb             : printf("Firebomb");                break;
+		case Conn_Gilligan_Ladder      : printf("Gilligan_Ladder");         break;
+		case Conn_DLC2TowerKey         : printf("DLC2TowerKey");            break;
+		case Conn_KeyToKingsPassage    : printf("KeyToKingsPassage");       break;
+		case Conn_HouseKey             : printf("HouseKey");                break;
+		case Conn_AldiaKey             : printf("AldiaKey");                break;
+		case Conn_FireBomb             : printf("FireBomb");                break;
+		case Conn_FangKey              : printf("FangKey");                 break;
+		case Conn_VendrickSoul         : printf("VendrickSoul");            break;
+		case Conn_BowCrossbow          : printf("BowCrossbow");             break;
+		case Conn_BrumeTowerKey        : printf("BrumeTowerKey");           break;
+		case Conn_Torch                : printf("Torch");                   break;
+		case Conn_LenigrastKey         : printf("LenigrastKey");            break;
+		case Conn_TseldoraDenKey       : printf("TseldoraDenKey");          break;
+		case Conn_FireDefense          : printf("FireDefense");             break;
+		case Conn_SmelterWedge         : printf("SmelterWedge");            break;
+		case Conn_BrightstoneKey       : printf("BrightstoneKey");          break;
+		case Conn_RatTail              : printf("RatTail");                 break;
+		case Conn_TokenOfFidelity      : printf("TokenOfFidelity");         break;
+		case Conn_TokenOfSpite         : printf("TokenOfSpite");            break;
+		case Conn_DefeatNajka          : printf("DefeatNajka");             break;
+		case Conn_RingOfWhispers       : printf("RingOfWhispers");          break;
+		case Conn_PateCreightonQuest   : printf("PateCreightonQuest");      break;
+		case Conn_DullEmber            : printf("DullEmber");               break;
+		case Conn_Tutorial3Branch      : printf("Conn_Tutorial3Branch");    break;
+		case Conn_RosabethBranch       : printf("Conn_RosabethBranch");     break;
+		case Conn_WharfBranch          : printf("Conn_WharfBranch");        break;
+		case Conn_BastilleBranch       : printf("Conn_BastilleBranch");     break;
+		case Conn_StraidBranch         : printf("Conn_StraidBranch");       break;
+		case Conn_FangKeyBranch        : printf("Conn_FangKeyBranch");      break;
+		case Conn_RepairSpellBranch    : printf("Conn_RepairSpellBranch");  break;
+		case Conn_WarlockMaskBranch    : printf("Conn_WarlockMaskBranch");  break;
+		case Conn_SpellCastSetBranch   : printf("Conn_SpellCastSetBranch"); break;
+		case Conn_VengralBodyBranch    : printf("Conn_VengralBodyBranch");  break;
+		case Conn_TarkBranch           : printf("Conn_TarkBranch");         break;
+		case Conn_GulchBranch          : printf("Conn_GulchBranch");        break;
+		case Conn_AmanaBranch          : printf("Conn_AmanaBranch");        break;
+		case Conn_OgreBranch           : printf("Conn_OgreBranch");         break;
+		case Conn_AldiaBranch1         : printf("Conn_AldiaBranch1");       break;
+		case Conn_AldiaBranch2         : printf("Conn_AldiaBranch2");       break;
+		case Conn_DragonAerieBranch    : printf("Conn_DragonAerieBranch");  break;
 	}
 }
 
@@ -1024,7 +1058,7 @@ void generate_connections() {
 	connection_init(GameStartSpawnDst, 8);
 	connection_add(GameStartSpawnDst, .to = Tutorial1EntryFront);
 	connection_add(GameStartSpawnDst, .to = Tutorial2EntryFront);
-	connection_add(GameStartSpawnDst, .to = Tutorial3EntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(GameStartSpawnDst, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
 	connection_add(GameStartSpawnDst, .to = MajulaToForestOfFallenGiantsFront);
 	connection_add(GameStartSpawnDst, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring); // TODO: cannot add Conn_Gilligan_Ladder to this type
 	connection_add(GameStartSpawnDst, .to = MajulaToRotundaLockstoneFront);
@@ -1034,7 +1068,7 @@ void generate_connections() {
 
 	connection_init(Tutorial1EntryFront, 7);
 	connection_add(Tutorial1EntryFront, .to = Tutorial2EntryFront);
-	connection_add(Tutorial1EntryFront, .to = Tutorial3EntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(Tutorial1EntryFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
 	connection_add(Tutorial1EntryFront, .to = MajulaToForestOfFallenGiantsFront);
 	connection_add(Tutorial1EntryFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
 	connection_add(Tutorial1EntryFront, .to = MajulaToRotundaLockstoneFront);
@@ -1044,7 +1078,7 @@ void generate_connections() {
 
 	connection_init(Tutorial2EntryFront, 7);
 	connection_add(Tutorial2EntryFront, .to = Tutorial1EntryFront);
-	connection_add(Tutorial2EntryFront, .to = Tutorial3EntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(Tutorial2EntryFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
 	connection_add(Tutorial2EntryFront, .to = MajulaToForestOfFallenGiantsFront);
 	connection_add(Tutorial2EntryFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
 	connection_add(Tutorial2EntryFront, .to = MajulaToRotundaLockstoneFront);
@@ -1054,18 +1088,18 @@ void generate_connections() {
 
 	connection_init(Tutorial3EntryFront, 7);
 	connection_add(Tutorial3EntryFront, .to = Tutorial1EntryFront);
-	connection_add(Tutorial3EntryFront, .to = Tutorial2EntryFront, .type = Conn_FragrantBranchOfYore);
-	connection_add(Tutorial3EntryFront, .to = MajulaToForestOfFallenGiantsFront, .type = Conn_FragrantBranchOfYore);
-	connection_add(Tutorial3EntryFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring | Conn_FragrantBranchOfYore);
-	connection_add(Tutorial3EntryFront, .to = MajulaToRotundaLockstoneFront, .type = Conn_FragrantBranchOfYore);
-	connection_add(Tutorial3EntryFront, .to = MajulaToGutterFront, .type = Conn_Catring | Conn_FragrantBranchOfYore);
-	connection_add(Tutorial3EntryFront, .to = MajulaToShadedWoodsFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(Tutorial3EntryFront, .to = Tutorial2EntryFront, .type = Conn_Tutorial3Branch);
+	connection_add(Tutorial3EntryFront, .to = MajulaToForestOfFallenGiantsFront, .type = Conn_Tutorial3Branch);
+	connection_add(Tutorial3EntryFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring | Conn_Tutorial3Branch);
+	connection_add(Tutorial3EntryFront, .to = MajulaToRotundaLockstoneFront, .type = Conn_Tutorial3Branch);
+	connection_add(Tutorial3EntryFront, .to = MajulaToGutterFront, .type = Conn_Catring | Conn_Tutorial3Branch);
+	connection_add(Tutorial3EntryFront, .to = MajulaToShadedWoodsFront, .type = Conn_Tutorial3Branch);
 	warp_node_count++;
 
 	connection_init(MajulaToForestOfFallenGiantsFront, 7);
 	connection_add(MajulaToForestOfFallenGiantsFront, .to = Tutorial1EntryFront);
 	connection_add(MajulaToForestOfFallenGiantsFront, .to = Tutorial2EntryFront);
-	connection_add(MajulaToForestOfFallenGiantsFront, .to = Tutorial3EntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(MajulaToForestOfFallenGiantsFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
 	connection_add(MajulaToForestOfFallenGiantsFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
 	connection_add(MajulaToForestOfFallenGiantsFront, .to = MajulaToRotundaLockstoneFront);
 	connection_add(MajulaToForestOfFallenGiantsFront, .to = MajulaToGutterFront, .type = Conn_Catring);
@@ -1079,7 +1113,7 @@ void generate_connections() {
 	connection_init(MajulaToRotundaLockstoneFront, 7);
 	connection_add(MajulaToRotundaLockstoneFront, .to = Tutorial1EntryFront);
 	connection_add(MajulaToRotundaLockstoneFront, .to = Tutorial2EntryFront);
-	connection_add(MajulaToRotundaLockstoneFront, .to = Tutorial3EntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(MajulaToRotundaLockstoneFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
 	connection_add(MajulaToRotundaLockstoneFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
 	connection_add(MajulaToRotundaLockstoneFront, .to = MajulaToForestOfFallenGiantsFront);
 	connection_add(MajulaToRotundaLockstoneFront, .to = MajulaToGutterFront, .type = Conn_Catring);
@@ -1092,7 +1126,7 @@ void generate_connections() {
 	connection_init(MajulaToShadedWoodsFront, 7);
 	connection_add(MajulaToShadedWoodsFront, .to = Tutorial1EntryFront);
 	connection_add(MajulaToShadedWoodsFront, .to = Tutorial2EntryFront);
-	connection_add(MajulaToShadedWoodsFront, .to = Tutorial3EntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(MajulaToShadedWoodsFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
 	connection_add(MajulaToShadedWoodsFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
 	connection_add(MajulaToShadedWoodsFront, .to = MajulaToForestOfFallenGiantsFront);
 	connection_add(MajulaToShadedWoodsFront, .to = MajulaToGutterFront, .type = Conn_Catring);
@@ -1124,7 +1158,7 @@ void generate_connections() {
 	connection_init(Tutorial1ExitBack, 8);
 	connection_add(Tutorial1ExitBack, .to = Tutorial1EntryFront);
 	connection_add(Tutorial1ExitBack, .to = Tutorial2EntryFront);
-	connection_add(Tutorial1ExitBack, .to = Tutorial3EntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(Tutorial1ExitBack, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
 	connection_add(Tutorial1ExitBack, .to = MajulaToForestOfFallenGiantsFront);
 	connection_add(Tutorial1ExitBack, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
 	connection_add(Tutorial1ExitBack, .to = MajulaToRotundaLockstoneFront);
@@ -1135,7 +1169,7 @@ void generate_connections() {
 	connection_init(Tutorial2ExitBack, 8);
 	connection_add(Tutorial2ExitBack, .to = Tutorial1EntryFront);
 	connection_add(Tutorial2ExitBack, .to = Tutorial2EntryFront);
-	connection_add(Tutorial2ExitBack, .to = Tutorial3EntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(Tutorial2ExitBack, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
 	connection_add(Tutorial2ExitBack, .to = MajulaToForestOfFallenGiantsFront);
 	connection_add(Tutorial2ExitBack, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
 	connection_add(Tutorial2ExitBack, .to = MajulaToRotundaLockstoneFront);
@@ -1146,7 +1180,7 @@ void generate_connections() {
 	connection_init(Tutorial3ExitBack, 8);
 	connection_add(Tutorial3ExitBack, .to = Tutorial1EntryFront);
 	connection_add(Tutorial3ExitBack, .to = Tutorial2EntryFront);
-	connection_add(Tutorial3ExitBack, .to = Tutorial3EntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(Tutorial3ExitBack, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
 	connection_add(Tutorial3ExitBack, .to = MajulaToForestOfFallenGiantsFront);
 	connection_add(Tutorial3ExitBack, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
 	connection_add(Tutorial3ExitBack, .to = MajulaToRotundaLockstoneFront);
@@ -1336,7 +1370,7 @@ void generate_connections() {
 
 	// lost bastille
 	connection_init(NearPursuerBirdExit, 1);
-	connection_add(NearPursuerBirdExit, .to = RuinSentinelsEntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(NearPursuerBirdExit, .to = RuinSentinelsEntryFront, .type = Conn_BastilleBranch);
 	warp_node_count++;
 
 	connection_init(RuinSentinelsEntryFront, 0); // TODO: confirm this
@@ -1416,7 +1450,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(RuinSentinesUpperExitBack, 3);
-	connection_add(RuinSentinesUpperExitBack, .to = RuinSentinelsEntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(RuinSentinesUpperExitBack, .to = RuinSentinelsEntryFront, .type = Conn_BastilleBranch);
 	connection_add(RuinSentinesUpperExitBack, .to = LostBastilleToSinnersRiseFront);
 	connection_add(RuinSentinesUpperExitBack, .to = LostBastilleToShipFromWharfBack, .type = Conn_OldKeyInBastille);
 	connection_add(RuinSentinesUpperExitBack, .to = LostBastilleToBelfryLunaFront, .type = Conn_PharrosLockstone);
@@ -1444,7 +1478,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(LostBastilleToShipFromWharfBack, 2);
-	connection_add(LostBastilleToShipFromWharfBack, .to = RuinSentinelsEntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(LostBastilleToShipFromWharfBack, .to = RuinSentinelsEntryFront, .type = Conn_BastilleBranch);
 	connection_add(LostBastilleToShipFromWharfBack, .to = LostBastilleToSinnersRiseFront, .type = Conn_OldKeyInBastille);
 	warp_node_count++;
 
@@ -1457,7 +1491,7 @@ void generate_connections() {
 
 	connection_init(LostBastilleToBelfryLunaFront, 4);
 	connection_add(LostBastilleToBelfryLunaFront, .to = RuinSentinesUpperExitBack);
-	connection_add(LostBastilleToBelfryLunaFront, .to = RuinSentinelsEntryFront, .type = Conn_FragrantBranchOfYore);
+	connection_add(LostBastilleToBelfryLunaFront, .to = RuinSentinelsEntryFront, .type = Conn_BastilleBranch);
 	connection_add(LostBastilleToBelfryLunaFront, .to = LostBastilleToSinnersRiseFront);
 	connection_add(LostBastilleToBelfryLunaFront, .to = LostBastilleToShipFromWharfBack, .type = Conn_OldKeyInBastille);
 	warp_node_count++;
@@ -2008,10 +2042,10 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(ShadedWoodsFromMajulaBack, 4);
-	connection_add(ShadedWoodsFromMajulaBack, .to = ShadedWoodsToMistyAreaFront, .type = Conn_FragrantBranchOfYore);
-	connection_add(ShadedWoodsFromMajulaBack, .to = DLC3EntranceBaseGame, .type = Conn_FragrantBranchOfYore | Conn_FirstFourSouls);
-	connection_add(ShadedWoodsFromMajulaBack, .to = DrangleicCastleToShadedWoodsFront, .type = Conn_FragrantBranchOfYore | Conn_FirstFourSouls);
-	connection_add(ShadedWoodsFromMajulaBack, .to = AldiasKeepEntranceFront, .type = Conn_FragrantBranchOfYore | Conn_KingsRing);
+	connection_add(ShadedWoodsFromMajulaBack, .to = ShadedWoodsToMistyAreaFront, .type = Conn_RosabethBranch);
+	connection_add(ShadedWoodsFromMajulaBack, .to = DLC3EntranceBaseGame, .type = Conn_RosabethBranch | Conn_FirstFourSouls);
+	connection_add(ShadedWoodsFromMajulaBack, .to = DrangleicCastleToShadedWoodsFront, .type = Conn_RosabethBranch | Conn_FirstFourSouls);
+	connection_add(ShadedWoodsFromMajulaBack, .to = AldiasKeepEntranceFront, .type = Conn_RosabethBranch | Conn_KingsRing);
 	warp_node_count++;
 
 	connection_init(ShadedWoodsToMistyAreaFront, 3);

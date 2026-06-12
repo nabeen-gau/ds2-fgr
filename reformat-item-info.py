@@ -123,7 +123,7 @@ for i in my:
             if all_items.get(item) == None:
                 all_items[item] = True;
             else:
-                assert(item == "60013000" or item == "60004000"); #Allow duplicates only for soul of nadalia fragment and giant soul
+                assert(item == "60004000"); #Allow duplicates only for giant soul
             my_infos[cur_gate].items.append(Item(item, keys))
     elif (i.startswith("##")): # is a key
         hash_count = i.count("#")
