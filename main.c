@@ -5179,7 +5179,9 @@ void generate_all_nodes(HashSet *hs) {
 	}
 }
 
-void generate_all_foggates(DArrz *arr) {
+DA(WarpNode, DAWarpNode);
+
+void generate_all_foggates(DAWarpNode *arr) {
 	arr->count = 0;
 	if (arr->capacity != AllFogGatesCount) da_init(arr, AllFogGatesCount);
 	for (size_t i=AllFogGatesStart; i<=AllFogGatesEnd; i++) {
@@ -5197,7 +5199,7 @@ int da_idx_of(DArrz *arr, size_t value) {
 DA(bool, DBool);
 
 // Helper to run a BFS from a given node and discover all newly reachable fog gates
-void explore_from_node(size_t start_node, HashSet *visited, DArrz *queue, size_t *head, DArrz *fog_gates, DBool *gate_reached, Inventory *inv, HashSet *locked_nodes) {
+void explore_from_node(size_t start_node, HashSet *visited, DArrz *queue, size_t *head, DAWarpNode *fog_gates, DBool *gate_reached, Inventory *inv, HashSet *locked_nodes) {
     // Only queue up if we haven't visited it yet
     if (ht_find(visited, (int)start_node) == NULL) {
         ht_put(visited, (int)start_node);
@@ -5245,7 +5247,7 @@ typedef struct {
     DArrz queue;
 	DArrz matching;
     DBool gate_reached;
-    DArrz fog_gates;
+    DAWarpNode fog_gates;
 	DArrz leftover;
 	Inventory inventory;
 	HashSet locked_nodes;
@@ -5833,6 +5835,53 @@ bool read_item_bank(ItemBank *ib, bool log) {
 	return true;
 }
 
+typedef struct {
+	WarpNode a;
+	WarpNode b;
+} Edge;
+
+DA(Edge, DAEdge);
+
+typedef Ht(WarpNode, WarpNode) HtEdge;
+typedef Ht(WarpNode, bool) HsWarpNode;
+
+typedef struct {
+	DAWarpNode remaining_nodes;
+	HtEdge edges;
+	DAWarpNode queue;
+	HsWarpNode visited;
+	Connections conns;
+} FGR;
+
+void free_fgr(FGR *fgr) {
+	da_free(fgr->remaining_nodes);
+	ht_free(&fgr->edges);
+	da_free(fgr->queue);
+	ht_free(&fgr->visited);
+	da_foreach(ConnectionGroup, cg, &fgr->conns) {
+		da_free(*cg);
+	}
+	da_free(fgr->conns);
+}
+
+void dfs(FGR *fgr, WarpNode node, int depth, bool is_warp) {
+	bool *visited = ht_find(&fgr->visited, node);
+	if (visited) return;
+	*ht_put(&fgr->visited, node) = true;
+
+	if (is_warp) printf("<~.~>");
+	else {
+		printf("\n");
+		for (int i=0; i<depth; i++) printf("  ");
+	}
+	printf("%s", WarpNodeNames[node]);
+
+	ConnectionGroup *c = &fgr->conns.items[node];
+	for (int i=c->count-1; i>=0; i--) {
+		dfs(fgr, c->items[i].to, c->items[i].is_warp?depth:depth+1, c->items[i].is_warp);
+	}
+}
+
 int main() {
 	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
 	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
@@ -5843,11 +5892,75 @@ int main() {
 	// free_editor(&editor);
 	// free_connections();
 
-	ItemBank ib;
-	if (!read_item_bank(&ib, false)) return 1;
-	free_item_bank(&ib);
+	// ItemBank ib;
+	// if (!read_item_bank(&ib, false)) return 1;
+	// free_item_bank(&ib);
+
+	int seed = 5554;
+	srand(seed);
+
+	FGR fgr = {0};
+	generate_all_foggates(&fgr.remaining_nodes);
+
+	// randomly select a node from remaining nodes
+	// if it already has a connection create an edge
+	// else randomly select another node from remaining nodes and create an edge
+	assert(fgr.remaining_nodes.count%2 == 0 && "Why is it odd?");
+	generate_connections();
+	get_connections(&fgr.conns);
+	while (fgr.remaining_nodes.count > 0) {
+		size_t rid1 = rand()%fgr.remaining_nodes.count;
+		WarpNode n1 = fgr.remaining_nodes.items[rid1];
+		da_remove_unordered(&fgr.remaining_nodes, rid1);
+		size_t rid2 = rand()%fgr.remaining_nodes.count;
+		WarpNode n2 = fgr.remaining_nodes.items[rid2];
+		da_remove_unordered(&fgr.remaining_nodes, rid2);
+		*ht_put(&fgr.edges, n1) = n2;
+		*ht_put(&fgr.edges, n2) = n1;
+
+		da_append(&fgr.conns.items[n1], ((Connection){
+			.to = n2,
+			.type = Conn_None,
+			.is_warp = true,
+		}));
+		da_append(&fgr.conns.items[n2], ((Connection){
+			.to = n1,
+			.type = Conn_None,
+			.is_warp = true,
+		}));
+	}
+
+	// build a tree of path
+	WarpNode node = GameStartSpawnSrc;
+	dfs(&fgr, node, 0, true);
+	// da_append(&fgr.queue, node);
+	// while (fgr.queue.count > 0) {
+	// 	node = fgr.queue.items[--fgr.queue.count];
+	// 	// check if the node has been visited if so skip it
+	// 	if (ht_find(&fgr.visited, node) != NULL) continue;
+	// 	*ht_put(&fgr.visited, node) = true;
+	// 	// check if the node is a fog gate
+	// 	WarpNode *dst = ht_find(&fgr.edges, node);
+	// 	if (dst == NULL) { // if it is not a fog gate check its adjacent locations and add them to queue
+	// 		ConnectionGroup *cg = &connections.items[node];
+	// 		da_foreach(Connection, c, cg) {
+	// 			da_append(&fgr.queue, c->to);
+	// 		}
+	// 	} else { // if it is a fog gate add its dst to visited and add all the adjacent locations of dst to queue
+	// 		*ht_put(&fgr.visited, *dst) = true;
+	// 		ConnectionGroup *cg = &connections.items[*dst];
+	// 		da_foreach(Connection, c, cg) {
+	// 			da_append(&fgr.queue, c->to);
+	// 		}
+	// 	}
+	// }
+
+
+
+	asm("int3");
+
+	free_fgr(&fgr);
+	free_connections();
 
 	return 0;
 }
-
-// TODO: search the shops for infinite buying of firebombs and arrows/bolts
