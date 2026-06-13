@@ -5181,6 +5181,14 @@ void generate_all_nodes(HashSet *hs) {
 
 DA(WarpNode, DAWarpNode);
 
+void generate_all_nodes_da(DAWarpNode *da) {
+	da->count = 0;
+	if (da->capacity != AllConnectionsCount) da_init(da, AllConnectionsCount);
+	for (size_t i=AllConnectionsStart; i<=AllConnectionsEnd; i++) {
+		da_append(da, i);
+	}
+}
+
 void generate_all_foggates(DAWarpNode *arr) {
 	arr->count = 0;
 	if (arr->capacity != AllFogGatesCount) da_init(arr, AllFogGatesCount);
@@ -5848,7 +5856,7 @@ typedef Ht(WarpNode, bool) HsWarpNode;
 typedef struct {
 	DAWarpNode remaining_nodes;
 	HtEdge edges;
-	DAWarpNode queue;
+	DAWarpNode looped_nodes;
 	HsWarpNode visited;
 	Connections conns;
 } FGR;
@@ -5856,7 +5864,7 @@ typedef struct {
 void free_fgr(FGR *fgr) {
 	da_free(fgr->remaining_nodes);
 	ht_free(&fgr->edges);
-	da_free(fgr->queue);
+	da_free(fgr->looped_nodes);
 	ht_free(&fgr->visited);
 	da_foreach(ConnectionGroup, cg, &fgr->conns) {
 		da_free(*cg);
@@ -5864,25 +5872,195 @@ void free_fgr(FGR *fgr) {
 	da_free(fgr->conns);
 }
 
-void dfs(FGR *fgr, WarpNode node, int depth, bool is_warp) {
-	bool *visited = ht_find(&fgr->visited, node);
-	if (visited) return;
-	*ht_put(&fgr->visited, node) = true;
-
-	if (is_warp) printf("<~.~>");
-	else {
+void dfs(FGR *fgr, Connection *c, WarpNode parent, int depth, uint64_t active_paths, bool is_last, bool log_paths) {
+	if (log_paths) {
 		printf("\n");
-		for (int i=0; i<depth; i++) printf("  ");
+		if (depth > 0) {
+			for (int i = 0; i < depth - 1; i++) {
+				if (active_paths & (1ULL << i)) {
+					printf("│ ");
+				} else {
+					printf("  ");
+				}
+			}
+			if (is_last) {
+				printf("└ ");
+			} else {
+				printf("├ ");
+			}
+		}
+		printf("%s", WarpNodeNames[c->to]);
 	}
-	printf("%s", WarpNodeNames[node]);
 
-	ConnectionGroup *c = &fgr->conns.items[node];
-	for (int i=c->count-1; i>=0; i--) {
-		dfs(fgr, c->items[i].to, c->items[i].is_warp?depth:depth+1, c->items[i].is_warp);
+	bool *visited = ht_find(&fgr->visited, c->to);
+	if (visited) {
+		if (log_paths) printf(" (already visited)");
+		return;
+	}
+	*ht_put(&fgr->visited, c->to) = true;
+
+	ConnectionGroup *cg = &fgr->conns.items[c->to];
+
+	int lowest_valid_i = -1;
+	for (size_t i = 0; i < cg->count; i++) {
+		if (cg->items[i].to != parent) {
+			lowest_valid_i = i;
+			break;
+		}
+	}
+
+	for (int i=cg->count-1; i>=0; i--) {
+		if (cg->items[i].to == parent) continue;
+		int next_depth = depth + 1;
+		bool child_is_last = (i == lowest_valid_i);
+		uint64_t next_active_paths = active_paths;
+		if (!child_is_last) {
+			next_active_paths |= (1ULL << depth);
+		} else {
+			next_active_paths &= ~(1ULL << depth);
+		}
+		dfs(fgr, &cg->items[i], c->to, next_depth, next_active_paths, child_is_last, log_paths);
 	}
 }
 
-int main() {
+
+typedef struct {
+	Connection c;
+	WarpNode parent;
+	int depth;
+} BFSQueueItem;
+
+DA(BFSQueueItem, Queue);
+
+void bfs(FGR *fgr, Connection start_c, WarpNode start_parent, bool log_paths) {
+	// Initialize dynamic queue
+	Queue queue = {0};
+	size_t head = 0;
+
+	// Enqueue the root node
+	da_append(&queue, ((BFSQueueItem){start_c, start_parent, 0}));
+
+	int current_depth = -1;
+
+	while (head < queue.count) {
+		// Dequeue
+		BFSQueueItem item = queue.items[head++];
+		Connection c = item.c;
+		WarpNode parent = item.parent;
+		int depth = item.depth;
+
+		// Level Header printing
+		if (log_paths) {
+			if (depth > current_depth) {
+				printf("\n\n=== DEPTH LEVEL %d ===", depth);
+				current_depth = depth;
+			}
+			// Print where we came from and where we are
+			printf("\n[%s] -> %s", WarpNodeNames[parent], WarpNodeNames[c.to]);
+		}
+
+		// Loop detection and visited check
+		bool *visited = ht_find(&fgr->visited, c.to);
+		if (visited) {
+			if (c.type == Conn_FogGate) {
+				printf("  <-- [FogGate Loop: %s - %s]", WarpNodeNames[parent], WarpNodeNames[c.to]);
+			}
+			if (log_paths) printf(" (already visited)");
+			continue; // Do not process children of already visited nodes
+		}
+		
+		*ht_put(&fgr->visited, c.to) = true;
+
+		// Enqueue children
+		ConnectionGroup *cg = &fgr->conns.items[c.to];
+		for (size_t i = 0; i < cg->count; i++) {
+			// Skip the immediate parent to prevent immediate bouncing
+			if (cg->items[i].to == parent) continue;
+
+			// Push to queue
+			da_append(&queue, ((BFSQueueItem){cg->items[i], c.to, depth + 1})); 
+		}
+	}
+	
+	da_free(queue);
+	if (log_paths) printf("\n");
+}
+
+void export_to_graphviz(FGR *fgr, String_Builder *sb) {
+	sb_appendf(sb, "digraph DS2FGR {\n");
+	// Styling to make it look clean and readable
+	sb_appendf(sb, "    backgroundcolor=\"#1e1e1e\";\n");
+	sb_appendf(sb, "    node [shape=box, style=filled, fillcolor=\"#202020\", color=\"#569cd6\", fontcolor=\"#dcdcdc\", fontname=\"Arial\"];\n");
+	sb_appendf(sb, "    edge [color=\"#ff0000\", arrowhead=vee, arrowsize=1.5];\n");
+	sb_appendf(sb, "    rankdir=LR;\n\n"); // left to right
+	sb_appendf(sb, "    concentrate=true;\n"); // Merges overlapping lines into one trunk
+	sb_appendf(sb, "    overlap=false;\n");    // Keeps nodes from overlapping in fdp/neato
+	// sb_appendf(sb, "	layout=dot;\n");
+
+	for (WarpNode i=AllConnectionsStart; i<=AllConnectionsEnd; i++) {
+		ConnectionGroup *cg = &fgr->conns.items[i];
+		// ConnectionGroup *cg = &connections.items[i];
+		for (size_t j=0; j<cg->count; j++) {
+			sb_appendf(sb, "    \"%s\" -> \"%s\";\n", WarpNodeNames[i], WarpNodeNames[cg->items[j].to]);
+		}
+	}
+
+	sb_appendf(sb, "}\n");
+}
+
+void export_to_interactive_html(FGR *fgr, String_Builder *sb) {
+    // 1. Print the HTML and JS library setup
+    sb_appendf(sb, "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n");
+    sb_appendf(sb, "    <meta charset=\"UTF-8\">\n");
+    sb_appendf(sb, "    <title>Dark Souls Randomizer Map</title>\n");
+    sb_appendf(sb, "    <script src=\"https://unpkg.com/vis-network/standalone/umd/vis-network.min.js\"></script>\n");
+    sb_appendf(sb, "    <style>\n");
+    sb_appendf(sb, "        body { margin: 0; padding: 0; background-color: #1e1e1e; }\n");
+    sb_appendf(sb, "        #mynetwork { width: 100vw; height: 100vh; }\n");
+    sb_appendf(sb, "    </style>\n");
+    sb_appendf(sb, "</head>\n<body>\n");
+    sb_appendf(sb, "<div id=\"mynetwork\"></div>\n");
+    
+    // 2. Start the JS string literal for the DOT data
+    sb_appendf(sb, "<script type=\"text/javascript\">\n");
+    sb_appendf(sb, "const dotString = `\n");
+	export_to_graphviz(fgr, sb);
+    sb_appendf(sb, "`;\n\n");
+	sb_appendf(sb, "const container = document.getElementById('mynetwork');\n");
+    
+    // Updated parser syntax
+    sb_appendf(sb, "const parsedData = vis.networkDOTParser.parseDOT(dotString);\n");
+	sb_appendf(sb, "parsedData.nodes.forEach(node => { node.label = node.id; });\n");
+    sb_appendf(sb, "const data = { nodes: parsedData.nodes, edges: parsedData.edges };\n");
+    
+    // Apply styling, layout fixes, and physics config
+    sb_appendf(sb, "const options = {\n");
+    
+    // Disable improvedLayout to prevent the warning and speed up loading
+    sb_appendf(sb, "    layout: {\n");
+    sb_appendf(sb, "        improvedLayout: false\n");
+    sb_appendf(sb, "    },\n");
+    
+    sb_appendf(sb, "    physics: {\n");
+    // Slightly weaker gravity and longer springs to give the large graph room to breathe
+    sb_appendf(sb, "        barnesHut: { gravitationalConstant: -2000, centralGravity: 0.1, springLength: 200 }\n");
+    sb_appendf(sb, "    },\n");
+    sb_appendf(sb, "    nodes: {\n");
+    sb_appendf(sb, "        shape: 'box',\n");
+    sb_appendf(sb, "        color: { background: '#2d2d2d', border: '#569cd6', highlight: { background: '#4ec9b0', border: '#ffffff' } },\n");
+    sb_appendf(sb, "        font: { color: '#dcdcdc', face: 'Arial' }\n");
+    sb_appendf(sb, "    },\n");
+    sb_appendf(sb, "    edges: {\n");
+    sb_appendf(sb, "        color: { color: '#9cdcfe', highlight: '#4ec9b0', inherit: false },\n");
+    sb_appendf(sb, "        smooth: { type: 'continuous' }\n");
+    sb_appendf(sb, "    }\n");
+    sb_appendf(sb, "};\n");
+    
+    sb_appendf(sb, "const network = new vis.Network(container, data, options);\n");
+    sb_appendf(sb, "</script>\n</body>\n</html>\n");
+}
+
+int main_old() {
 	// if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
 	// if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
 	// Editor editor = {0};
@@ -5902,9 +6080,6 @@ int main() {
 	FGR fgr = {0};
 	generate_all_foggates(&fgr.remaining_nodes);
 
-	// randomly select a node from remaining nodes
-	// if it already has a connection create an edge
-	// else randomly select another node from remaining nodes and create an edge
 	assert(fgr.remaining_nodes.count%2 == 0 && "Why is it odd?");
 	generate_connections();
 	get_connections(&fgr.conns);
@@ -5920,47 +6095,231 @@ int main() {
 
 		da_append(&fgr.conns.items[n1], ((Connection){
 			.to = n2,
-			.type = Conn_None,
+			.type = Conn_FogGate,
 			.is_warp = true,
 		}));
 		da_append(&fgr.conns.items[n2], ((Connection){
 			.to = n1,
-			.type = Conn_None,
+			.type = Conn_FogGate,
 			.is_warp = true,
 		}));
 	}
 
-	// build a tree of path
-	WarpNode node = GameStartSpawnSrc;
-	dfs(&fgr, node, 0, true);
-	// da_append(&fgr.queue, node);
-	// while (fgr.queue.count > 0) {
-	// 	node = fgr.queue.items[--fgr.queue.count];
-	// 	// check if the node has been visited if so skip it
-	// 	if (ht_find(&fgr.visited, node) != NULL) continue;
-	// 	*ht_put(&fgr.visited, node) = true;
-	// 	// check if the node is a fog gate
-	// 	WarpNode *dst = ht_find(&fgr.edges, node);
-	// 	if (dst == NULL) { // if it is not a fog gate check its adjacent locations and add them to queue
-	// 		ConnectionGroup *cg = &connections.items[node];
-	// 		da_foreach(Connection, c, cg) {
-	// 			da_append(&fgr.queue, c->to);
-	// 		}
-	// 	} else { // if it is a fog gate add its dst to visited and add all the adjacent locations of dst to queue
-	// 		*ht_put(&fgr.visited, *dst) = true;
-	// 		ConnectionGroup *cg = &connections.items[*dst];
-	// 		da_foreach(Connection, c, cg) {
-	// 			da_append(&fgr.queue, c->to);
-	// 		}
-	// 	}
-	// }
+	WarpNode start = GameStartSpawnSrc;
+	*ht_put(&fgr.visited, start) = true;
+	ConnectionGroup cg = connections.items[start];
+	da_foreach(Connection, c, &cg) {
+		if (1) {
+			dfs(&fgr, c, start, 0, 0, true, false);
+		} else {
+			bfs(&fgr, *c, start, true);
+		}
+	}
+	printf("Reached: %zu/%d\n", fgr.visited.count, AllConnectionsCount);
+	printf("Failed to reach: ");
+	for (WarpNode i=AllConnectionsStart; i<=AllConnectionsEnd; i++) {
+		if (ht_find(&fgr.visited, i) == NULL) {
+			printf("%s,", WarpNodeNames[i]);
+		}
+	}
+	printf("\n");
 
-
-
-	asm("int3");
+	if (0) {
+		String_Builder sb = {0};
+		if (1) {
+			export_to_graphviz(&fgr, &sb);
+		} else {
+			export_to_interactive_html(&fgr, &sb);
+		}
+		const char *svg_path = "./map.svg";
+		const char *dot_path = "./map.dot";
+		if (!write_entire_file(dot_path, sb.items, sb.count)) return 1;
+		Cmd cmd = {0};
+		cmd_append(&cmd, "other/Graphviz-14.1.5-win64/bin/dot.exe");
+		cmd_append(&cmd, "-Tsvg");
+		cmd_append(&cmd, dot_path, "-o", svg_path);
+		if (!cmd_run(&cmd)) return 1;
+		da_free(sb);
+	}
 
 	free_fgr(&fgr);
 	free_connections();
+
+	return 0;
+}
+
+void remove_gate_unordered(DAWarpNode *da, WarpNode wn) {
+	for (size_t i=0; i<da->count; i++) {
+		if (da->items[i] == wn) {
+			da_remove_unordered(da, i);
+			return;
+		}
+	}
+	UNREACHABLE("gate is not present!");
+}
+
+bool wnda_has_node(DAWarpNode *da, WarpNode wn) {
+	for (size_t i=0; i<da->count; i++) {
+		if (da->items[i] == wn) {
+			return true;
+		}
+	}
+	return false;
+}
+
+typedef Ht(WarpNode, WarpNode) HtWarpNode;
+
+void travel(WarpNode node, DAWarpNode *reachables, HsWarpNode *reachables_hm, 
+		DAWarpNode *warps, Connections *conns, DAWarpNode *remaining_nodes,
+		HtWarpNode *randomized_nodes, size_t index) {
+
+	size_t check_start = reachables->count;
+
+	da_append(reachables, node);
+	*ht_put(reachables_hm, node) = true;
+	remove_gate_unordered(remaining_nodes, node);
+
+	ConnectionGroup *cg = &connections.items[node];
+	for (size_t i=0; i<cg->count; i++) {
+		if (ht_find(reachables_hm, cg->items[i].to) != NULL) continue;
+
+		if (cg->items[i].is_warp) da_append(warps, cg->items[i].to);
+		da_append(reachables, cg->items[i].to);
+		*ht_put(reachables_hm, cg->items[i].to) = true;
+		remove_gate_unordered(remaining_nodes, cg->items[i].to);
+	}
+
+	for (size_t i=0; i<warps->count; i++) {
+		ConnectionGroup *cg = &connections.items[warps->items[i]];
+		for (size_t j=0; j<cg->count; j++) {
+			if (ht_find(reachables_hm, cg->items[j].to) != NULL) continue;
+			assert(!cg->items[j].is_warp);
+
+			da_append(reachables, cg->items[j].to);
+			*ht_put(reachables_hm, cg->items[j].to) = true;
+			remove_gate_unordered(remaining_nodes, cg->items[j].to);
+		}
+	}
+	warps->count = 0;
+
+	for (size_t i=check_start; i<reachables->count; i++) {
+		ConnectionGroup *cg = &connections.items[reachables->items[i]];
+		for (size_t j=0; j<cg->count; j++) {
+			if (ht_find(reachables_hm, cg->items[j].to) == NULL) {
+				da_append(reachables, cg->items[j].to);
+				*ht_put(reachables_hm, cg->items[j].to) = true;
+				remove_gate_unordered(remaining_nodes, cg->items[j].to);
+			}
+		}
+	}
+
+
+	for (size_t i=index; i<reachables->count; i++) {
+		node = reachables->items[i];
+		if (warpnode_is_foggate(node) && ht_find(randomized_nodes, node) == NULL) {
+			WarpNode wn = remaining_nodes->items[rand()%remaining_nodes->count];
+
+			da_append(&conns->items[node], ((Connection){
+				.to = wn, .type = Conn_FogGate, .is_warp = true,
+			}));
+			da_append(&conns->items[wn], ((Connection){
+				.to = node, .type = Conn_FogGate, .is_warp = true,
+			}));
+			*ht_put(randomized_nodes, node) = wn;
+			*ht_put(randomized_nodes, wn) = node;
+			travel(wn, reachables, reachables_hm, warps, conns, remaining_nodes, randomized_nodes, i+1);
+		}
+	}
+
+}
+
+
+int main() {
+	int seed = 5554;
+	srand(seed);
+
+	generate_connections();
+
+	DAWarpNode reachables = {0};
+	HsWarpNode reachables_hm = {0};
+	DAWarpNode warps = {0};
+	DAWarpNode remaining_nodes = {0};
+	HtWarpNode randomized_nodes = {0};
+
+	Connections conns = {0};
+
+	WarpNode node = GameStartSpawnSrc;
+
+	reachables.count = 0;
+	warps.count = 0;
+	remaining_nodes.count = 0;
+	conns.count = 0;
+	ht_reset(&reachables_hm);
+	ht_reset(&randomized_nodes);
+
+	get_connections(&conns);
+	generate_all_nodes_da(&remaining_nodes);
+
+	travel(node, &reachables, &reachables_hm, &warps, &conns, &remaining_nodes, &randomized_nodes, 0);
+
+	printf("Connected: %zu\n", reachables.count);
+	printf("Remaining: %zu\n", remaining_nodes.count);
+
+	// go through all the remaining nodes
+	do {
+		for (size_t i=0; i<remaining_nodes.count; i++) {
+			node = remaining_nodes.items[i];
+			ConnectionGroup *cg = &connections.items[node];
+			// go through all of the nodes's adjacent nodes
+			for (size_t j=0; j<cg->count; j++) {
+				if (cg->items[j].is_warp) continue;
+				WarpNode wn = cg->items[j].to;
+				// if one of the adjacent nodes has been reached before then
+				if (ht_find(&reachables_hm, wn) != NULL && warpnode_is_foggate(wn)) {
+					// change the warp from wn's buddy to node
+					// get original warp pair of wn (wnbuddy)
+					WarpNode *wnbuddy = ht_find(&randomized_nodes, wn);
+					assert(wnbuddy != NULL);
+
+					// change the pair of wnbuddy to node
+					ConnectionGroup *wnbuddy_cg = &conns.items[*wnbuddy];
+					assert(wnbuddy_cg->items[wnbuddy_cg->count-1].type == Conn_FogGate);
+					wnbuddy_cg->items[wnbuddy_cg->count-1].to = node; // this is always the last element ensured by above assertion
+					*ht_put(&randomized_nodes, *wnbuddy) = node;
+
+					// add node's pair to be wnbuddy
+					da_append(&conns.items[node], ((Connection){
+								.to = *wnbuddy, .type = Conn_FogGate, .is_warp = true,
+								}));
+					*ht_put(&randomized_nodes, node) = *wnbuddy;
+
+					// remove wn's pair
+					conns.items[wn].count--;
+					assert(ht_find_and_delete(&randomized_nodes, wn));
+
+					travel(node, &reachables, &reachables_hm, &warps, &conns, &remaining_nodes, &randomized_nodes, 0);
+					goto end;
+				}
+			}
+		}
+end:
+		printf("Connected: %zu\n", reachables.count);
+		printf("Remaining: %zu\n", remaining_nodes.count);
+	} while (remaining_nodes.count > 0);
+	// go through the remaining_nodes and find the node that can reach the reached_nodes
+
+	asm("int3");
+
+	da_free(reachables);
+	ht_free(&reachables_hm);
+	da_free(warps);
+	da_free(remaining_nodes);
+	ht_free(&randomized_nodes);
+	free_connections();
+	da_foreach(ConnectionGroup, cg, &conns) {
+		da_free(*cg);
+	}
+	da_free(conns);
 
 	return 0;
 }

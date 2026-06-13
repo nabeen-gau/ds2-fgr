@@ -380,6 +380,10 @@ bool point_has_cutscene(WarpNode node) {
 	return false;
 }
 
+bool warpnode_is_foggate(WarpNode node) {
+	return node >= FogGateStart && node <= FogGateEnd;
+}
+
 typedef struct {
 	bool is_foggate;
 	int fog_gate_id; // can be generated when reading the map_file
@@ -866,7 +870,7 @@ static_assert(ARRAY_LEN(warp_points) == __WarpNodeCount, "Missing warp point def
 
 typedef enum ConnectionType {
 	Conn_None,
-	Conn_OneWay,
+	Conn_FogGate,
 	Conn_RotundaLockstone,
 	Conn_SoldiersKey,
 	Conn_KingsRing,
@@ -940,7 +944,7 @@ typedef enum ConnectionType {
 void print_connection_type(ConnectionType ct) {
 	switch (ct) {
 		case Conn_None                 : printf("None");                    break;
-		case Conn_OneWay               : printf("OneWay");                  break;
+		case Conn_FogGate               : printf("FogGate");                  break;
 		case Conn_RotundaLockstone     : printf("RotundaLockstone");        break;
 		case Conn_SoldiersKey          : printf("SoldiersKey");             break;
 		case Conn_KingsRing            : printf("KingsRing");               break;
@@ -1316,6 +1320,7 @@ void generate_connections() {
 	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsBalconyBack, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
 	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_Firebomb | Conn_SoldiersKey | Conn_KingsRing);
 	connection_add(PursuerExitBack, .to = NearPursuerBirdEntry);
+	connection_add(PursuerExitBack, .to = NearPursuerGiantMemoryEntrySrc, .type = Conn_AshenMistHeart);
 	warp_node_count++;
 
 	connection_init(NearPursuerBirdEntry, 1);
@@ -1746,12 +1751,12 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(OldIronKingExitBack, 1);
-	connection_add(OldIronKingExitBack, DLC2EntranceBaseGame);
+	connection_add(OldIronKingExitBack, .to = DLC2EntranceBaseGame);
 	warp_node_count++;
 
 	connection_init(DLC2EntranceBaseGame, 2);
-	connection_add(DLC2EntranceBaseGame, DLC2EntranceDLC, .is_warp = true);
-	connection_add(DLC2EntranceBaseGame, OldIronKingExitBack);
+	connection_add(DLC2EntranceBaseGame, .to = DLC2EntranceDLC, .is_warp = true);
+	connection_add(DLC2EntranceBaseGame, .to = OldIronKingExitBack);
 	warp_node_count++;
 
 	// dlc2
@@ -1922,21 +1927,21 @@ void generate_connections() {
 
 	// black gulch
 	connection_init(BlackGulchEntranceBack, 2);
-	connection_add(BlackGulchEntranceBack, TheRottenEntryFront);
-	connection_add(BlackGulchEntranceBack, ChasmPortalFromBlackGulchSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(BlackGulchEntranceBack, .to = TheRottenEntryFront);
+	connection_add(BlackGulchEntranceBack, .to = ChasmPortalFromBlackGulchSrc, .type = Conn_DarkCovenentJoined);
 	warp_node_count++;
 
 	connection_init(TheRottenEntryFront, 2);
-	connection_add(TheRottenEntryFront, BlackGulchEntranceBack);
-	connection_add(TheRottenEntryFront, ChasmPortalFromBlackGulchSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(TheRottenEntryFront, .to = BlackGulchEntranceBack);
+	connection_add(TheRottenEntryFront, .to = ChasmPortalFromBlackGulchSrc, .type = Conn_DarkCovenentJoined);
 	warp_node_count++;
 
 	connection_init(ChasmPortalFromBlackGulchSrc, 1);
-	connection_add(ChasmPortalFromBlackGulchSrc, ChasmPortalFromBlackGulchDst, .is_warp = true);
+	connection_add(ChasmPortalFromBlackGulchSrc, .to = ChasmPortalFromBlackGulchDst, .is_warp = true);
 	warp_node_count++;
 
 	connection_init(ChasmPortalFromBlackGulchDst, 1);
-	connection_add(ChasmPortalFromBlackGulchDst, DarkChasmFromBlackGulchExitFront);
+	connection_add(ChasmPortalFromBlackGulchDst, .to = DarkChasmFromBlackGulchExitFront);
 	warp_node_count++;
 
 	connection_init(DarkChasmFromBlackGulchExitFront, 0);
@@ -1974,7 +1979,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(ShulvaEntranceFront, 1);
-	connection_add(ShulvaEntranceFront, .to = DLC1EntranceBaseGame, .type = Conn_DLC1Key);
+	connection_add(ShulvaEntranceFront, .to = DLC1EntranceDLC, .type = Conn_DLC1Key);
 	warp_node_count++;
 
 	connection_init(ShulvaEntranceBack, 2);
@@ -2165,7 +2170,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(CongregationExitBack, 1);
-	connection_add(CongregationExitBack, DukesDearFreyjaEntryFront);
+	connection_add(CongregationExitBack, .to = DukesDearFreyjaEntryFront);
 	warp_node_count++;
 
 	connection_init(DukesDearFreyjaEntryFront, 0);

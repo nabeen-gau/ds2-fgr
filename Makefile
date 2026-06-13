@@ -22,3 +22,6 @@ test: test.c
 
 dump-esd: dump-esd.c
 	gcc -O3 $(CFLAGS) -o dump-esd dump-esd.c
+
+map.svg: map.dot
+	other\Graphviz-14.1.5-win64\bin\dot.exe -Tsvg map.dot -o map.svg
