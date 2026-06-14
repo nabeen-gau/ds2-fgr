@@ -384,6 +384,10 @@ bool warpnode_is_foggate(WarpNode node) {
 	return node >= FogGateStart && node <= FogGateEnd;
 }
 
+bool warpnode_is_foggate_v2(WarpNode node) {
+	return node >= AllFogGatesStart && node <= AllFogGatesEnd;
+}
+
 typedef struct {
 	bool is_foggate;
 	int fog_gate_id; // can be generated when reading the map_file
@@ -1257,7 +1261,7 @@ void generate_connections() {
 	connection_init(ForestOfFallenGiantsBalconyBack, 4);
 	connection_add(ForestOfFallenGiantsBalconyBack, .to = LastGiantEntryFront);
 	connection_add(ForestOfFallenGiantsBalconyBack, .to = ForestOfFallenGiantsToCaleFront);
-	connection_add(ForestOfFallenGiantsBalconyBack, .to = GiantLordMemoryEntrySrc, .type = Conn_KingsRing | Conn_AshenMistHeart | Conn_SoldiersKey);
+	connection_add(ForestOfFallenGiantsBalconyBack, .to = GiantLordMemoryEntrySrc, .type = Conn_KingsRing | Conn_AshenMistHeart | Conn_SoldiersKey | Conn_FireBomb);
 	connection_add(ForestOfFallenGiantsBalconyBack, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_SoldiersKey | Conn_KingsRing);
 	warp_node_count++;
 
@@ -1298,7 +1302,6 @@ void generate_connections() {
 	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsToCaleBack);
 	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsBalconyFront);
 	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = Conn_SoldiersKey);
-	connection_add(NearPateGiantMemoryExitDst, .to = NearPateGiantMemoryEntrySrc, .type = Conn_AshenMistHeart);
 	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsToCaleFront, .type = Conn_Firebomb);
 	connection_add(NearPateGiantMemoryExitDst, .to = GiantLordMemoryEntrySrc, .type = Conn_SoldiersKey | Conn_KingsRing | Conn_AshenMistHeart | Conn_Firebomb);
 	connection_add(NearPateGiantMemoryExitDst, .to = LastGiantEntryFront, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
@@ -1309,7 +1312,7 @@ void generate_connections() {
 	connection_init(ForestOfFallenGiantsToPursuerArenaFront, 0);
 	warp_node_count++;
 
-	connection_init(PursuerExitBack, 10);
+	connection_init(PursuerExitBack, 11);
 	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsToCaleBack);
 	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsBalconyFront);
 	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = Conn_SoldiersKey);
@@ -1979,7 +1982,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(ShulvaEntranceFront, 1);
-	connection_add(ShulvaEntranceFront, .to = DLC1EntranceDLC, .type = Conn_DLC1Key);
+	connection_add(ShulvaEntranceFront, .to = DLC1EntranceDLC, .type = Conn_DLC1Key); // TODO: verify this
 	warp_node_count++;
 
 	connection_init(ShulvaEntranceBack, 2);

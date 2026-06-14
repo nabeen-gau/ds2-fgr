@@ -5852,6 +5852,7 @@ DA(Edge, DAEdge);
 
 typedef Ht(WarpNode, WarpNode) HtEdge;
 typedef Ht(WarpNode, bool) HsWarpNode;
+typedef Ht(WarpNode, size_t) HtWarpNodeId;
 
 typedef struct {
 	DAWarpNode remaining_nodes;
@@ -6234,7 +6235,7 @@ void travel(WarpNode node, DAWarpNode *reachables, HsWarpNode *reachables_hm,
 }
 
 
-int main() {
+int main_old2() {
 	int seed = 5554;
 	srand(seed);
 
@@ -6321,5 +6322,433 @@ end:
 	}
 	da_free(conns);
 
+	return 0;
+}
+
+typedef struct {
+	HtWarpNodeId hm;
+	DAWarpNode da;
+} TempStruct;
+
+void ts_append(TempStruct *ts, WarpNode n) {
+	if (ht_find(&ts->hm, n) == NULL) {
+		*ht_put(&ts->hm, n) = ts->da.count;
+		da_append(&ts->da, n);
+	}
+}
+
+void ts_remove(TempStruct *ts, WarpNode n) {
+	assert(ht_find_and_delete(&ts->hm, n));
+	for (size_t i=0; i<ts->da.count; i++) {
+		if (ts->da.items[i] == n) {
+			da_remove_unordered(&ts->da, i);
+			break;
+		}
+	}
+
+}
+
+void ts_reset(TempStruct *ts) {
+	ht_reset(&ts->hm);
+	ts->da.count = 0;
+}
+
+// ejects a random element from the struct
+WarpNode ts_pop_random(TempStruct *ts) {
+	assert(ts->da.count > 0);
+	size_t index = rand()%ts->hm.count;
+	WarpNode wn = ts->da.items[index];
+	assert(ht_find_and_delete(&ts->hm, wn));
+	da_remove_unordered(&ts->da, index);
+	return wn;
+}
+
+WarpNode ts_pop(TempStruct *ts) {
+	WarpNode n = ts->da.items[--ts->da.count];
+	assert(ht_find_and_delete(&ts->hm, n));
+	return n;
+}
+
+void ts_free(TempStruct *ts) {
+	ht_free(&ts->hm);
+	da_free(ts->da);
+}
+
+typedef struct {
+	HsWarpNode nodes; // all the nodes in the cluster
+	TempStruct start_nodes; // nodes that must be warped into
+} Cluster;
+
+void cluster_free(Cluster *c) {
+	ht_free(&c->nodes);
+	ts_free(&c->start_nodes);
+}
+
+DA(Cluster, DACluster);
+
+typedef struct {
+	DACluster clusters; // all the clusters
+	HtWarpNodeId node_loc; // key = WarpNode, value = idx in .cluster
+} ClusterGroup;
+
+void cluster_group_free(ClusterGroup *cg) {
+	ht_free(&cg->node_loc);
+	da_foreach(Cluster, c, &cg->clusters) {
+		cluster_free(c);
+	}
+	da_free(cg->clusters);
+}
+
+void merge_clusters(ClusterGroup *cg, size_t id1, size_t id2) {
+	assert(id1 != id2);
+	size_t i1, i2;
+	if (id1 < id2) {
+		i1 = id1;
+		i2 = id2;
+	} else {
+		i1 = id2;
+		i2 = id1;
+	}
+
+	Cluster *c1 = &cg->clusters.items[i1];
+	Cluster *c2 = &cg->clusters.items[i2];
+
+	ht_foreach(value, &c2->nodes) {
+		WarpNode n = ht_key(&c2->nodes, value);
+		*ht_put(&cg->node_loc, n) = i1;
+		*ht_put(&c1->nodes, n) = true;
+	}
+
+	cluster_free(c2);
+
+	da_remove_unordered(&cg->clusters, i2);
+}
+
+int compr_pair(const void *a, const void *b) {
+    return ((Pair *)b)->to - ((Pair *)a)->to;
+}
+
+// create a list of valid ids i.e., cluster with total_nodes >= 2 and total_start_nodes >= 1
+void clusters_get_valid_ids(const ClusterGroup *cg, DArrz *arr) {
+	for (size_t i=0; i<cg->clusters.count; i++) {
+		Cluster *c = &cg->clusters.items[i];
+		if (c->nodes.count < 2 || c->start_nodes.da.count == 0) continue;
+		da_append(arr, i);
+	}
+}
+
+WarpNode clusters_find_suitable_node(ClusterGroup *cg, DArrz *valid_clusters, TempStruct *visited) {
+	if (valid_clusters->items == NULL) {
+		clusters_get_valid_ids(cg, valid_clusters);
+	}
+restart_clusters_find_suitable_node:
+	if (valid_clusters->count == 0) return __WarpNodeCount;
+	size_t idx_id = rand()%valid_clusters->count;
+	size_t idx = valid_clusters->items[idx_id];
+	Cluster *c = &cg->clusters.items[idx];
+	WarpNode wn = ts_pop_random(&c->start_nodes);
+	// if (wn == RuinSentinelsHiddenDoor3ExitBack) asm("int3");
+	while (ht_find(&visited->hm, wn) != NULL) {
+		if (c->start_nodes.da.count == 0) {
+			da_remove_unordered(valid_clusters, idx_id);
+			goto restart_clusters_find_suitable_node;
+		}
+		wn = ts_pop_random(&c->start_nodes);
+		// if (wn == RuinSentinelsHiddenDoor3ExitBack) asm("int3");
+	}
+	if (c->start_nodes.da.count == 0) da_remove_unordered(valid_clusters, idx_id);
+
+	return wn;
+}
+
+#define da_remove(da, item) \
+	do {\
+		for (size_t i=0; i<(da)->count; i++) {\
+			if ((da)->items[i] == item) {\
+				da_remove_unordered(da, i);\
+				break;\
+			}\
+		}\
+	} while (0)
+
+int main() {
+	int seed = 5554;
+	srand(seed);
+
+	generate_connections();
+
+	Connections conns = {0};
+	DAWarpNode remaining_nodes = {0};
+
+	get_connections(&conns);
+	generate_all_nodes_da(&remaining_nodes);
+
+	ClusterGroup cg = {0};
+
+	// create clusters
+	for (WarpNode node = AllConnectionsStart; node <= AllConnectionsEnd; node++) {
+		if (ht_find(&cg.node_loc, node) != NULL) continue; // node has been assigned already
+		Cluster c = {0};
+		*ht_put(&c.nodes, node) = true;
+		*ht_put(&cg.node_loc, node) = cg.clusters.count;
+		ConnectionGroup *con_grp = &conns.items[node];
+		for (size_t i=0; i<con_grp->count; i++) {
+			WarpNode wn = con_grp->items[i].to;
+			*ht_put(&c.nodes, wn) = true;
+			*ht_put(&cg.node_loc, wn) = cg.clusters.count;
+		}
+		da_append(&cg.clusters, c);
+	}
+
+	// merge the clusters
+restart_merging_clusters:
+	for (size_t i=0; i<cg.clusters.count; i++) {
+		Cluster *c1 = &cg.clusters.items[i];
+		for (size_t j=0; j<cg.clusters.count; j++) {
+			if (i == j) continue;
+			Cluster *c2 = &cg.clusters.items[j];
+			ht_foreach(value, &c2->nodes) {
+				WarpNode node = ht_key(&c2->nodes, value);
+				if (ht_find(&c1->nodes, node) != NULL) {
+					merge_clusters(&cg, i, j);
+					goto restart_merging_clusters;
+				}
+				ConnectionGroup *con_grp = &conns.items[node];
+				da_foreach(Connection, c, con_grp) {
+					if (ht_find(&c1->nodes, c->to) != NULL) {
+						merge_clusters(&cg, i, j);
+						goto restart_merging_clusters;
+					}
+				}
+			}
+		}
+	}
+
+	// find the points that must be warped into within each cluster
+	HsWarpNode group = {0};
+	DAPair con_ids = {0};
+	DAPair reeval_pair = {0};
+	// this implementation does not collect the warps dst so it is not entirely accurate but is good enough
+	for (size_t i=0; i<cg.clusters.count; i++) {
+		ht_reset(&group);
+		con_ids.count = 0;
+		reeval_pair.count = 0;
+		Cluster *c = &cg.clusters.items[i];
+		ht_foreach(value, &c->nodes) {
+			WarpNode node = ht_key(&c->nodes, value);
+			da_append(&con_ids, ((Pair){.from = node, .to = conns.items[node].count}));
+		}
+		qsort(con_ids.items, con_ids.count, sizeof(Pair), compr_pair);
+
+		if (i == 0) {
+			*ht_put(&group, GameStartSpawnSrc) = true;
+		}
+		da_foreach(Pair, p, &con_ids) {
+			if (ht_find(&group, p->from) == NULL)  { // if it can be reached from previous gate don't add it here
+				*ht_put(&group, p->from) = true;
+				if (warpnode_is_foggate_v2((WarpNode)p->from)) {
+					ts_append(&c->start_nodes, p->from);
+					if (reeval_pair.count > 0) {
+						da_foreach(Pair, rp, &reeval_pair) {
+							ConnectionGroup *con_grp = &conns.items[rp->from];
+							da_foreach(Connection, con, con_grp) {
+								if (ht_find(&group, con->to) == NULL) {
+									*ht_put(&group, con->to) = true;
+								}
+							}
+						}
+						reeval_pair.count = 0;
+					}
+				} else if (c->start_nodes.da.count == 0) {
+					da_append(&reeval_pair, *p);
+					continue;
+				}
+			}
+			ConnectionGroup *con_grp = &conns.items[p->from];
+			da_foreach(Connection, con, con_grp) {
+				if (ht_find(&group, con->to) == NULL) {
+					*ht_put(&group, con->to) = true;
+				}
+			}
+			if (group.count == c->nodes.count) {
+				break;
+			}
+		}
+	}
+
+	printf("Cluster Count = %zu\n", cg.clusters.count);
+	size_t total_nodes = 0;
+	for (size_t i=0; i<cg.clusters.count; i++) {
+		total_nodes += cg.clusters.items[i].nodes.count;
+		printf("\tCluster %zu: %zu\t", i, cg.clusters.items[i].nodes.count);
+		ht_foreach(n, &cg.clusters.items[i].nodes) {
+			printf("%s, ", WarpNodeNames[ht_key(&cg.clusters.items[i].nodes, n)]);
+		}
+		printf("\n");
+		printf("\t\tWarp-dsts: ");
+		ht_foreach(n, &cg.clusters.items[i].start_nodes.hm) {
+			printf("%s, ", WarpNodeNames[ht_key(&cg.clusters.items[i].nodes, n)]);
+		}
+		printf("\n");
+	}
+	printf("Total nodes = %zu (%d)\n", total_nodes, AllConnectionsCount);
+
+
+	TempStruct visited = {0};
+	WarpNode start = GameStartSpawnSrc;
+
+	TempStruct unrandomized_gates = {0};
+	TempStruct randomized_gates = {0};
+	TempStruct warps = {0};
+
+	DArrz valid_clusters = {0};
+
+	TempStruct new_gates = {0};
+	ts_append(&new_gates, start);
+
+
+	size_t count_count = 0;
+	do {
+		size_t check_start = visited.da.count;
+		for (size_t k=0; k<new_gates.da.count; k++) {
+			WarpNode node = new_gates.da.items[k];
+
+			ts_append(&visited, node);
+			da_remove(&remaining_nodes, node);
+			ConnectionGroup *con_grp = &connections.items[node];
+
+			for (size_t i=0; i<con_grp->count; i++) {
+				if (ht_find(&visited.hm, con_grp->items[i].to) != NULL) continue;
+
+				if (con_grp->items[i].is_warp) ts_append(&warps, con_grp->items[i].to);
+				ts_append(&visited, con_grp->items[i].to);
+				remove_gate_unordered(&remaining_nodes, con_grp->items[i].to);
+			}
+
+			for (size_t i=0; i<warps.da.count; i++) {
+				ConnectionGroup *cg = &connections.items[warps.da.items[i]];
+				for (size_t j=0; j<cg->count; j++) {
+					if (ht_find(&visited.hm, cg->items[j].to) != NULL) continue;
+					assert(!cg->items[j].is_warp);
+
+					ts_append(&visited, cg->items[j].to);
+					remove_gate_unordered(&remaining_nodes, cg->items[j].to);
+				}
+			}
+
+			ts_reset(&warps);
+
+			for (size_t i=check_start; i<visited.da.count; i++) {
+				ConnectionGroup *cg = &connections.items[visited.da.items[i]];
+				for (size_t j=0; j<cg->count; j++) {
+					if (ht_find(&visited.hm, cg->items[j].to) == NULL) {
+						ts_append(&visited, cg->items[j].to);
+						remove_gate_unordered(&remaining_nodes, cg->items[j].to);
+					}
+				}
+			}
+
+			ht_foreach(value, &visited.hm) {
+				WarpNode wn = ht_key(&visited.hm, value);
+				if (warpnode_is_foggate_v2(wn) && ht_find(&unrandomized_gates.hm, wn) == NULL && ht_find(&randomized_gates.hm, wn) == NULL) {
+					ts_append(&unrandomized_gates, wn);
+				}
+			}
+		}
+		ts_reset(&new_gates);
+
+		if (remaining_nodes.count > 0) {
+			// how many suitable nodes should be connected in batch there should at least be one
+			assert(unrandomized_gates.da.count >= 1);
+			size_t count = rand()%(unrandomized_gates.da.count - 1) + 1;
+			for (size_t i=0; i<count; i++) {
+				WarpNode random_visited_node = ts_pop_random(&unrandomized_gates);
+				// choose a random cluster to travel to with total_nodes >= 2 and total_start_nodes >= 1
+				WarpNode random_target_node = clusters_find_suitable_node(&cg, &valid_clusters, &visited);
+				// if there are no any such node available choose a random one
+				// if (valid_clusters.count == 0 && random_target_node == __WarpNodeCount) {
+				// 	asm("int3");
+				// }
+				size_t loop_count = 0;
+				bool stop = false;
+				while (!warpnode_is_foggate_v2(random_target_node) || ht_find(&visited.hm, random_target_node) != NULL || ht_find(&new_gates.hm, random_target_node) != NULL) {
+					// ht_find(&new_gates.hm, random_target_node) != NULL;
+					loop_count++;
+					if (loop_count > remaining_nodes.count) {
+						stop = true;
+						da_foreach(WarpNode, wwn, &remaining_nodes) {
+							if (ht_find(&new_gates.hm, *wwn) == NULL) {
+								stop = false;
+								break;
+							}
+						}
+						if (stop) {
+							break;
+						}
+					}
+					random_target_node = remaining_nodes.items[rand()%remaining_nodes.count];
+					// if (++count_count >= 200) asm("int3");
+				}
+				if (stop) {
+					ts_append(&unrandomized_gates, random_visited_node);
+					goto finish_randomization;
+				}
+
+				if (ht_find(&unrandomized_gates.hm, random_target_node)) {
+					ts_remove(&unrandomized_gates, random_target_node);
+					count--;
+				}
+
+				da_append(&conns.items[random_target_node], ((Connection){
+							.to = random_visited_node, .type = Conn_FogGate, .is_warp = true,
+							}));
+				da_append(&conns.items[random_visited_node], ((Connection){
+							.to = random_target_node, .type = Conn_FogGate, .is_warp = true,
+							}));
+
+				// if (random_visited_node == RuinSentinelsHiddenDoor3ExitBack) asm("int3");
+				// if (random_target_node == RuinSentinelsHiddenDoor3ExitBack) asm("int3");
+				assert(ht_find(&randomized_gates.hm, random_visited_node) == NULL);
+				assert(ht_find(&randomized_gates.hm,  random_target_node) == NULL);
+				ts_append(&randomized_gates, random_target_node);
+				ts_append(&randomized_gates, random_visited_node);
+
+				ts_append(&new_gates, random_target_node);
+			}
+		} else {
+finish_randomization:
+			while (unrandomized_gates.da.count > 0) {
+				WarpNode rn1 = ts_pop_random(&unrandomized_gates);
+				WarpNode rn2 = ts_pop_random(&unrandomized_gates);
+				da_append(&conns.items[rn1], ((Connection){
+							.to = rn2, .type = Conn_FogGate, .is_warp = true,
+							}));
+				da_append(&conns.items[rn2], ((Connection){
+							.to = rn1, .type = Conn_FogGate, .is_warp = true,
+							}));
+				ts_append(&randomized_gates, rn1);
+				ts_append(&randomized_gates, rn2);
+			}
+		}
+	} while (remaining_nodes.count > 0);
+
+	asm("int3");
+
+	ts_free(&new_gates);
+	da_free(valid_clusters);
+	ts_free(&warps);
+	ts_free(&unrandomized_gates);
+	ts_free(&randomized_gates);
+	ts_free(&visited);
+	da_free(con_ids);
+	da_free(reeval_pair);
+	ht_free(&group);
+	cluster_group_free(&cg);
+	free_connections();
+	da_foreach(ConnectionGroup, cg, &conns) {
+		da_free(*cg);
+	}
+	da_free(conns);
+	da_free(remaining_nodes);
 	return 0;
 }
