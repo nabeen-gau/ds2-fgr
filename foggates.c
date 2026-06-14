@@ -2686,3 +2686,7 @@ WarpNode get_item_warp_node(size_t item_id) {
 // TODO: The fog gate at the exit of elana should disappear when the boss is dead
 //       It seems the location of the foggate is messed up
 // TODO: Try to get the homies to drop in Ivory King fight
+// TODO: fix the draw group for FumeKnightExit Gate
+// TODO: the see through fog gates:
+//			- Belfry luna before ringing the bell (don't know how it should be fixed)
+//			- path to blue smeltor demon before the bonfire (maybe draw groups for bonfire side is missing )

@@ -6744,13 +6744,13 @@ restart_merging_clusters:
 							.to = rn1, .type = Conn_FogGate, .is_warp = true,
 							}));
 				*ht_put(&fgr->randomized_gates, rn1) = rn2;
-				*ht_put(&fgr->randomized_gates, rn2) = rn1;
+				// *ht_put(&fgr->randomized_gates, rn2) = rn1;
 			}
 		}
 	} while (fgr->remaining_nodes.count > 0);
 
 	*ht_put(&fgr->visited, start) = true;
-	if (1) {
+	if (0) {
 		ds2_dfs(fgr, &fgr->conns.items[start].items[0], start, 0, 0, true, true);
 		// ds2_bfs(fgr, fgr->conns.items[start].items[0], start, true);
 		printf("\nReached: %zu/%d\n", fgr->visited.count, AllConnectionsCount);
@@ -6761,6 +6761,12 @@ restart_merging_clusters:
 			}
 		}
 		printf("\n");
+	}
+	if (0) {
+		ht_foreach(dst, &fgr->randomized_gates) {
+			WarpNode src = ht_key(&fgr->randomized_gates, dst);
+			printf("%s <=> %s\n", WarpNodeNames[src], WarpNodeNames[*dst]);
+		}
 	}
 }
 
@@ -6790,14 +6796,15 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 	// randomization of nodes
 	randomize_nodes(fgr);
 
-	for (WarpNode i=FogGateStart; i<=FogGateEnd; i++) {
-		printf("Adding warps %d/%d\r", i, FogGateEnd);
-		WarpNode j = *ht_find(&fgr->randomized_gates, i);
+	size_t count = 0;
+	ht_foreach(i, &fgr->randomized_gates) {
+		printf("Adding warps %zu/%zu\r", count++, fgr->randomized_gates.count);
+		WarpNode j = ht_key(&fgr->randomized_gates, i);
 
 		// if (i == Tutorial1EntryFront) j = IvoryKingBack;
 		// else if (i == IvoryKingBack) j = Tutorial1EntryFront;
 
-		WarpPoint *wp1 = &warp_points[i];
+		WarpPoint *wp1 = &warp_points[*i];
 		WarpPoint *wp2 = &warp_points[j];
 		ESD *esd_src = &editor->esd_sbs.items[wp1->map].esd;
 		ESD *esd_dst = &editor->esd_sbs.items[wp2->map].esd;
@@ -6812,8 +6819,8 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp1->cutscene_event_id, wp1->warp_pt_id, wn->fog_gate_id);
 		}
 
-		add_esd_event(esd_src, &editor->bytecode_buf, i, j, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
-		add_esd_event(esd_dst, &editor->bytecode_buf, j, i, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
+		add_esd_event(esd_src, &editor->bytecode_buf, *i, j, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
+		add_esd_event(esd_dst, &editor->bytecode_buf, j, *i, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
 	}
 	printf("\n");
 
