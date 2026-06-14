@@ -5081,69 +5081,6 @@ bool generate_map_objects(Editor *editor) {
 	return true;
 }
 
-bool randomize_warps(Editor *editor) {
-	int seed = 2496; // TODO: set seed dynamically
-	// int seed = time(NULL);
-	srand(seed);
-	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
-		size_t mark = temp_save();
-		
-		String_View sv = sb_to_sv(editor->esd_sbs.items[map_name_id].sb);
-		editor->esd_sbs.items[map_name_id].esd = read_esd(sv);
-
-		// create and add event for checking ringing of bell
-		if (map_name_id == NomansWharf) {
-			assert(bell_ring_param_id != -1);
-			esd_add_ship_check_fog_gate_event(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, bell_ring_param_id);
-		} else if (map_name_id == FrozenEleumLoyce) { // create and add event for unfreezing the dlc3
-			assert(unfreeze_param_id != -1);
-			esd_add_dlc3_unfreeze_event_script(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, unfreeze_param_id);
-		}
-
-		temp_rewind(mark);
-	}
-	assert(ship_arrival_msg_id != -1);
-
-	// TODO: randomize the connections here
-
-	for (WarpNode i=FogGateStart; i<=FogGateEnd; i++) {
-		printf("Adding warps %d/%d\r", i, FogGateEnd);
-		WarpNode j = default_connections[i];
-
-		if (i == Tutorial1EntryFront) j = IvoryKingBack;
-		else if (i == IvoryKingBack) j = Tutorial1EntryFront;
-
-		WarpPoint *wp1 = &warp_points[i];
-		WarpPoint *wp2 = &warp_points[j];
-		ESD *esd_src = &editor->esd_sbs.items[wp1->map].esd;
-		ESD *esd_dst = &editor->esd_sbs.items[wp2->map].esd;
-
-		if (wp2->boss != Boss_None && point_has_cutscene(j)) {
-			assert(wp2->cutscene_event_id >= 0);
-			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp2->cutscene_event_id, wp2->warp_pt_id, wp2->fog_gate_id);
-		} 
-		if (wp1->boss != Boss_None && wp1->cutscene_gate_id != __WarpNodeCount) {
-			WarpPoint *wn = &warp_points[wp1->cutscene_gate_id];
-			assert(wp1->cutscene_event_id >= 0);
-			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp1->cutscene_event_id, wp1->warp_pt_id, wn->fog_gate_id);
-		}
-
-		add_esd_event(esd_src, &editor->bytecode_buf, i, j, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
-		add_esd_event(esd_dst, &editor->bytecode_buf, j, i, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
-	}
-	printf("\n");
-
-	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
-	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
-		editor->write_buf.count = 0;
-		printf("Saving maps %d/%d\r", map_name_id, __MapNameCount-1);
-		if (!write_esd_from_map_name(&editor->write_buf, map_name_id, &editor->esd_sbs.items[map_name_id].esd)) return false;
-	}
-	printf("\n");
-
-	return true;
-}
-
 typedef struct {
 	uint64_t found_keys;
 	size_t branches_count;
@@ -5895,7 +5832,7 @@ void dfs(FGR *fgr, Connection *c, WarpNode parent, int depth, uint64_t active_pa
 
 	bool *visited = ht_find(&fgr->visited, c->to);
 	if (visited) {
-		if (log_paths) printf(" (already visited)");
+		// if (log_paths) printf(" (already visited)");
 		return;
 	}
 	*ht_put(&fgr->visited, c->to) = true;
@@ -5963,10 +5900,10 @@ void bfs(FGR *fgr, Connection start_c, WarpNode start_parent, bool log_paths) {
 		// Loop detection and visited check
 		bool *visited = ht_find(&fgr->visited, c.to);
 		if (visited) {
-			if (c.type == Conn_FogGate) {
-				printf("  <-- [FogGate Loop: %s - %s]", WarpNodeNames[parent], WarpNodeNames[c.to]);
-			}
-			if (log_paths) printf(" (already visited)");
+			// if (c.type == Conn_FogGate) {
+			// 	printf("  <-- [FogGate Loop: %s - %s]", WarpNodeNames[parent], WarpNodeNames[c.to]);
+			// }
+			// if (log_paths) printf(" (already visited)");
 			continue; // Do not process children of already visited nodes
 		}
 		
@@ -6328,16 +6265,16 @@ end:
 typedef struct {
 	HtWarpNodeId hm;
 	DAWarpNode da;
-} TempStruct;
+} X2Struct;
 
-void ts_append(TempStruct *ts, WarpNode n) {
+void ts_append(X2Struct *ts, WarpNode n) {
 	if (ht_find(&ts->hm, n) == NULL) {
 		*ht_put(&ts->hm, n) = ts->da.count;
 		da_append(&ts->da, n);
 	}
 }
 
-void ts_remove(TempStruct *ts, WarpNode n) {
+void ts_remove(X2Struct *ts, WarpNode n) {
 	assert(ht_find_and_delete(&ts->hm, n));
 	for (size_t i=0; i<ts->da.count; i++) {
 		if (ts->da.items[i] == n) {
@@ -6348,13 +6285,13 @@ void ts_remove(TempStruct *ts, WarpNode n) {
 
 }
 
-void ts_reset(TempStruct *ts) {
+void ts_reset(X2Struct *ts) {
 	ht_reset(&ts->hm);
 	ts->da.count = 0;
 }
 
 // ejects a random element from the struct
-WarpNode ts_pop_random(TempStruct *ts) {
+WarpNode ts_pop_random(X2Struct *ts) {
 	assert(ts->da.count > 0);
 	size_t index = rand()%ts->hm.count;
 	WarpNode wn = ts->da.items[index];
@@ -6363,20 +6300,20 @@ WarpNode ts_pop_random(TempStruct *ts) {
 	return wn;
 }
 
-WarpNode ts_pop(TempStruct *ts) {
+WarpNode ts_pop(X2Struct *ts) {
 	WarpNode n = ts->da.items[--ts->da.count];
 	assert(ht_find_and_delete(&ts->hm, n));
 	return n;
 }
 
-void ts_free(TempStruct *ts) {
+void ts_free(X2Struct *ts) {
 	ht_free(&ts->hm);
 	da_free(ts->da);
 }
 
 typedef struct {
 	HsWarpNode nodes; // all the nodes in the cluster
-	TempStruct start_nodes; // nodes that must be warped into
+	X2Struct start_nodes; // nodes that must be warped into
 } Cluster;
 
 void cluster_free(Cluster *c) {
@@ -6437,7 +6374,7 @@ void clusters_get_valid_ids(const ClusterGroup *cg, DArrz *arr) {
 	}
 }
 
-WarpNode clusters_find_suitable_node(ClusterGroup *cg, DArrz *valid_clusters, TempStruct *visited) {
+WarpNode clusters_find_suitable_node(ClusterGroup *cg, DArrz *valid_clusters, X2Struct *visited) {
 	if (valid_clusters->items == NULL) {
 		clusters_get_valid_ids(cg, valid_clusters);
 	}
@@ -6447,14 +6384,12 @@ restart_clusters_find_suitable_node:
 	size_t idx = valid_clusters->items[idx_id];
 	Cluster *c = &cg->clusters.items[idx];
 	WarpNode wn = ts_pop_random(&c->start_nodes);
-	// if (wn == RuinSentinelsHiddenDoor3ExitBack) asm("int3");
 	while (ht_find(&visited->hm, wn) != NULL) {
 		if (c->start_nodes.da.count == 0) {
 			da_remove_unordered(valid_clusters, idx_id);
 			goto restart_clusters_find_suitable_node;
 		}
 		wn = ts_pop_random(&c->start_nodes);
-		// if (wn == RuinSentinelsHiddenDoor3ExitBack) asm("int3");
 	}
 	if (c->start_nodes.da.count == 0) da_remove_unordered(valid_clusters, idx_id);
 
@@ -6471,52 +6406,185 @@ restart_clusters_find_suitable_node:
 		}\
 	} while (0)
 
-int main() {
-	int seed = 5554;
-	srand(seed);
+typedef struct {
+	DAWarpNode remaining_nodes;
+	HtEdge edges;
+	DAWarpNode looped_nodes;
+	HsWarpNode visited;
+	Connections conns;
 
-	generate_connections();
+	ClusterGroup cg;
+	HsWarpNode group;
+	DAPair con_ids;
+	DAPair reeval_pair;
+	X2Struct visitedx2;
+	X2Struct unrandomized_gates;
+	HtWarpNode randomized_gates;
+	X2Struct warps;
+	DArrz valid_clusters;
+} DS2FGR;
 
-	Connections conns = {0};
-	DAWarpNode remaining_nodes = {0};
+void free_ds2fgr(DS2FGR *fgr) {
+	da_free(fgr->remaining_nodes);
+	ht_free(&fgr->edges);
+	da_free(fgr->looped_nodes);
+	ht_free(&fgr->visited);
+	da_foreach(ConnectionGroup, cg, &fgr->conns) {
+		da_free(*cg);
+	}
+	da_free(fgr->conns);
+	cluster_group_free(&fgr->cg);
+	ht_free(&fgr->group);
+	da_free(fgr->con_ids);
+	da_free(fgr->reeval_pair);
+	ts_free(&fgr->visitedx2);
+	ts_free(&fgr->unrandomized_gates);
+	ht_free(&fgr->randomized_gates);
+	ts_free(&fgr->warps);
+	da_free(fgr->valid_clusters);
+}
 
-	get_connections(&conns);
-	generate_all_nodes_da(&remaining_nodes);
+void ds2_dfs(DS2FGR *fgr, Connection *c, WarpNode parent, int depth, uint64_t active_paths, bool is_last, bool log_paths) {
+	if (log_paths) {
+		printf("\n");
+		if (depth > 0) {
+			for (int i = 0; i < depth - 1; i++) {
+				if (active_paths & (1ULL << i)) {
+					printf("│ ");
+				} else {
+					printf("  ");
+				}
+			}
+			if (is_last) {
+				printf("└ ");
+			} else {
+				printf("├ ");
+			}
+		}
+		printf("%s", WarpNodeNames[c->to]);
+	}
 
-	ClusterGroup cg = {0};
+	bool *visited = ht_find(&fgr->visited, c->to);
+	if (visited) {
+		// if (log_paths) printf(" (already visited)");
+		return;
+	}
+	*ht_put(&fgr->visited, c->to) = true;
+
+	ConnectionGroup *cg = &fgr->conns.items[c->to];
+
+	int lowest_valid_i = -1;
+	for (size_t i = 0; i < cg->count; i++) {
+		if (cg->items[i].to != parent) {
+			lowest_valid_i = i;
+			break;
+		}
+	}
+
+	for (int i=cg->count-1; i>=0; i--) {
+		if (cg->items[i].to == parent) continue;
+		int next_depth = depth + 1;
+		bool child_is_last = (i == lowest_valid_i);
+		uint64_t next_active_paths = active_paths;
+		if (!child_is_last) {
+			next_active_paths |= (1ULL << depth);
+		} else {
+			next_active_paths &= ~(1ULL << depth);
+		}
+		ds2_dfs(fgr, &cg->items[i], c->to, next_depth, next_active_paths, child_is_last, log_paths);
+	}
+}
+
+void ds2_bfs(DS2FGR *fgr, Connection start_c, WarpNode start_parent, bool log_paths) {
+	// Initialize dynamic queue
+	Queue queue = {0};
+	size_t head = 0;
+
+	// Enqueue the root node
+	da_append(&queue, ((BFSQueueItem){start_c, start_parent, 0}));
+
+	int current_depth = -1;
+
+	while (head < queue.count) {
+		// Dequeue
+		BFSQueueItem item = queue.items[head++];
+		Connection c = item.c;
+		WarpNode parent = item.parent;
+		int depth = item.depth;
+
+		// Level Header printing
+		if (log_paths) {
+			if (depth > current_depth) {
+				printf("\n\n=== DEPTH LEVEL %d ===", depth);
+				current_depth = depth;
+			}
+			// Print where we came from and where we are
+			printf("\n[%s] -> %s", WarpNodeNames[parent], WarpNodeNames[c.to]);
+		}
+
+		// Loop detection and visited check
+		bool *visited = ht_find(&fgr->visited, c.to);
+		if (visited) {
+			// if (c.type == Conn_FogGate) {
+			// 	printf("  <-- [FogGate Loop: %s - %s]", WarpNodeNames[parent], WarpNodeNames[c.to]);
+			// }
+			// if (log_paths) printf(" (already visited)");
+			continue; // Do not process children of already visited nodes
+		}
+		
+		*ht_put(&fgr->visited, c.to) = true;
+
+		// Enqueue children
+		ConnectionGroup *cg = &fgr->conns.items[c.to];
+		for (size_t i = 0; i < cg->count; i++) {
+			// Skip the immediate parent to prevent immediate bouncing
+			if (cg->items[i].to == parent) continue;
+
+			// Push to queue
+			da_append(&queue, ((BFSQueueItem){cg->items[i], c.to, depth + 1})); 
+		}
+	}
+	
+	da_free(queue);
+	if (log_paths) printf("\n");
+}
+
+void randomize_nodes(DS2FGR *fgr) {
+	get_connections(&fgr->conns);
+	generate_all_nodes_da(&fgr->remaining_nodes);
 
 	// create clusters
 	for (WarpNode node = AllConnectionsStart; node <= AllConnectionsEnd; node++) {
-		if (ht_find(&cg.node_loc, node) != NULL) continue; // node has been assigned already
+		if (ht_find(&fgr->cg.node_loc, node) != NULL) continue; // node has been assigned already
 		Cluster c = {0};
 		*ht_put(&c.nodes, node) = true;
-		*ht_put(&cg.node_loc, node) = cg.clusters.count;
-		ConnectionGroup *con_grp = &conns.items[node];
+		*ht_put(&fgr->cg.node_loc, node) = fgr->cg.clusters.count;
+		ConnectionGroup *con_grp = &fgr->conns.items[node];
 		for (size_t i=0; i<con_grp->count; i++) {
 			WarpNode wn = con_grp->items[i].to;
 			*ht_put(&c.nodes, wn) = true;
-			*ht_put(&cg.node_loc, wn) = cg.clusters.count;
+			*ht_put(&fgr->cg.node_loc, wn) = fgr->cg.clusters.count;
 		}
-		da_append(&cg.clusters, c);
+		da_append(&fgr->cg.clusters, c);
 	}
 
 	// merge the clusters
 restart_merging_clusters:
-	for (size_t i=0; i<cg.clusters.count; i++) {
-		Cluster *c1 = &cg.clusters.items[i];
-		for (size_t j=0; j<cg.clusters.count; j++) {
+	for (size_t i=0; i<fgr->cg.clusters.count; i++) {
+		Cluster *c1 = &fgr->cg.clusters.items[i];
+		for (size_t j=0; j<fgr->cg.clusters.count; j++) {
 			if (i == j) continue;
-			Cluster *c2 = &cg.clusters.items[j];
+			Cluster *c2 = &fgr->cg.clusters.items[j];
 			ht_foreach(value, &c2->nodes) {
 				WarpNode node = ht_key(&c2->nodes, value);
 				if (ht_find(&c1->nodes, node) != NULL) {
-					merge_clusters(&cg, i, j);
+					merge_clusters(&fgr->cg, i, j);
 					goto restart_merging_clusters;
 				}
-				ConnectionGroup *con_grp = &conns.items[node];
+				ConnectionGroup *con_grp = &fgr->conns.items[node];
 				da_foreach(Connection, c, con_grp) {
 					if (ht_find(&c1->nodes, c->to) != NULL) {
-						merge_clusters(&cg, i, j);
+						merge_clusters(&fgr->cg, i, j);
 						goto restart_merging_clusters;
 					}
 				}
@@ -6525,230 +6593,257 @@ restart_merging_clusters:
 	}
 
 	// find the points that must be warped into within each cluster
-	HsWarpNode group = {0};
-	DAPair con_ids = {0};
-	DAPair reeval_pair = {0};
 	// this implementation does not collect the warps dst so it is not entirely accurate but is good enough
-	for (size_t i=0; i<cg.clusters.count; i++) {
-		ht_reset(&group);
-		con_ids.count = 0;
-		reeval_pair.count = 0;
-		Cluster *c = &cg.clusters.items[i];
+	for (size_t i=0; i<fgr->cg.clusters.count; i++) {
+		ht_reset(&fgr->group);
+		fgr->con_ids.count = 0;
+		fgr->reeval_pair.count = 0;
+		Cluster *c = &fgr->cg.clusters.items[i];
 		ht_foreach(value, &c->nodes) {
 			WarpNode node = ht_key(&c->nodes, value);
-			da_append(&con_ids, ((Pair){.from = node, .to = conns.items[node].count}));
+			da_append(&fgr->con_ids, ((Pair){.from = node, .to = fgr->conns.items[node].count}));
 		}
-		qsort(con_ids.items, con_ids.count, sizeof(Pair), compr_pair);
+		qsort(fgr->con_ids.items, fgr->con_ids.count, sizeof(Pair), compr_pair);
 
 		if (i == 0) {
-			*ht_put(&group, GameStartSpawnSrc) = true;
+			*ht_put(&fgr->group, GameStartSpawnSrc) = true;
 		}
-		da_foreach(Pair, p, &con_ids) {
-			if (ht_find(&group, p->from) == NULL)  { // if it can be reached from previous gate don't add it here
-				*ht_put(&group, p->from) = true;
+		da_foreach(Pair, p, &fgr->con_ids) {
+			if (ht_find(&fgr->group, p->from) == NULL)  { // if it can be reached from previous gate don't add it here
+				*ht_put(&fgr->group, p->from) = true;
 				if (warpnode_is_foggate_v2((WarpNode)p->from)) {
 					ts_append(&c->start_nodes, p->from);
-					if (reeval_pair.count > 0) {
-						da_foreach(Pair, rp, &reeval_pair) {
-							ConnectionGroup *con_grp = &conns.items[rp->from];
+					if (fgr->reeval_pair.count > 0) {
+						da_foreach(Pair, rp, &fgr->reeval_pair) {
+							ConnectionGroup *con_grp = &fgr->conns.items[rp->from];
 							da_foreach(Connection, con, con_grp) {
-								if (ht_find(&group, con->to) == NULL) {
-									*ht_put(&group, con->to) = true;
+								if (ht_find(&fgr->group, con->to) == NULL) {
+									*ht_put(&fgr->group, con->to) = true;
 								}
 							}
 						}
-						reeval_pair.count = 0;
+						fgr->reeval_pair.count = 0;
 					}
 				} else if (c->start_nodes.da.count == 0) {
-					da_append(&reeval_pair, *p);
+					da_append(&fgr->reeval_pair, *p);
 					continue;
 				}
 			}
-			ConnectionGroup *con_grp = &conns.items[p->from];
+			ConnectionGroup *con_grp = &fgr->conns.items[p->from];
 			da_foreach(Connection, con, con_grp) {
-				if (ht_find(&group, con->to) == NULL) {
-					*ht_put(&group, con->to) = true;
+				if (ht_find(&fgr->group, con->to) == NULL) {
+					*ht_put(&fgr->group, con->to) = true;
 				}
 			}
-			if (group.count == c->nodes.count) {
+			if (fgr->group.count == c->nodes.count) {
 				break;
 			}
 		}
 	}
 
-	printf("Cluster Count = %zu\n", cg.clusters.count);
-	size_t total_nodes = 0;
-	for (size_t i=0; i<cg.clusters.count; i++) {
-		total_nodes += cg.clusters.items[i].nodes.count;
-		printf("\tCluster %zu: %zu\t", i, cg.clusters.items[i].nodes.count);
-		ht_foreach(n, &cg.clusters.items[i].nodes) {
-			printf("%s, ", WarpNodeNames[ht_key(&cg.clusters.items[i].nodes, n)]);
+	if (0) {
+		printf("Cluster Count = %zu\n", fgr->cg.clusters.count);
+		size_t total_nodes = 0;
+		for (size_t i=0; i<fgr->cg.clusters.count; i++) {
+			total_nodes += fgr->cg.clusters.items[i].nodes.count;
+			printf("\tCluster %zu: %zu\t", i, fgr->cg.clusters.items[i].nodes.count);
+			ht_foreach(n, &fgr->cg.clusters.items[i].nodes) {
+				printf("%s, ", WarpNodeNames[ht_key(&fgr->cg.clusters.items[i].nodes, n)]);
+			}
+			printf("\n");
+			printf("\t\tWarp-dsts: ");
+			ht_foreach(n, &fgr->cg.clusters.items[i].start_nodes.hm) {
+				printf("%s, ", WarpNodeNames[ht_key(&fgr->cg.clusters.items[i].nodes, n)]);
+			}
+			printf("\n");
 		}
-		printf("\n");
-		printf("\t\tWarp-dsts: ");
-		ht_foreach(n, &cg.clusters.items[i].start_nodes.hm) {
-			printf("%s, ", WarpNodeNames[ht_key(&cg.clusters.items[i].nodes, n)]);
-		}
-		printf("\n");
+		printf("Total nodes = %zu (%d)\n", total_nodes, AllConnectionsCount);
 	}
-	printf("Total nodes = %zu (%d)\n", total_nodes, AllConnectionsCount);
 
-
-	TempStruct visited = {0};
 	WarpNode start = GameStartSpawnSrc;
-
-	TempStruct unrandomized_gates = {0};
-	TempStruct randomized_gates = {0};
-	TempStruct warps = {0};
-
-	DArrz valid_clusters = {0};
-
-	TempStruct new_gates = {0};
-	ts_append(&new_gates, start);
-
-
-	size_t count_count = 0;
+	WarpNode node = start;
+	// main randomization loop
 	do {
-		size_t check_start = visited.da.count;
-		for (size_t k=0; k<new_gates.da.count; k++) {
-			WarpNode node = new_gates.da.items[k];
+		size_t check_start = fgr->visitedx2.da.count;
 
-			ts_append(&visited, node);
-			da_remove(&remaining_nodes, node);
-			ConnectionGroup *con_grp = &connections.items[node];
+		ts_append(&fgr->visitedx2, node);
+		da_remove(&fgr->remaining_nodes, node);
+		ConnectionGroup *con_grp = &connections.items[node];
 
-			for (size_t i=0; i<con_grp->count; i++) {
-				if (ht_find(&visited.hm, con_grp->items[i].to) != NULL) continue;
+		for (size_t i=0; i<con_grp->count; i++) {
+			if (ht_find(&fgr->visitedx2.hm, con_grp->items[i].to) != NULL) continue;
 
-				if (con_grp->items[i].is_warp) ts_append(&warps, con_grp->items[i].to);
-				ts_append(&visited, con_grp->items[i].to);
-				remove_gate_unordered(&remaining_nodes, con_grp->items[i].to);
+			if (con_grp->items[i].is_warp) ts_append(&fgr->warps, con_grp->items[i].to);
+			ts_append(&fgr->visitedx2, con_grp->items[i].to);
+			remove_gate_unordered(&fgr->remaining_nodes, con_grp->items[i].to);
+		}
+
+		for (size_t i=0; i<fgr->warps.da.count; i++) {
+			ConnectionGroup *cg = &connections.items[fgr->warps.da.items[i]];
+			for (size_t j=0; j<cg->count; j++) {
+				if (ht_find(&fgr->visitedx2.hm, cg->items[j].to) != NULL) continue;
+				assert(!cg->items[j].is_warp);
+
+				ts_append(&fgr->visitedx2, cg->items[j].to);
+				remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
 			}
+		}
 
-			for (size_t i=0; i<warps.da.count; i++) {
-				ConnectionGroup *cg = &connections.items[warps.da.items[i]];
-				for (size_t j=0; j<cg->count; j++) {
-					if (ht_find(&visited.hm, cg->items[j].to) != NULL) continue;
-					assert(!cg->items[j].is_warp);
+		ts_reset(&fgr->warps);
 
-					ts_append(&visited, cg->items[j].to);
-					remove_gate_unordered(&remaining_nodes, cg->items[j].to);
-				}
-			}
-
-			ts_reset(&warps);
-
-			for (size_t i=check_start; i<visited.da.count; i++) {
-				ConnectionGroup *cg = &connections.items[visited.da.items[i]];
-				for (size_t j=0; j<cg->count; j++) {
-					if (ht_find(&visited.hm, cg->items[j].to) == NULL) {
-						ts_append(&visited, cg->items[j].to);
-						remove_gate_unordered(&remaining_nodes, cg->items[j].to);
-					}
-				}
-			}
-
-			ht_foreach(value, &visited.hm) {
-				WarpNode wn = ht_key(&visited.hm, value);
-				if (warpnode_is_foggate_v2(wn) && ht_find(&unrandomized_gates.hm, wn) == NULL && ht_find(&randomized_gates.hm, wn) == NULL) {
-					ts_append(&unrandomized_gates, wn);
+		for (size_t i=check_start; i<fgr->visitedx2.da.count; i++) {
+			ConnectionGroup *cg = &connections.items[fgr->visitedx2.da.items[i]];
+			for (size_t j=0; j<cg->count; j++) {
+				if (ht_find(&fgr->visitedx2.hm, cg->items[j].to) == NULL) {
+					ts_append(&fgr->visitedx2, cg->items[j].to);
+					remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
 				}
 			}
 		}
-		ts_reset(&new_gates);
 
-		if (remaining_nodes.count > 0) {
-			// how many suitable nodes should be connected in batch there should at least be one
-			assert(unrandomized_gates.da.count >= 1);
-			size_t count = rand()%(unrandomized_gates.da.count - 1) + 1;
-			for (size_t i=0; i<count; i++) {
-				WarpNode random_visited_node = ts_pop_random(&unrandomized_gates);
-				// choose a random cluster to travel to with total_nodes >= 2 and total_start_nodes >= 1
-				WarpNode random_target_node = clusters_find_suitable_node(&cg, &valid_clusters, &visited);
-				// if there are no any such node available choose a random one
-				// if (valid_clusters.count == 0 && random_target_node == __WarpNodeCount) {
-				// 	asm("int3");
-				// }
-				size_t loop_count = 0;
-				bool stop = false;
-				while (!warpnode_is_foggate_v2(random_target_node) || ht_find(&visited.hm, random_target_node) != NULL || ht_find(&new_gates.hm, random_target_node) != NULL) {
-					// ht_find(&new_gates.hm, random_target_node) != NULL;
-					loop_count++;
-					if (loop_count > remaining_nodes.count) {
-						stop = true;
-						da_foreach(WarpNode, wwn, &remaining_nodes) {
-							if (ht_find(&new_gates.hm, *wwn) == NULL) {
-								stop = false;
-								break;
-							}
-						}
-						if (stop) {
-							break;
-						}
-					}
-					random_target_node = remaining_nodes.items[rand()%remaining_nodes.count];
-					// if (++count_count >= 200) asm("int3");
-				}
-				if (stop) {
-					ts_append(&unrandomized_gates, random_visited_node);
-					goto finish_randomization;
-				}
-
-				if (ht_find(&unrandomized_gates.hm, random_target_node)) {
-					ts_remove(&unrandomized_gates, random_target_node);
-					count--;
-				}
-
-				da_append(&conns.items[random_target_node], ((Connection){
-							.to = random_visited_node, .type = Conn_FogGate, .is_warp = true,
-							}));
-				da_append(&conns.items[random_visited_node], ((Connection){
-							.to = random_target_node, .type = Conn_FogGate, .is_warp = true,
-							}));
-
-				// if (random_visited_node == RuinSentinelsHiddenDoor3ExitBack) asm("int3");
-				// if (random_target_node == RuinSentinelsHiddenDoor3ExitBack) asm("int3");
-				assert(ht_find(&randomized_gates.hm, random_visited_node) == NULL);
-				assert(ht_find(&randomized_gates.hm,  random_target_node) == NULL);
-				ts_append(&randomized_gates, random_target_node);
-				ts_append(&randomized_gates, random_visited_node);
-
-				ts_append(&new_gates, random_target_node);
+		ht_foreach(value, &fgr->visitedx2.hm) {
+			WarpNode wn = ht_key(&fgr->visitedx2.hm, value);
+			if (warpnode_is_foggate_v2(wn) && ht_find(&fgr->unrandomized_gates.hm, wn) == NULL && ht_find(&fgr->randomized_gates, wn) == NULL) {
+				ts_append(&fgr->unrandomized_gates, wn);
 			}
+		}
+
+		if (fgr->remaining_nodes.count > 0) {
+			WarpNode random_visited_node = ts_pop_random(&fgr->unrandomized_gates);
+			// choose a random cluster to travel to with total_nodes >= 2 and total_start_nodes >= 1
+			WarpNode random_target_node = clusters_find_suitable_node(&fgr->cg, &fgr->valid_clusters, &fgr->visitedx2);
+			// if there are no any such node available choose a random one
+			while (!warpnode_is_foggate_v2(random_target_node) || ht_find(&fgr->visitedx2.hm, random_target_node) != NULL) {
+				random_target_node = fgr->remaining_nodes.items[rand()%fgr->remaining_nodes.count];
+			}
+
+			if (ht_find(&fgr->unrandomized_gates.hm, random_target_node)) {
+				ts_remove(&fgr->unrandomized_gates, random_target_node);
+			}
+
+			da_append(&fgr->conns.items[random_target_node], ((Connection){
+						.to = random_visited_node, .type = Conn_FogGate, .is_warp = true,
+						}));
+			da_append(&fgr->conns.items[random_visited_node], ((Connection){
+						.to = random_target_node, .type = Conn_FogGate, .is_warp = true,
+						}));
+
+			assert(ht_find(&fgr->randomized_gates, random_visited_node) == NULL);
+			assert(ht_find(&fgr->randomized_gates,  random_target_node) == NULL);
+			*ht_put(&fgr->randomized_gates, random_target_node) = random_visited_node;
+			*ht_put(&fgr->randomized_gates, random_visited_node) = random_target_node;
+			node = random_target_node;
 		} else {
-finish_randomization:
-			while (unrandomized_gates.da.count > 0) {
-				WarpNode rn1 = ts_pop_random(&unrandomized_gates);
-				WarpNode rn2 = ts_pop_random(&unrandomized_gates);
-				da_append(&conns.items[rn1], ((Connection){
+			while (fgr->unrandomized_gates.da.count > 0) {
+				WarpNode rn1 = ts_pop_random(&fgr->unrandomized_gates);
+				WarpNode rn2 = ts_pop_random(&fgr->unrandomized_gates);
+				da_append(&fgr->conns.items[rn1], ((Connection){
 							.to = rn2, .type = Conn_FogGate, .is_warp = true,
 							}));
-				da_append(&conns.items[rn2], ((Connection){
+				da_append(&fgr->conns.items[rn2], ((Connection){
 							.to = rn1, .type = Conn_FogGate, .is_warp = true,
 							}));
-				ts_append(&randomized_gates, rn1);
-				ts_append(&randomized_gates, rn2);
+				*ht_put(&fgr->randomized_gates, rn1) = rn2;
+				*ht_put(&fgr->randomized_gates, rn2) = rn1;
 			}
 		}
-	} while (remaining_nodes.count > 0);
+	} while (fgr->remaining_nodes.count > 0);
 
-	asm("int3");
-
-	ts_free(&new_gates);
-	da_free(valid_clusters);
-	ts_free(&warps);
-	ts_free(&unrandomized_gates);
-	ts_free(&randomized_gates);
-	ts_free(&visited);
-	da_free(con_ids);
-	da_free(reeval_pair);
-	ht_free(&group);
-	cluster_group_free(&cg);
-	free_connections();
-	da_foreach(ConnectionGroup, cg, &conns) {
-		da_free(*cg);
+	*ht_put(&fgr->visited, start) = true;
+	if (1) {
+		ds2_dfs(fgr, &fgr->conns.items[start].items[0], start, 0, 0, true, true);
+		// ds2_bfs(fgr, fgr->conns.items[start].items[0], start, true);
+		printf("\nReached: %zu/%d\n", fgr->visited.count, AllConnectionsCount);
+		printf("Failed to reach: ");
+		for (WarpNode i=AllConnectionsStart; i<=AllConnectionsEnd; i++) {
+			if (ht_find(&fgr->visited, i) == NULL) {
+				printf("%s,", WarpNodeNames[i]);
+			}
+		}
+		printf("\n");
 	}
-	da_free(conns);
-	da_free(remaining_nodes);
+}
+
+bool randomize_warps(Editor *editor, DS2FGR *fgr) {
+	int seed = 2496; // TODO: set seed dynamically
+	// int seed = time(NULL);
+	srand(seed);
+	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
+		size_t mark = temp_save();
+		
+		String_View sv = sb_to_sv(editor->esd_sbs.items[map_name_id].sb);
+		editor->esd_sbs.items[map_name_id].esd = read_esd(sv);
+
+		// create and add event for checking ringing of bell
+		if (map_name_id == NomansWharf) {
+			assert(bell_ring_param_id != -1);
+			esd_add_ship_check_fog_gate_event(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, bell_ring_param_id);
+		} else if (map_name_id == FrozenEleumLoyce) { // create and add event for unfreezing the dlc3
+			assert(unfreeze_param_id != -1);
+			esd_add_dlc3_unfreeze_event_script(&editor->esd_sbs.items[map_name_id].esd, &editor->bytecode_buf, unfreeze_param_id);
+		}
+
+		temp_rewind(mark);
+	}
+	assert(ship_arrival_msg_id != -1);
+
+	// randomization of nodes
+	randomize_nodes(fgr);
+
+	for (WarpNode i=FogGateStart; i<=FogGateEnd; i++) {
+		printf("Adding warps %d/%d\r", i, FogGateEnd);
+		WarpNode j = *ht_find(&fgr->randomized_gates, i);
+
+		// if (i == Tutorial1EntryFront) j = IvoryKingBack;
+		// else if (i == IvoryKingBack) j = Tutorial1EntryFront;
+
+		WarpPoint *wp1 = &warp_points[i];
+		WarpPoint *wp2 = &warp_points[j];
+		ESD *esd_src = &editor->esd_sbs.items[wp1->map].esd;
+		ESD *esd_dst = &editor->esd_sbs.items[wp2->map].esd;
+
+		if (wp2->boss != Boss_None && point_has_cutscene(j)) {
+			assert(wp2->cutscene_event_id >= 0);
+			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp2->cutscene_event_id, wp2->warp_pt_id, wp2->fog_gate_id);
+		} 
+		if (wp1->boss != Boss_None && wp1->cutscene_gate_id != __WarpNodeCount) {
+			WarpPoint *wn = &warp_points[wp1->cutscene_gate_id];
+			assert(wp1->cutscene_event_id >= 0);
+			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp1->cutscene_event_id, wp1->warp_pt_id, wn->fog_gate_id);
+		}
+
+		add_esd_event(esd_src, &editor->bytecode_buf, i, j, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
+		add_esd_event(esd_dst, &editor->bytecode_buf, j, i, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
+	}
+	printf("\n");
+
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
+	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
+		editor->write_buf.count = 0;
+		printf("Saving maps %d/%d\r", map_name_id, __MapNameCount-1);
+		if (!write_esd_from_map_name(&editor->write_buf, map_name_id, &editor->esd_sbs.items[map_name_id].esd)) return false;
+	}
+	printf("\n");
+
+	return true;
+}
+
+int main() {
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
+	if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
+	Editor editor = {0};
+	DS2FGR fgr = {0};
+	generate_connections();
+	if (!generate_map_objects(&editor)) return 1;
+	if (!randomize_warps(&editor, &fgr)) return 1;
+	free_editor(&editor);
+
+	// int seed = 5554;
+	// srand(seed);
+	//
+
+
+	free_ds2fgr(&fgr);
+	free_connections();
 	return 0;
 }

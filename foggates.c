@@ -2684,4 +2684,5 @@ WarpNode get_item_warp_node(size_t item_id) {
 // TODO: large bosses in old dragon slayer block the player from entering the arena
 // check if it happens with other arenas as well
 // TODO: The fog gate at the exit of elana should disappear when the boss is dead
+//       It seems the location of the foggate is messed up
 // TODO: Try to get the homies to drop in Ivory King fight
