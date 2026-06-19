@@ -4754,6 +4754,7 @@ void free_esd_data(ESD_Data *data) {
 DA(ESD_Data, DA_ESD_Data);
 
 typedef Ht(int, bool) HashSet;
+typedef Ht(size_t, bool) HashSetZ;
 
 typedef struct {
 	String_Builder map_sb;
@@ -5590,11 +5591,52 @@ DA(ItemValue, ItemValues);
 	
 	// X(53300000, NadaliaSoul)
 
+#define x2_append(ts, n) \
+	do {\
+		if (ht_find(&(ts)->hm, (n)) == NULL) {\
+			*ht_put(&(ts)->hm, (n)) = (ts)->da.count;\
+			da_append(&(ts)->da, (n));\
+		}\
+	} while (0)
+
+#define x2_append_conn(ts, n) \
+	do {\
+		if (ht_find(&(ts)->hm, (n).to) == NULL) {\
+			*ht_put(&(ts)->hm, (n).to) = (ts)->da.count;\
+			da_append(&(ts)->da, (n));\
+		}\
+	} while (0)
+
+#define x2_remove(ts, n) \
+	do {\
+		assert(ht_find_and_delete(&(ts)->hm, n));\
+		for (size_t i=0; i<(ts)->da.count; i++) {\
+			if ((ts)->da.items[i] == n) {\
+				da_remove_unordered(&(ts)->da, i);\
+				break;\
+			}\
+		}\
+	} while (0)
+
+#define x2_reset(ts) \
+	do {\
+		ht_reset(&(ts)->hm);\
+		(ts)->da.count = 0;\
+	} while (0)
+
+#define x2_free(ts) \
+	do {\
+		ht_free(&(ts)->hm);\
+		da_free((ts)->da);\
+	} while (0)
+
 typedef enum {
 #define X(v, name) Item ## name = v,
 	ItemList
 #undef X
 } KeyItemsEnum;
+
+DA(KeyItemsEnum, DAKeyItemsEnum);
 
 typedef struct {
 	size_t row_id;
@@ -5606,78 +5648,167 @@ DA(ItemDesc, DAItemDesc);
 typedef Ht(int, ItemValue) ItemLocs;
 typedef Ht(int, DAItemDesc) GameItems;
 
+typedef Ht(ConnectionType, bool) KeyHs;
+
+typedef Ht(WarpNode, WarpNode) HtEdge;
+typedef Ht(WarpNode, bool) HsWarpNode;
+typedef Ht(WarpNode, size_t) HtWarpNodeId;
+
 typedef struct {
-	ItemLocs item_locs;
+	HtWarpNodeId hm;
+	DAWarpNode da;
+} X2Struct;
+
+// ejects a random element from the struct
+WarpNode ts_pop_random(X2Struct *ts) {
+	assert(ts->da.count > 0);
+	size_t index = rand()%ts->hm.count;
+	WarpNode wn = ts->da.items[index];
+	assert(ht_find_and_delete(&ts->hm, wn));
+	da_remove_unordered(&ts->da, index);
+	return wn;
+}
+
+WarpNode ts_pop(X2Struct *ts) {
+	WarpNode n = ts->da.items[--ts->da.count];
+	assert(ht_find_and_delete(&ts->hm, n));
+	return n;
+}
+
+typedef struct {
+	Keys da;
+	KeyHs hm;
+} X2Keys;
+
+DA(Keys *, DAKeysPtr);
+
+typedef struct {
+	size_t id;
+	DArrz counts;
+	X2Struct locations;
+	DAKeysPtr required_keys;
+} Item;
+
+typedef struct {
+	Item *items;
+	size_t count;
+	size_t capacity;
+
+	size_t previous_count;
+} DAItem;
+
+void da_items_reset(DAItem *items) {
+	items->previous_count = items->count;
+	da_foreach(Item, item, items) {
+		item->id = 0;
+		item->counts.count = 0;
+		x2_reset(&item->locations);
+		item->required_keys.count = 0;
+	}
+	items->count = 0;
+}
+
+Item *da_item_new(DAItem *items, size_t id) {
+	if (items->count >= items->previous_count) {
+		da_append(items, (Item){0});
+		items->items[items->count-1].id = id;
+		return &items->items[items->count-1];
+	} else {
+		items->items[items->count].id = id;
+		return &items->items[items->count++];
+	}
+}
+
+typedef struct {
+	ItemLocs item_locs; // key = item_id, value = (WarpNode, item_description)
 	GameItems game_items; // key = item_id, value = item_loc_id(row_id)
+    Ht(int, const char *) key_items;
+	ItemValues giant_souls_event_locs;
+
+	String_Builder sb; // for reading files
+	DAItem items; // read this while randomization
 } ItemBank;
 
 void free_item_bank(ItemBank *ib) {
+	free_item_infos();
 	ht_free(&ib->item_locs);
 	ht_foreach(value, &ib->game_items) {
 		da_free(*value);
 	}
 	ht_free(&ib->game_items);
+	ht_free(&ib->key_items);
+	da_free(ib->giant_souls_event_locs);
+	da_free(ib->sb);
+
+	da_foreach(Item, item, &ib->items) {
+		x2_free(&item->locations);
+		da_free(item->required_keys);
+	}
+	da_free(ib->items);
 }
 
 #define ModPath ""
 
 bool read_item_bank(ItemBank *ib, bool log) {
-	generate_item_infos();
-	ItemLocs item_locs = {0};
-	ItemValues giant_souls_event_locs = {0};
+	if (gate_item_infos.count == 0) generate_item_infos();
+	ht_reset(&ib->item_locs);
 #define GiantSoulsEventId 60004000
 #define GiantSoulsEventCount 3
-	da_init(&giant_souls_event_locs, GiantSoulsEventCount);
+	if (ib->giant_souls_event_locs.capacity == 0) da_init(&ib->giant_souls_event_locs, GiantSoulsEventCount);
+	else ib->giant_souls_event_locs.count = 0;
 
-	generate_item_infos();
 	ht_foreach(iig, &gate_item_infos) {
 		WarpNode wn = ht_key(&gate_item_infos, iig);
 		da_foreach(ItemInfo, ii, iig) {
-			if      (ii->id == GiantSoulsEventId)   da_append(&giant_souls_event_locs,   ((ItemValue){.node = wn, .item = *ii}));
+			if      (ii->id == GiantSoulsEventId)   da_append(&ib->giant_souls_event_locs,   ((ItemValue){.node = wn, .item = *ii}));
 			else {
-				assert(ht_find(&item_locs, ii->id) == NULL && "Duplicate item id found");
-				*ht_put(&item_locs, ii->id) = (ItemValue){.node = wn, .item = *ii};
+				assert(ht_find(&ib->item_locs, ii->id) == NULL && "Duplicate item id found");
+				*ht_put(&ib->item_locs, ii->id) = (ItemValue){.node = wn, .item = *ii};
 			}
 		}
 	}
-	GameItems game_items = {0}; // key = item_id, value = item_loc_id(row_id)
+
+	ht_foreach(value, &ib->game_items) {
+		da_free(*value);
+	}
+	ht_reset(&ib->game_items); // key = item_id, value = item_loc_id(row_id)
 
 	const char *chr_param_path = ModPath "./Param/ItemLotParam2_Chr.param";
-	String_Builder sb = {0};
-	if (!nob_read_entire_file(chr_param_path, &sb)) {
+	ib->sb.count = 0;
+	if (!nob_read_entire_file(chr_param_path, &ib->sb)) {
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
+	printf("[Read] %s: %zu bytes\n", param_path, ib->sb.count);
 #endif
 
-    Ht(int, const char *) key_items = {0};
-#define X(id, name) *ht_put(&key_items, (id)) = #name;
+	ht_reset(&ib->key_items);
+#define X(id, name) *ht_put(&ib->key_items, (id)) = #name;
 	ItemList
 #undef X
 
-	// ht_foreach(value, &key_items) {
-	// 	int key = ht_key(&key_items, value);
+	// ht_foreach(value, &ib->key_items) {
+	// 	int key = ht_key(&ib->key_items, value);
 	// 	printf("key = %d\n", key);
 	// }
 
-	// key_items is the list of items which i must find in the game files and store it for quick access
+	// ib->key_items is the list of items which i must find in the game files and store it for quick access
 	// for each item there should be a list of locations (item-instance-id) i can find it in
-	String_View sv = sb_to_sv(sb);
+	String_View sv = sb_to_sv(ib->sb);
 	PARAM param = load_param(&sv, Cell_ItemLotParam2_Chr);
 	for (size_t i=0; i<param.cells.count; i++) {
 		int32_t row_id = param.rows.items[i].ID;
 		ItemLotParam2ChrPARAMDEF c = param.cells.items[i].as.itemlot_param2_char;
 		for (size_t j=0; j<ARRAY_LEN(c.item_id); j++) {
-			if (ht_find(&key_items, c.item_id[j])) {
-				DAItemDesc *items = ht_find(&game_items, c.item_id[j]);
+			if (ht_find(&ib->key_items, c.item_id[j])) {
+				DAItemDesc *items = ht_find(&ib->game_items, c.item_id[j]);
 				if (items != NULL) {
 					da_append(items, ((ItemDesc){.row_id = row_id, .amount = c.amount[j]}));
 				} else {
 					DAItemDesc new = {0};
 					da_init(&new, 4);
 					da_append(&new, ((ItemDesc){.row_id = row_id, .amount = c.amount[j]}));
-					*ht_put(&game_items, c.item_id[j]) = new;
+					*ht_put(&ib->game_items, c.item_id[j]) = new;
 				}
 			}
 		}
@@ -5685,28 +5816,28 @@ bool read_item_bank(ItemBank *ib, bool log) {
 
 	free_PARAM(&param);
 	const char *other_param_path = ModPath "./Param/ItemLotParam2_Other.param";
-	sb.count = 0;
-	if (!nob_read_entire_file(other_param_path, &sb)) {
+	ib->sb.count = 0;
+	if (!nob_read_entire_file(other_param_path, &ib->sb)) {
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
+	printf("[Read] %s: %zu bytes\n", param_path, ib->sb.count);
 #endif
-	sv = sb_to_sv(sb);
+	sv = sb_to_sv(ib->sb);
 	param = load_param(&sv, Cell_ItemLotParam2_Chr);
 	for (size_t i=0; i<param.cells.count; i++) {
 		int32_t row_id = param.rows.items[i].ID;
 		ItemLotParam2ChrPARAMDEF c = param.cells.items[i].as.itemlot_param2_char;
 		for (size_t j=0; j<ARRAY_LEN(c.item_id); j++) {
-			if (ht_find(&key_items, c.item_id[j])) {
-				DAItemDesc *items = ht_find(&game_items, c.item_id[j]);
+			if (ht_find(&ib->key_items, c.item_id[j])) {
+				DAItemDesc *items = ht_find(&ib->game_items, c.item_id[j]);
 				if (items != NULL) {
 					da_append(items, ((ItemDesc){.row_id = row_id, .amount = c.amount[j]}));
 				} else {
 					DAItemDesc new = {0};
 					da_init(&new, 4);
 					da_append(&new, ((ItemDesc){.row_id = row_id, .amount = c.amount[j]}));
-					*ht_put(&game_items, c.item_id[j]) = new;
+					*ht_put(&ib->game_items, c.item_id[j]) = new;
 				}
 			}
 		}
@@ -5714,42 +5845,64 @@ bool read_item_bank(ItemBank *ib, bool log) {
 
 	free_PARAM(&param);
 	const char *shop_param_path = ModPath "./Param/ShopLineupParam.param";
-	sb.count = 0;
-	if (!nob_read_entire_file(shop_param_path, &sb)) {
+	ib->sb.count = 0;
+	if (!nob_read_entire_file(shop_param_path, &ib->sb)) {
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
+	printf("[Read] %s: %zu bytes\n", param_path, ib->sb->count);
 #endif
-	sv = sb_to_sv(sb);
+	sv = sb_to_sv(ib->sb);
 	param = load_param(&sv, Cell_ShopLineupParam);
 
 	for (size_t i=0; i<param.cells.count; i++) {
 		int32_t row_id = param.rows.items[i].ID;
 		ShopLineupPARAMDEF c = param.cells.items[i].as.shop_lineup_param;
-		if (ht_find(&key_items, c.item_id)) {
-			DAItemDesc *items = ht_find(&game_items, c.item_id);
+		if (ht_find(&ib->key_items, c.item_id)) {
+			DAItemDesc *items = ht_find(&ib->game_items, c.item_id);
 			if (items != NULL) {
 				da_append(items, ((ItemDesc){.row_id = row_id, .amount = c.quantity}));
 			} else {
 				DAItemDesc new = {0};
 				da_init(&new, 4);
 				da_append(&new, ((ItemDesc){.row_id = row_id, .amount = c.quantity}));
-				*ht_put(&game_items, c.item_id) = new;
+				*ht_put(&ib->game_items, c.item_id) = new;
 			}
 		}
 	}
 
-
 	free_PARAM(&param);
-	da_free(sb);
+	da_items_reset(&ib->items);
+	if (ib->items.capacity == 0) da_init(&ib->items, ib->game_items.count);
+
+	ht_foreach(value, &ib->game_items) {
+		int key = ht_key(&ib->game_items, value);
+		Item *item = da_item_new(&ib->items, key);
+		for (size_t i=0; i<value->count; i++) {
+			ItemValue *iv = ht_find(&ib->item_locs, value->items[i].row_id);
+			if (iv != NULL) {
+				da_append(&item->counts, value->items[i].amount);
+				da_append(&item->required_keys, &iv->item.keys);
+				*ht_put(&item->locations.hm, iv->node) = true;
+				da_append(&item->locations.da, iv->node);
+			} else if (value->items[i].row_id == GiantSoulsEventId) {
+				da_foreach(ItemValue, gseid, &ib->giant_souls_event_locs) {
+					da_append(&item->counts, value->items[i].amount);
+					da_append(&item->locations.da, gseid->node);
+					x2_append(&item->locations, gseid->node);
+				}
+			} else {
+				// Could not identify the item location
+			}
+		}
+	}
 
 	if (log) {
-		ht_foreach(value, &game_items) {
-			int key = ht_key(&game_items, value);
-			printf("item = %s, loc = {\n", *ht_find(&key_items, key));
+		ht_foreach(value, &ib->game_items) {
+			int key = ht_key(&ib->game_items, value);
+			printf("item = %s, loc = {\n", *ht_find(&ib->key_items, key));
 			for (size_t i=0; i<value->count; i++) {
-				ItemValue *iv = ht_find(&item_locs, value->items[i].row_id);
+				ItemValue *iv = ht_find(&ib->item_locs, value->items[i].row_id);
 				if (iv != NULL) {
 					printf("\t%d: %s(%zu-%s)", value->items[i].amount, WarpNodeNames[iv->node], iv->item.id, iv->item.desc);
 					if (iv->item.keys.count > 0) printf("(");
@@ -5760,7 +5913,7 @@ bool read_item_bank(ItemBank *ib, bool log) {
 					if (iv->item.keys.count > 0) printf(")");
 					printf(",\n");
 				} else if (value->items[i].row_id == GiantSoulsEventId) {
-					da_foreach(ItemValue, gseid, &giant_souls_event_locs) {
+					da_foreach(ItemValue, gseid, &ib->giant_souls_event_locs) {
 						printf("\t%s,\n", WarpNodeNames[gseid->node]);
 					}
 				} else {
@@ -5772,11 +5925,6 @@ bool read_item_bank(ItemBank *ib, bool log) {
 		}
 	}
 
-	free_item_infos();
-	ht_free(&key_items);
-	da_free(giant_souls_event_locs);
-	ib->item_locs = item_locs;
-	ib->game_items = game_items;
 	return true;
 }
 
@@ -5786,10 +5934,6 @@ typedef struct {
 } Edge;
 
 DA(Edge, DAEdge);
-
-typedef Ht(WarpNode, WarpNode) HtEdge;
-typedef Ht(WarpNode, bool) HsWarpNode;
-typedef Ht(WarpNode, size_t) HtWarpNodeId;
 
 typedef struct {
 	DAWarpNode remaining_nodes;
@@ -6263,62 +6407,13 @@ end:
 }
 
 typedef struct {
-	HtWarpNodeId hm;
-	DAWarpNode da;
-} X2Struct;
-
-void ts_append(X2Struct *ts, WarpNode n) {
-	if (ht_find(&ts->hm, n) == NULL) {
-		*ht_put(&ts->hm, n) = ts->da.count;
-		da_append(&ts->da, n);
-	}
-}
-
-void ts_remove(X2Struct *ts, WarpNode n) {
-	assert(ht_find_and_delete(&ts->hm, n));
-	for (size_t i=0; i<ts->da.count; i++) {
-		if (ts->da.items[i] == n) {
-			da_remove_unordered(&ts->da, i);
-			break;
-		}
-	}
-
-}
-
-void ts_reset(X2Struct *ts) {
-	ht_reset(&ts->hm);
-	ts->da.count = 0;
-}
-
-// ejects a random element from the struct
-WarpNode ts_pop_random(X2Struct *ts) {
-	assert(ts->da.count > 0);
-	size_t index = rand()%ts->hm.count;
-	WarpNode wn = ts->da.items[index];
-	assert(ht_find_and_delete(&ts->hm, wn));
-	da_remove_unordered(&ts->da, index);
-	return wn;
-}
-
-WarpNode ts_pop(X2Struct *ts) {
-	WarpNode n = ts->da.items[--ts->da.count];
-	assert(ht_find_and_delete(&ts->hm, n));
-	return n;
-}
-
-void ts_free(X2Struct *ts) {
-	ht_free(&ts->hm);
-	da_free(ts->da);
-}
-
-typedef struct {
 	HsWarpNode nodes; // all the nodes in the cluster
 	X2Struct start_nodes; // nodes that must be warped into
 } Cluster;
 
 void cluster_free(Cluster *c) {
 	ht_free(&c->nodes);
-	ts_free(&c->start_nodes);
+	x2_free(&c->start_nodes);
 }
 
 DA(Cluster, DACluster);
@@ -6407,6 +6502,35 @@ restart_clusters_find_suitable_node:
 	} while (0)
 
 typedef struct {
+	ConnectionGroup da;
+	HsWarpNode hm;
+} X2ConnectionGroup;
+
+typedef struct {
+	DArrz da;
+	HashSetZ hm;
+} X2Z;
+
+typedef struct {
+	X2Keys keys;
+	size_t soul_of_giant_count;
+} Inventory2;
+
+typedef struct {
+	Keys *required_keys;
+	int unlocked_item_id;
+} LockedNode;
+
+DA(LockedNode, DALockedKey);
+
+typedef Ht(KeyItemsEnum, bool) KeyItemsHm;
+
+typedef struct {
+	DAKeyItemsEnum da;
+	KeyItemsHm hm;
+} X2KeyItemsEnum;
+
+typedef struct {
 	DAWarpNode remaining_nodes;
 	HtEdge edges;
 	DAWarpNode looped_nodes;
@@ -6422,6 +6546,21 @@ typedef struct {
 	HtWarpNode randomized_gates;
 	X2Struct warps;
 	DArrz valid_clusters;
+
+	X2ConnectionGroup locked_nodes;
+	ItemBank item_bank;
+	Inventory2 inventory;
+	DALockedKey locked_items;
+	X2KeyItemsEnum obtained_items; // TODO: update this list
+
+	bool obtained_normal_arrow;
+	bool obtained_great_arrow;
+	bool obtained_bolts;
+
+	size_t lockstone_count;
+	size_t torch_count;
+	size_t branches_count;
+	size_t wedges_count;
 } DS2FGR;
 
 void free_ds2fgr(DS2FGR *fgr) {
@@ -6437,11 +6576,16 @@ void free_ds2fgr(DS2FGR *fgr) {
 	ht_free(&fgr->group);
 	da_free(fgr->con_ids);
 	da_free(fgr->reeval_pair);
-	ts_free(&fgr->visitedx2);
-	ts_free(&fgr->unrandomized_gates);
+	x2_free(&fgr->visitedx2);
+	x2_free(&fgr->unrandomized_gates);
 	ht_free(&fgr->randomized_gates);
-	ts_free(&fgr->warps);
+	x2_free(&fgr->warps);
 	da_free(fgr->valid_clusters);
+
+	x2_free(&fgr->locked_nodes);
+	free_item_bank(&fgr->item_bank);
+	x2_free(&fgr->inventory.keys);
+	da_free(fgr->locked_items);
 }
 
 void ds2_dfs(DS2FGR *fgr, Connection *c, WarpNode parent, int depth, uint64_t active_paths, bool is_last, bool log_paths) {
@@ -6549,7 +6693,287 @@ void ds2_bfs(DS2FGR *fgr, Connection start_c, WarpNode start_parent, bool log_pa
 	if (log_paths) printf("\n");
 }
 
+bool inventory_has(DS2FGR *fgr, ConnectionType key) {
+	return ht_find(&fgr->inventory.keys.hm, key) != NULL;
+}
+
+void inventory_update_bowcrossbow(DS2FGR *fgr) {
+	if (ht_find(&fgr->inventory.keys.hm, Conn_BowCrossbow)) return;
+	if (((ht_find(&fgr->obtained_items.hm, ItemBowofWant)
+			|| ht_find(&fgr->obtained_items.hm, ItemShortBow)
+			|| ht_find(&fgr->obtained_items.hm, ItemLongBow)
+			|| ht_find(&fgr->obtained_items.hm, ItemCompositeBow)
+			|| ht_find(&fgr->obtained_items.hm, ItemSeaBow)
+			|| ht_find(&fgr->obtained_items.hm, ItemDragonriderBow)
+			|| ht_find(&fgr->obtained_items.hm, ItemBellKeeperBow)
+			|| ht_find(&fgr->obtained_items.hm, ItemHuntersBlackbow))
+			&& fgr->obtained_normal_arrow)
+		|| ((ht_find(&fgr->obtained_items.hm, ItemAlonneGreatbow)
+			|| ht_find(&fgr->obtained_items.hm, ItemDragonslayerGreatbow)
+			|| ht_find(&fgr->obtained_items.hm, ItemPossessedArmorGreatbow)
+			|| ht_find(&fgr->obtained_items.hm, ItemTwinheadedGreatbow))
+			&& fgr->obtained_great_arrow)
+		|| ((ht_find(&fgr->obtained_items.hm, ItemLightCrossbow)
+			|| ht_find(&fgr->obtained_items.hm, ItemHeavyCrossbow)
+			|| ht_find(&fgr->obtained_items.hm, ItemShieldCrossbow)
+			|| ht_find(&fgr->obtained_items.hm, ItemAvelyn)
+			|| ht_find(&fgr->obtained_items.hm, ItemSanctumCrossbow)
+			|| ht_find(&fgr->obtained_items.hm, ItemSanctumRepeatingCrossbow))
+			&& fgr->obtained_bolts)
+		) x2_append(&fgr->inventory.keys, Conn_BowCrossbow);;
+}
+
+// infinite shop items check
+// Conn_Firebomb
+// Conn_BowCrossbow
+
+// Requires multiple items of
+// Conn_Torch
+// Conn_SmelterWedge
+// Conn_PharrosLockstone
+
+
+// does not add duplicate keys
+void update_inventory_from_visited_places(DS2FGR *fgr) {
+	// update the keys you get from visiting places
+	x2_append(&fgr->inventory.keys, Conn_None);
+	if (ht_find(&fgr->visitedx2.hm, LostSinnerEntryBack) != NULL
+			&& ht_find(&fgr->visitedx2.hm, TheRottenEntryBack) != NULL
+			&& ht_find(&fgr->visitedx2.hm, DukesDearFreyjaEntryBack) != NULL
+			&& ht_find(&fgr->visitedx2.hm, OldIronKingEntryBack) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_FirstFourSouls);
+	if (ht_find(&fgr->visitedx2.hm, BrumeTowerToFoyerBonfireFromOutsideBack) != NULL
+			&& inventory_has(fgr, Conn_ScorchingIronSceptor)
+	   ) x2_append(&fgr->inventory.keys, Conn_ActivateBrumeTower);
+	if ((ht_find(&fgr->visitedx2.hm, DrangleicCastleToChasmPortalBack) != NULL || ht_find(&fgr->visitedx2.hm, ChasmCastleExitWarpDst) != NULL)
+			&& ht_find(&fgr->visitedx2.hm, ShadedWoodsToMistyAreaBack) != NULL
+			&& ((ht_find(&fgr->visitedx2.hm, BlackGulchEntranceBack) != NULL && inventory_has(fgr, Conn_ForgottenKey)) || ht_find(&fgr->visitedx2.hm, ChasmGulchExitWarpDst))
+	   ) x2_append(&fgr->inventory.keys, Conn_DarkCovenentJoined);
+	if (ht_find(&fgr->visitedx2.hm, NearJesterThomasBack) != NULL
+			&& inventory_has(fgr, Conn_DragonStone)
+	   ) x2_append(&fgr->inventory.keys, Conn_ActivateDragonStone);
+	if (ht_find(&fgr->visitedx2.hm, EleumLoyceCathedraEntranceBack) != NULL
+			|| ht_find(&fgr->visitedx2.hm, IvoryKingFightEndDst) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_DLC3Unfreezed);
+	if (ht_find(&fgr->visitedx2.hm, NoMansWharfToHeidesBack) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_ShipBellRang);
+	if (ht_find(&fgr->visitedx2.hm, LudAndZallenEntryBack) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_LudAndZallenDead);
+	if (ht_find(&fgr->visitedx2.hm, MythaEntryBack) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_Gilligan_Ladder);
+	if (fgr->inventory.soul_of_giant_count >= 4
+			&& ht_find(&fgr->visitedx2.hm, VendrickBack) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_VendrickSoul);
+	if (ht_find(&fgr->visitedx2.hm, ScorpionessNajkaEntryBack) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_DefeatNajka);
+	if (ht_find(&fgr->visitedx2.hm, ForestOfFallenGiantsToCaleBack) != NULL
+			&& (ht_find(&fgr->visitedx2.hm, SkeletonLordsEntryFront) != NULL && inventory_has(fgr, Conn_UndeadLockawayKey))
+			&& ht_find(&fgr->visitedx2.hm, ShadedWoodsToMistyAreaBack) != NULL
+			&& ht_find(&fgr->visitedx2.hm, CongregationExitBack) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_PateCreightonQuest);
+
+	// fire defense requires obtaining flash sweat and pyro flame
+	if ((ht_find(&fgr->obtained_items.hm, ItemFlashSweat))
+			&& (ht_find(&fgr->obtained_items.hm, ItemPyromancyFlame) || ht_find(&fgr->obtained_items.hm, ItemDarkPyromancyFlame))
+	   ) x2_append(&fgr->inventory.keys, Conn_FireDefense);
+	// bow/crossbow
+	inventory_update_bowcrossbow(fgr);
+}
+
+// ???
+// fragrant branches
+
+ConnectionType get_connection_type_from_item_id(int item_id) {
+	 if (item_id == ItemRotundaLockstone) {
+		return Conn_RotundaLockstone;
+	} else if (item_id == ItemSoldierKey) {
+		return Conn_SoldiersKey;
+	} else if (item_id == ItemKingsRing) {
+		return Conn_KingsRing;
+	} else if (item_id == ItemSilvercatRing) {
+		return Conn_Catring;
+	} else if (item_id == ItemAshenMistHeart) {
+		return Conn_AshenMistHeart;
+	} else if (item_id == ItemAntiquatedKey) {
+		return Conn_OldKeyInBastille;
+	} else if (item_id == ItemBastilleKey) {
+		return Conn_BastilleKey;
+	} else if (item_id == ItemScorchingIronScepter) {
+		return Conn_ScorchingIronSceptor;
+	} else if (item_id == ItemForgottenKey) {
+		return Conn_ForgottenKey;
+	} else if (item_id == ItemDragonTalon) {
+		return Conn_DLC1Key;
+	} else if (item_id == ItemHeavyIronKey) {
+		return Conn_DLC2Key;
+	} else if (item_id == ItemFrozenFlower) {
+		return Conn_DLC3Key;
+	} else if (item_id == ItemEternalSanctumKey) {
+		return Conn_ShulvaSanctumKey;
+	} else if (item_id == ItemEyeofthePriestess) {
+		return Conn_DLC3Eye;
+	} else if (item_id == ItemGarrisonWardKey) {
+		return Conn_FrigidOutskirtsKey;
+	} else if (item_id == ItemIronKey) {
+		return Conn_IronKeyToFireLizards;
+	} else if (item_id == ItemDragonStone) {
+		return Conn_DragonStone;
+	} else if (item_id == ItemKeytoKingsPassage) {
+		return Conn_KeyToKingsPassage;
+	} else if (item_id == ItemHouseKey) {
+		return Conn_HouseKey;
+	} else if (item_id == ItemAldiaKey) {
+		return Conn_AldiaKey;
+	} else if (item_id == ItemFangKey) {
+		return Conn_FangKey;
+	} else if (item_id == ItemTowerKey) {
+		return Conn_BrumeTowerKey;
+	} else if (item_id == ItemLenigrastsKey) {
+		return Conn_LenigrastKey;
+	} else if (item_id == ItemTseldoraDenKey) {
+		return Conn_TseldoraDenKey;
+	} else if (item_id == ItemRatTail) {
+		return Conn_RatTail;
+	} else if (item_id == ItemRatTail) {
+		return Conn_RatTail;
+	} else if (item_id == ItemTokenofFidelity) {
+		return Conn_TokenOfFidelity;
+	} else if (item_id == ItemTokenofSpite) {
+		return Conn_TokenOfSpite;
+	} else if (item_id == ItemRingofWhispers) {
+		return Conn_RingOfWhispers;
+	} else if (item_id == ItemRingofWhispers) {
+		return Conn_RingOfWhispers;
+	} else if (item_id == ItemDullEmber) {
+		return Conn_DullEmber;
+	} else if (item_id == ItemDullEmber) {
+		return Conn_DullEmber;
+	}
+	 return Conn_None;
+}
+
+void recursively_update_items(DS2FGR *fgr) {
+recursively_update_items_start:
+	for (size_t i=0; i<fgr->locked_items.count; i++) {
+		LockedNode *ln = &fgr->locked_items.items[i];
+		bool has_key = true;
+		da_foreach(ConnectionType, key, ln->required_keys) {
+			has_key = has_key && inventory_has(fgr, *key);
+		}
+		if (has_key) {
+			x2_append(&fgr->inventory.keys, get_connection_type_from_item_id(ln->unlocked_item_id));
+			da_remove_unordered(&fgr->locked_items, i);
+			goto recursively_update_items_start;
+		}
+	}
+}
+
+#define TorchObtainedKeyCheckLimit 5
+
+void inventory_update(DS2FGR *fgr) {
+	fgr->locked_items.count = 0;
+	// iterate through all the items read from files
+	da_foreach(Item, item, &fgr->item_bank.items) {
+		// for each item iterate all the locations it can be found in
+		for (size_t i=0; i<item->locations.da.count; i++) {
+			WarpNode *wn = &item->locations.da.items[i];
+			// if the location has been visited
+			if (ht_find(&fgr->visitedx2.hm, *wn) != NULL) {
+				// check if its prerequisite keys have been obtained
+				bool has_key = true;
+				da_foreach(ConnectionType, key, item->required_keys.items[i]) {
+					has_key = has_key && inventory_has(fgr, *key);
+				}
+				// if not skip adding it
+				if (!has_key) { 
+					da_append(&fgr->locked_items, ((LockedNode){.required_keys = item->required_keys.items[i], .unlocked_item_id = item->id}));
+					continue;
+				}
+				ConnectionType type = get_connection_type_from_item_id(item->id);
+				if (type == Conn_None) {
+					if (item->id == ItemPharrosLockstone) {
+						fgr->lockstone_count++;
+					} else if (item->id == ItemTorch) {
+						fgr->torch_count += item->counts.items[i];
+						if (fgr->torch_count > TorchObtainedKeyCheckLimit) {
+							x2_append(&fgr->inventory.keys, Conn_Torch);
+							recursively_update_items(fgr);
+						}
+					} else if (item->id == ItemFragrantBranchofYore) {
+						fgr->branches_count++;
+					} else if (item->id == ItemSmelterWedge) {
+						fgr->wedges_count++;
+					} else {
+						TODO("");
+					}
+					// TODO: need some logic for handling the lockstones and branches
+				} else {
+					// else add that item to the inventory
+					x2_append(&fgr->inventory.keys, type);
+					// check if the obtained key unlocks other items
+					recursively_update_items(fgr);
+				}
+			}
+		}
+	}
+
+	// Update the obtained items
+	ht_foreach(item_loc, &fgr->item_bank.item_locs) {
+		int item_id = ht_key(&fgr->item_bank.item_locs, item_loc);
+		if (ht_find(&fgr->visitedx2.hm, item_loc->node) != NULL) {
+			bool has_key = true;
+			da_foreach(ConnectionType, key, &item_loc->item.keys) {
+				has_key = has_key && inventory_has(fgr, *key);
+			}
+			if (has_key) {
+				x2_append(&fgr->obtained_items, item_id);
+			}
+		}
+	}
+
+	// TODO: add checks for checking shop for infinite arrows and firebombs
+}
+
+bitmask128_t get_updated_key_value(DS2FGR *fgr) {
+	bitmask128_t ret = 0;
+	ht_foreach(i, &fgr->inventory.keys.hm) {
+		ConnectionType type = ht_key(&fgr->inventory.keys.hm, i);
+		ret |= CT(type);
+	}
+	return ret;
+}
+
+void unlock_gates_from_key_items(DS2FGR *fgr) {
+	bitmask128_t keys = get_updated_key_value(fgr);
+	size_t start = 0;
+unlock_gates_from_key_items_start:
+	for (size_t i=start; i<fgr->locked_nodes.da.count; i++) {
+		Connection *c = &fgr->locked_nodes.da.items[i];
+		if (c->type & keys) {
+			if (warpnode_is_foggate(c->to)) {
+				x2_append(&fgr->unrandomized_gates, c->to);
+			}
+			x2_append(&fgr->visitedx2, c->to);
+			assert(ht_find_and_delete(&fgr->locked_nodes.hm, c->to));
+			da_remove_unordered(&fgr->locked_nodes.da, i);
+			start = i;
+			goto unlock_gates_from_key_items_start;
+		}
+	}
+}
+
 void randomize_nodes(DS2FGR *fgr) {
+	fgr->cg.clusters.count = 0;
+	ht_reset(&fgr->cg.node_loc);
+	ht_reset(&fgr->group);
+	fgr->con_ids.count = 0;
+	fgr->reeval_pair.count = 0;
+	x2_reset(&fgr->visitedx2);
+	x2_reset(&fgr->unrandomized_gates);
+	ht_reset(&fgr->randomized_gates);
+	x2_reset(&fgr->warps);
+	fgr->valid_clusters.count = 0;
+
 	get_connections(&fgr->conns);
 	generate_all_nodes_da(&fgr->remaining_nodes);
 
@@ -6612,7 +7036,7 @@ restart_merging_clusters:
 			if (ht_find(&fgr->group, p->from) == NULL)  { // if it can be reached from previous gate don't add it here
 				*ht_put(&fgr->group, p->from) = true;
 				if (warpnode_is_foggate_v2((WarpNode)p->from)) {
-					ts_append(&c->start_nodes, p->from);
+					x2_append(&c->start_nodes, p->from);
 					if (fgr->reeval_pair.count > 0) {
 						da_foreach(Pair, rp, &fgr->reeval_pair) {
 							ConnectionGroup *con_grp = &fgr->conns.items[rp->from];
@@ -6666,47 +7090,75 @@ restart_merging_clusters:
 	do {
 		size_t check_start = fgr->visitedx2.da.count;
 
-		ts_append(&fgr->visitedx2, node);
+		x2_append(&fgr->visitedx2, node);
 		da_remove(&fgr->remaining_nodes, node);
 		ConnectionGroup *con_grp = &connections.items[node];
 
+		// collect all the points that the node can reach
 		for (size_t i=0; i<con_grp->count; i++) {
 			if (ht_find(&fgr->visitedx2.hm, con_grp->items[i].to) != NULL) continue;
 
-			if (con_grp->items[i].is_warp) ts_append(&fgr->warps, con_grp->items[i].to);
-			ts_append(&fgr->visitedx2, con_grp->items[i].to);
+			if (con_grp->items[i].is_warp) {
+				x2_append(&fgr->warps, con_grp->items[i].to);
+			}
+			if (con_grp->items[i].type != Conn_None) {
+				x2_append_conn(&fgr->locked_nodes, con_grp->items[i]);
+			} else {
+				x2_append(&fgr->visitedx2, con_grp->items[i].to);
+			}
 			remove_gate_unordered(&fgr->remaining_nodes, con_grp->items[i].to);
 		}
 
+		// if the point is a warp walk through it and collect all the points that you can reach there
 		for (size_t i=0; i<fgr->warps.da.count; i++) {
 			ConnectionGroup *cg = &connections.items[fgr->warps.da.items[i]];
 			for (size_t j=0; j<cg->count; j++) {
 				if (ht_find(&fgr->visitedx2.hm, cg->items[j].to) != NULL) continue;
 				assert(!cg->items[j].is_warp);
 
-				ts_append(&fgr->visitedx2, cg->items[j].to);
+				if (cg->items[j].type != Conn_None) {
+					x2_append_conn(&fgr->locked_nodes, cg->items[j]);
+				} else {
+					x2_append(&fgr->visitedx2, cg->items[j].to);
+				}
+
 				remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
 			}
 		}
 
-		ts_reset(&fgr->warps);
+		x2_reset(&fgr->warps);
 
+		// from all the places in the visited list, find any places that can be reached from the visited list that has been missed
 		for (size_t i=check_start; i<fgr->visitedx2.da.count; i++) {
 			ConnectionGroup *cg = &connections.items[fgr->visitedx2.da.items[i]];
 			for (size_t j=0; j<cg->count; j++) {
-				if (ht_find(&fgr->visitedx2.hm, cg->items[j].to) == NULL) {
-					ts_append(&fgr->visitedx2, cg->items[j].to);
+				if (ht_find(&fgr->visitedx2.hm, cg->items[j].to) == NULL && ht_find(&fgr->locked_nodes.hm, cg->items[j].to) == NULL) {
+					if (cg->items[j].type != Conn_None) {
+						x2_append_conn(&fgr->locked_nodes, cg->items[j]);
+					} else {
+						x2_append(&fgr->visitedx2, cg->items[j].to);
+					}
+
 					remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
 				}
 			}
 		}
 
+		// from the list of visited, collect the places that has not been randomized
 		ht_foreach(value, &fgr->visitedx2.hm) {
 			WarpNode wn = ht_key(&fgr->visitedx2.hm, value);
-			if (warpnode_is_foggate_v2(wn) && ht_find(&fgr->unrandomized_gates.hm, wn) == NULL && ht_find(&fgr->randomized_gates, wn) == NULL) {
-				ts_append(&fgr->unrandomized_gates, wn);
+			if (warpnode_is_foggate_v2(wn) 
+					&& ht_find(&fgr->unrandomized_gates.hm, wn) == NULL 
+					&& ht_find(&fgr->randomized_gates, wn) == NULL
+					&& ht_find(&fgr->locked_nodes.hm, wn) == NULL
+			   ) {
+				x2_append(&fgr->unrandomized_gates, wn);
 			}
 		}
+
+		inventory_update(fgr);
+		unlock_gates_from_key_items(fgr);
+		update_inventory_from_visited_places(fgr);
 
 		if (fgr->remaining_nodes.count > 0) {
 			WarpNode random_visited_node = ts_pop_random(&fgr->unrandomized_gates);
@@ -6718,7 +7170,7 @@ restart_merging_clusters:
 			}
 
 			if (ht_find(&fgr->unrandomized_gates.hm, random_target_node)) {
-				ts_remove(&fgr->unrandomized_gates, random_target_node);
+				x2_remove(&fgr->unrandomized_gates, random_target_node);
 			}
 
 			da_append(&fgr->conns.items[random_target_node], ((Connection){
@@ -6749,8 +7201,8 @@ restart_merging_clusters:
 		}
 	} while (fgr->remaining_nodes.count > 0);
 
-	*ht_put(&fgr->visited, start) = true;
 	if (0) {
+		*ht_put(&fgr->visited, start) = true;
 		ds2_dfs(fgr, &fgr->conns.items[start].items[0], start, 0, 0, true, true);
 		// ds2_bfs(fgr, fgr->conns.items[start].items[0], start, true);
 		printf("\nReached: %zu/%d\n", fgr->visited.count, AllConnectionsCount);
@@ -6842,13 +7294,9 @@ int main() {
 	DS2FGR fgr = {0};
 	generate_connections();
 	if (!generate_map_objects(&editor)) return 1;
+	if (!read_item_bank(&fgr.item_bank, false)) return 1;
 	if (!randomize_warps(&editor, &fgr)) return 1;
 	free_editor(&editor);
-
-	// int seed = 5554;
-	// srand(seed);
-	//
-
 
 	free_ds2fgr(&fgr);
 	free_connections();

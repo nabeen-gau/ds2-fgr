@@ -109,35 +109,15 @@
 		Type = Area
 		Desc = Corpse near spawn. Replaces Rusted Coin
 	},
-	10026001 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse near spawn, NG+. Replaces Rusted Coin x5
-	},
 	10026030 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse by the waterfall. Replaces Small Smooth & Silky Stone
 	},
-	10026031 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse by the waterfall, NG+. Replaces Smooth & Silky Stone x3
-	},
 	10045000 = {
 		Keys[0] = {},
 		Type = Chest
 		Desc = Majula - Chest - Maughlin (Wooden chest at Maughlin's. Replaces Titanite Shard)
-	},
-	10045001 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Majula - Chest - Maughlin (Wooden chest at Maughlin's, NG+. Replaces Large Titanite Shard)
-	},
-	10045002 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Majula - Chest - Maughlin (Wooden chest at Maughlin's, NG+2. Replaces Moon Butterfly Shield)
 	},
 	10045010 = {
 		Keys[1] = {Conn_HouseKey},
@@ -601,20 +581,10 @@
 		Type = Chest
 		Desc = Forest of Fallen Giants - Chest - Ballista Trap Room (Wooden chest below the ballista trap room. Replaces Titanite Shard)
 	},
-	10105041 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Forest of Fallen Giants - Chest - Ballista Trap Room (Wooden chest below the ballista trap room, NG+. Replaces Titanite Chunk x3)
-	},
 	10106320 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse overlooking the flooded courtyard from the rolling boulder tunnel. Replaces Amber Herb
-	},
-	10106321 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse overlooking the flooded courtyard from the rolling boulder tunnel, NG+. Replaces Wilted Dusk Herb x3
 	},
 	1751000 = {
 		Keys[0] = {},
@@ -623,7 +593,7 @@
 	},
 }
 
-#ForestOfFallenGiantsToCaleFront[46] = {
+#ForestOfFallenGiantsToCaleFront[47] = {
 	10106050 = {
 		Keys[0] = {},
 		Type = Area
@@ -723,6 +693,11 @@
 		Keys[1] = {Conn_SoldiersKey},
 		Type = Area
 		Desc = Corpse on the roof of Soldier's Rest first building. Replaces Human Effigy
+	},
+	10106420 = {
+		Keys[2] = {Conn_SoldiersKey, Conn_KingsRing},
+		Type = Area
+		Desc = Corpse on the scaffolding beneath Jeigh. Replaces Twinkling Titanite x2, Fragrant Branch of Yore
 	},
 	60002000 = {
 		Keys[1] = {Conn_SoldiersKey},
@@ -912,11 +887,6 @@
 		Type = Area
 		Desc = Corpse behind shelves in the hall from the sleepy hollows courtyard. Replaces Wood Bolt x20
 	},
-	10106061 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse behind shelves in the hall from the sleepy hollows courtyard, NG+. Replaces Heavy Bolt x20
-	},
 }
 
 #ForestOfFallenGiantsAfterFirstBonfireFront[12] = {
@@ -975,11 +945,6 @@
 		Type = Chest
 		Desc = Forest of Fallen Giants - Chest - Route to Forest (Wooden chest in the river cave to Majula. Replaces Human Effigy)
 	},
-	10105021 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Forest of Fallen Giants - Chest - Route to Forest (Wooden chest in the river cave to Majula, NG+. Replaces Human Effigy x5)
-	},
 }
 
 #PursuerExitBack[1] = {
@@ -995,14 +960,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse nearby the Last Giant elevator. Replaces Fire Arrow x10
-	},
-}
-
-#GiantLordMemoryEntrySrc[1] = {
-	10106420 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse on the scaffolding beneath Jeigh. Replaces Twinkling Titanite x2, Fragrant Branch of Yore
 	},
 }
 
@@ -1187,20 +1144,10 @@
 		Type = Area
 		Desc = Skeleton in a buried room next to the pub. Replaces Titanite Chunk
 	},
-	10146181 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in a buried room next to the pub, NG+. Replaces Titanite Chunk x3, Titanite Slab
-	},
 	10146380 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse in the dark spiderweb room. Replaces Twilight Herb
-	},
-	10146381 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse in the dark spiderweb room, NG+. Replaces Wilted Dusk Herb x3
 	},
 	10145070 = {
 		Keys[1] = {Conn_TseldoraDenKey},
@@ -1325,11 +1272,6 @@
 		Type = Chest
 		Desc = Brightstone Cove - Chest - Spider Room (Wooden chest in the first spider den. Replaces Heavy Bolt x20)
 	},
-	10145061 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Brightstone Cove - Chest - Spider Room (Wooden chest in the first spider den, NG+. Replaces Magic Bolt x20)
-	},
 }
 
 #BrightstoneCoveToDoorsOfPharrosBack[13] = {
@@ -1387,11 +1329,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse on the well in the encampement. Replaces Titanite Shard
-	},
-	10146051 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse on the well in the encampement, NG+. Replaces Titanite Shard x3, Large Titanite Shard x3
 	},
 	1143000 = {
 		Keys[0] = {},
@@ -1489,20 +1426,10 @@
 		Type = Area
 		Desc = Corpse under a table in the central hallway. Replaces Radiant Lifegem
 	},
-	10156031 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse under a table in the central hallway, NG+. Replaces Elizabeth Mushroom x3
-	},
 	10156160 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in the acid pit. Replaces Large Soul of a Nameless Soldier, Corrosive Urn x4
-	},
-	10156161 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in the acid pit, NG+. Replaces Soul of a Hero, Corrosive Urn x4
 	},
 	1154200 = {
 		Keys[1] = {Conn_AldiaKey},
@@ -1642,11 +1569,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse up in Lucatiel's tower. Replaces Large Titanite Shard
-	},
-	10166421 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse up in Lucatiel's tower, NG+. Replaces Large Titanite Shard x5
 	},
 	1165100 = {
 		Keys[0] = {},
@@ -1801,11 +1723,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse to the right past the gate leading to the bridge to Sinner's Rise. Replaces Lifegem x8
-	},
-	10166191 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse to the right past the gate leading to the bridge to Sinner's Rise, NG+. Replaces Radiant Lifegem x8
 	},
 }
 
@@ -1966,13 +1883,8 @@
 		Type = Area
 		Desc = Skeleton in the cell next to Straid. Replaces Petrified Dragon Bone, Firebomb x3
 	},
-	10166441 = {
-		Keys[1] = {Conn_BastilleKey},
-		Type = Area
-		Desc = Skeleton in the cell next to Straid, NG+. Replaces Resplendent Life, Firebomb x3
-	},
 	10166430 = {
-		Keys[1] = {Conn_FireBomb},
+		Keys[1] = {Conn_Firebomb},
 		Type = Area
 		Desc = Corpse behind a destructible wall next to the assassin room. Replaces Archdrake Robes, Archdrake Shield
 	},
@@ -2122,11 +2034,6 @@
 		Keys[0] = {},
 		Type = Chest
 		Desc = Lost Bastille - Chest (Wooden chest hidden behind an illusory wall up the stairs in Sentinel room. Replaces Rouge Water)
-	},
-	10165041 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Lost Bastille - Chest (Wooden chest hidden behind an illusory wall up the stairs in Sentinel room, NG+. Replaces Crimson Water x3)
 	},
 }
 
@@ -2325,20 +2232,10 @@
 		Type = Chest
 		Desc = Earthen Peak - Chest (Wooden chest in the first poison valley's cave. Replaces Raw Stone)
 	},
-	10175021 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Earthen Peak - Chest (Wooden chest in the first poison valley's cave, NG+. Replaces Raw Stone, Palestone)
-	},
 	10176230 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in the first poison valley. Replaces Titanite Chunk
-	},
-	10176231 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in the first poison valley, NG+. Replaces Titanite Chunk x3
 	},
 	76200300 = {
 		Keys[0] = {},
@@ -2483,20 +2380,10 @@
 		Type = Area
 		Desc = Corpse behind a boarded up mine entrance. Replaces Titanite Shard
 	},
-	10176461 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse behind a boarded up mine entrance, NG+. Replaces Twinkling Titanite
-	},
 	10176220 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in a short tunnel in the second poison valley. Replaces Human Effigy, Large Titanite Shard
-	},
-	10176221 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in a short tunnel in the second poison valley, NG+. Replaces Human Effigy x3, Large Titanite Shard x3
 	},
 	1171000 = {
 		Keys[0] = {},
@@ -2555,11 +2442,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse past the crumbled balcony in upper Earthen Peak. Replaces Radiant Lifegem
-	},
-	10176171 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse past the crumbled balcony in upper Earthen Peak, NG+. Replaces Divine Blessing x3
 	},
 	10176420 = {
 		Keys[0] = {},
@@ -2749,11 +2631,6 @@
 		Type = Chest
 		Desc = No-man's Wharf - Chest (Wooden chest on the second floor of the first house. Replaces Titanite Shard)
 	},
-	10185001 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = No-man's Wharf - Chest (Wooden chest on the second floor of the first house, NG+. Replaces Titanite Chunk)
-	},
 	10185030 = {
 		Keys[0] = {},
 		Type = Chest
@@ -2764,20 +2641,10 @@
 		Type = Chest
 		Desc = No-man's Wharf - Chest (Wooden chest behind an illusory wall in Gavlan's house. Replaces Large Titanite Shard)
 	},
-	10185071 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = No-man's Wharf - Chest (Wooden chest behind an illusory wall in Gavlan's house, NG+. Replaces Large Titanite Shard x3)
-	},
 	10185080 = {
 		Keys[0] = {},
 		Type = Chest
 		Desc = No-man's Wharf - Chest (Wooden chest behind an illusory wall in Gavlan's house. Replaces Firebomb x3)
-	},
-	10185081 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = No-man's Wharf - Chest (Wooden chest behind an illusory wall in Gavlan's house, NG+. Replaces Black Firebomb x3)
 	},
 	10185100 = {
 		Keys[0] = {},
@@ -2789,20 +2656,10 @@
 		Type = Area
 		Desc = Corpse in the middle of the stairs of the house next to the bell. Replaces Fire Arrow x10
 	},
-	10186021 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse in the middle of the stairs of the house next to the bell, NG+. Replaces Fire Arrow x30
-	},
 	10186070 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse back in the second house at sea level right of the central stairs. Replaces Iron Arrow x10
-	},
-	10186071 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse back in the second house at sea level right of the central stairs, NG+. Replaces Iron Arrow x30
 	},
 	1181000 = {
 		Keys[0] = {},
@@ -3200,30 +3057,15 @@
 		Type = Chest
 		Desc = Iron Keep - Chest (Wooden chest atop the trapped courtyard. Replaces Destructive Greatarrow x10)
 	},
-	10195001 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Iron Keep - Chest (Wooden chest atop the trapped courtyard, NG+. Replaces Destructive Greatarrow x30)
-	},
 	10196110 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse on the metal platforms in the trapped courtyard. Replaces Large Soul of a Nameless Soldier
 	},
-	10196111 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse on the metal platforms in the trapped courtyard, NG+. Replaces Soul of a Brave Warrior
-	},
 	10196210 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse inside the smelter oven. Replaces Large Titanite Shard x2, Petrified Dragon Bone
-	},
-	10196211 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse inside the smelter oven, NG+. Replaces Twinkling Titanite, Petrified Dragon Bone
 	},
 	10195100 = {
 		Keys[1] = {Conn_FireDefense},
@@ -3325,11 +3167,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse against a tree in the Forlorn area after the first stone bridge. Replaces Lifegem
-	},
-	10236131 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse against a tree in the Forlorn area after the first stone bridge, NG+. Replaces Elizabeth Mushroom
 	},
 	10236140 = {
 		Keys[0] = {},
@@ -3831,30 +3668,15 @@
 		Type = Chest
 		Desc = Dragon Aerie - Chest (Wooden chest up the stairs next to the first mace drakekeeper. Replaces Twinkling Titanite)
 	},
-	10275021 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Dragon Aerie - Chest (Wooden chest up the stairs next to the first mace drakekeeper, NG+. Replaces Twinkling Titanite x3)
-	},
 	10276040 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse below the first dragon nest. Replaces Radiant Lifegem
 	},
-	10276041 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse below the first dragon nest, NG+. Replaces Elizabeth Mushroom x3
-	},
 	10276060 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse outside the second dragon nest. Replaces Petrified Dragon Bone
-	},
-	10276061 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse outside the second dragon nest, NG+. Replaces Petrified Dragon Bone x2
 	},
 	1270000 = {
 		Keys[0] = {},
@@ -4126,20 +3948,10 @@
 		Type = Chest
 		Desc = Heide's Tower of Flame - Chest (Metal chest on the crumbling platform in front of the Dragonrider arena. Replaces Ring of Binding)
 	},
-	10315001 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Heide's Tower of Flame - Chest (Metal chest on the crumbling platform in front of the Dragonrider arena, NG+. Replaces Human Effigy x3, Ring of Binding)
-	},
 	10316100 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse behind the large door next to the first bonfire. Replaces Lloyd's Talisman
-	},
-	10316101 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse behind the large door next to the first bonfire, NG+. Replaces Skeptic's Spice
 	},
 	1311000 = {
 		Keys[0] = {},
@@ -4214,11 +4026,6 @@
 		Type = Area
 		Desc = Corpse in the fog, right of the entrance. Replaces Lloyd's Talisman x2
 	},
-	10326101 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse in the fog, right of the entrance, NG+. Replaces Gower's Ring of Protection, Lloyd's Talisman x2
-	},
 	10326120 = {
 		Keys[0] = {},
 		Type = Area
@@ -4274,11 +4081,6 @@
 		Type = Chest
 		Desc = Shaded Woods - Chest (Wooden chest down a stairway close to the Shaded Ruins bonfire. Replaces Magic Bolt x10)
 	},
-	10325001 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Shaded Woods - Chest (Wooden chest down a stairway close to the Shaded Ruins bonfire, NG+. Replaces Magic Bolt x30)
-	},
 	10325010 = {
 		Keys[0] = {},
 		Type = Chest
@@ -4289,30 +4091,15 @@
 		Type = Area
 		Desc = Corpse in the fog, against a moaning tree. Replaces Large Soul of a Nameless Soldier
 	},
-	10326081 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse in the fog, against a moaning tree, NG+. Replaces Soul of a Brave Warrior
-	},
 	10326140 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse inside the corrosive cave. Replaces Twinkling Titanite
 	},
-	10326141 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse inside the corrosive cave, NG+ Replaces Twinkling Titanite x3
-	},
 	10326190 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse next to the large crumbling planks above the corrosive cave. Replaces Lifegem
-	},
-	10326191 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse next to the large crumbling planks above the corrosive cave, NG+. Replaces Divine Blessing
 	},
 	60009000 = {
 		Keys[1] = {Conn_FangKeyBranch},
@@ -4443,20 +4230,10 @@
 		Type = Chest
 		Desc = Doors of Pharros - Chest (Wooden chest up the stairs at the entrance. Replaces Dragon Charm)
 	},
-	10335031 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Doors of Pharros - Chest (Wooden chest up the stairs at the entrance, NG+. Replaces Dragon Charm x5)
-	},
 	10336010 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse nearby statues and Gavlan. Replaces Lifegem
-	},
-	10336011 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse nearby statues and Gavlan, NG+. Replaces Old Radiant Lifegem
 	},
 }
 
@@ -4501,11 +4278,6 @@
 		Type = Area
 		Desc = Corpse in the water in the rat area's central room. Replaces Amber Herb x2
 	},
-	10336041 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse in the water in the rat area's central room, NG+. Replaces Wilted Dusk Herb x2
-	},
 	10335000 = {
 		Keys[1] = {Conn_PharrosLockstone},
 		Type = Chest
@@ -4516,11 +4288,6 @@
 		Type = Chest
 		Desc = Doors of Pharros - Chest (Wooden chest in a tunnel behind a Pharros gate in the rat area's upper central room. Replaces Magic Arrow x15)
 	},
-	10335021 = {
-		Keys[1] = {Conn_PharrosLockstone},
-		Type = Chest
-		Desc = Doors of Pharros - Chest (Wooden chest in a tunnel behind a Pharros gate in the rat area's upper central room, NG+. Replaces Magic Arrow x30)
-	},
 }
 
 #GraveOfSaintsNearUpperBonfireFront[7] = {
@@ -4528,11 +4295,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton at the Grave of Saints entrance. Replaces Large Soul of a Nameless Soldier
-	},
-	10346031 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton at the Grave of Saints entrance, NG+. Replaces Large Soul of a Brave Warrior
 	},
 	10346040 = {
 		Keys[0] = {},
@@ -4610,11 +4372,6 @@
 		Type = Area
 		Desc = Skeleton behind metal bars above the wooden bridge. Replaces Bleed Stone
 	},
-	10346091 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton behind metal bars above the wooden bridge, NG+. Replaces Twinkling Titanite, Bleed Stone
-	},
 	75600600 = {
 		Keys[1] = {Conn_RatTail},
 		Type = Shop
@@ -4683,30 +4440,15 @@
 		Type = Chest
 		Desc = Giant's Memory - Chest (Chest nearby Captain Drummond in Memory of Vammar. Replaces Smooth & Silky Stone x5)
 	},
-	20105001 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Giant's Memory - Chest (Chest nearby Captain Drummond in Memory of Vammar, NG+. Replaces Smooth & Silky Stone x5, Petrified Something)
-	},
 	20106010 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse up a ramp in the first couryard in Memory of Vammar. Replaces Large Soul of a Nameless Soldier
 	},
-	20106011 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse up a ramp in the first couryard in Memory of Vammar, NG+. Replaces Large Soul of a Brave Warrior
-	},
 	20106060 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse outside in Memory of Vammar, besides stairs. Replaces Rouge Water
-	},
-	20106061 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse outside in Memory of Vammar, besides stairs, NG+. Replaces Crimson Water x3
 	},
 }
 
@@ -4766,11 +4508,6 @@
 		Type = Area
 		Desc = Corpse up the ladder in Memory of Orro. Replaces Soul of a Proud Knight
 	},
-	20106141 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse up the ladder in Memory of Orro, NG+. Replaces Soul of a Hero
-	},
 	20105020 = {
 		Keys[1] = {Conn_PharrosLockstone},
 		Type = Chest
@@ -4808,11 +4545,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse outside in Memory of Jeigh. Replaces Old Radiant Lifegem
-	},
-	20106111 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse outside in Memory of Jeigh, NG+. Replaces Divine Blessing
 	},
 	309700 = {
 		Keys[0] = {},
@@ -4882,11 +4614,6 @@
 		Type = Area
 		Desc = Corpse below the spiral staircase in tower of prayer. Replaces Large Soul of a Nameless Soldier
 	},
-	20116011 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse below the spiral staircase in tower of prayer, NG+. Replaces Soul of a Brave Warrior
-	},
 }
 
 #ShrineOfAmanaTo2ndBonfireBack[14] = {
@@ -4949,11 +4676,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse in Schmidt's house (formerly Felicia's). Replaces Large Soul of a Proud Knight, Old Radiant Lifegem
-	},
-	20116171 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse in Schmidt's house (formerly Felicia's), NG+. Replaces Large Soul of a Brave Warrior, Elizabeth Mushroom
 	},
 	2115000 = {
 		Keys[0] = {},
@@ -5124,20 +4846,10 @@
 		Type = Chest
 		Desc = Drangleic Castle - Chest (Wooden chest in the acid pit. Replaces Corrosive Urn x3)
 	},
-	20215011 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Drangleic Castle - Chest (Wooden chest in the acid pit, NG+. Replaces Titanite Slab, Corrosive Urn x3)
-	},
 	20215020 = {
 		Keys[0] = {},
 		Type = Chest
 		Desc = Drangleic Castle - Chest (Wooden chest in the storage room in the castle's basement. Replaces Dark Arrow x15)
-	},
-	20215021 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Drangleic Castle - Chest (Wooden chest in the storage room in the castle's basement, NG+. Replaces Dark Arrow x30)
 	},
 	20215170 = {
 		Keys[0] = {},
@@ -5191,11 +4903,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in the storage room in the castle's basement. Replaces Soul of a Hero, Old Radiant Lifegem x3, Monastery Charm
-	},
-	20216021 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in the storage room in the castle's basement, NG+. Replaces Great Magic Barrier
 	},
 	2214000 = {
 		Keys[0] = {},
@@ -5285,11 +4992,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in the horsemen statue hallway. Replaces Lifegem
-	},
-	20216061 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in the horsemen statue hallway, NG+. Replaces Old Radiant Lifegem, Petrified Dragon Bone
 	},
 }
 
@@ -7011,11 +6713,6 @@
 		Type = Area
 		Desc = Corpse before the Pursuer arena. Replaces Soul of a Nameless Soldier, Lifegem x3
 	},
-	10106371 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse before the Pursuer arena, NG+. Replaces Large Soul of a Proud Knight, Old Radiant Lifegem x3
-	},
 }
 
 #RuinSentinelsHiddenDoor3ExitBack[1] = {
@@ -7045,20 +6742,10 @@
 		Type = Area
 		Desc = Corpse back in the trees in the Forlorn area past the first stone bridge. Replaces Aromatic Ooze
 	},
-	10236021 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse back in the trees in the Forlorn area past the first stone bridge, NG+. Replaces Aromatic Ooze x3
-	},
 	10236070 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse in the boarded up building, near the pit. Replaces Soul of a Nameless Soldier, Lifegem
-	},
-	10236071 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse in the boarded up building, near the pit, NG+. Replaces Large Soul of a Proud Knight, Old Radiant Lifegem
 	},
 	1231000 = {
 		Keys[0] = {},
@@ -7072,11 +6759,6 @@
 		Keys[0] = {},
 		Type = Area
 		Desc = Corpse below the spiral staircase. Replaces Monastery Charm
-	},
-	10316041 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse below the spiral staircase, NG+. Replaces Monastery Charm x3
 	},
 }
 
@@ -7094,11 +6776,6 @@
 		Type = Chest
 		Desc = Shrine of Amana - Chest (Wooden chest next to stairs before the Rise of the Dead. Replaces Magic Arrow x20)
 	},
-	20115051 = {
-		Keys[0] = {},
-		Type = Chest
-		Desc = Shrine of Amana - Chest (Wooden chest next to stairs before the Rise of the Dead, NG+. Replaces Magic Arrow x30, Dark Arrow x30)
-	},
 }
 
 #VelsdatEntryFront[20] = {
@@ -7112,40 +6789,20 @@
 		Type = Area
 		Desc = Corpse next to the grave wardens. Replaces Large Soul of a Nameless Soldier
 	},
-	20246011 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Corpse next to the grave wardens, NG+. Replaces Soul of a Brave Warrior
-	},
 	20246110 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in the first tombstone room. Replaces Titanite Chunk, Petrified Dragon Bone
-	},
-	20246111 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in the first tombstone room, NG+. Replaces Titanite Chunk x3, Petrified Dragon Bone
 	},
 	20246120 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in the second tombstone room. Replaces Soul of a Lost Undead
 	},
-	20246121 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in the second tombstone room, NG+. Replaces Large Soul of a Brave Warrior
-	},
 	20246150 = {
 		Keys[0] = {},
 		Type = Area
 		Desc = Skeleton in the third tombstone room. Replaces Radiant Lifegem, Homeward Bone
-	},
-	20246151 = {
-		Keys[0] = {},
-		Type = Area
-		Desc = Skeleton in the third tombstone room, NG+. Replaces Elizabeth Mushroom x2, Homeward Bone x3
 	},
 	2240500 = {
 		Keys[0] = {},

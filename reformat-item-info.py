@@ -217,6 +217,15 @@ with open("./data/item-lot-formatted.txt", "w") as f:
     for v in my_infos.values():
         f.write(f"{v.gate_name}[{len(v.items)}] = {{\n")
         for i in v.items:
+            # skip ng+ items
+            if (i.typ == ""):
+                if his_infos_dict.get(i.item):
+                    his_info = his_infos_dict[i.item]
+                    if not his_info.ng:
+                        continue
+                else:
+                    raise ValueError(f"{i.item} not found")
+
             f.write(f"\t{i.item} = {{\n")
             f.write(f"\t\tKeys[{len(i.keys)}] = {{{", ".join(j.replace("#", "") for j in i.keys)}}},\n")
             if (i.typ == ""):
@@ -246,6 +255,14 @@ with open("./item_info.c", "w") as f:
         f.write("\tiig = (ItemInfoGroup){0};\n")
         f.write(f"\tda_init(&iig, {len(v.items)});\n")
         for i in v.items:
+            # skip ng+ items
+            if (i.typ == ""):
+                if his_infos_dict.get(i.item):
+                    his_info = his_infos_dict[i.item]
+                    if not his_info.ng:
+                        continue
+                else:
+                    raise ValueError(f"{i.item} not found")
             f.write(f"\tkeys = (Keys){{0}};\n")
             f.write(f"\tda_init(&keys, {len(i.keys)});\n")
             for k in i.keys:

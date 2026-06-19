@@ -55,7 +55,9 @@
 #LastGiantEntryFront
 10106410,
 
-#GiantLordMemoryEntrySrc
+#ForestOfFallenGiantsToCaleFront
+##Conn_SoldiersKey
+###Conn_KingsRing
 10106420,
 
 #CongregationExitBack
@@ -108,7 +110,7 @@
 10165000,10165020,10165070,10165110,10165130,10166020,10166040,10166050,10166130,10166150,10166180,10166200,10166260,10166290,10166370,10166380,10166410,10166480,10166490,
 ##Conn_BastilleKey
 10166440,10166441,
-##Conn_FireBomb
+##Conn_Firebomb
 10166430,
 
 #LostSinnerExitBack

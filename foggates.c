@@ -881,7 +881,6 @@ typedef enum ConnectionType {
 	Conn_FirstFourSouls,
 	Conn_Catring,
 	Conn_AshenMistHeart,
-	Conn_KingMemory,
 	Conn_OldKeyInBastille,
 	Conn_BastilleKey,
 	Conn_PharrosLockstone,
@@ -900,15 +899,12 @@ typedef enum ConnectionType {
 	Conn_ShipBellRang,
 	Conn_IronKeyToFireLizards,
 	Conn_DragonStone,
-	Conn_BossKilled,
 	Conn_LudAndZallenDead,
 	Conn_Firebomb,
 	Conn_Gilligan_Ladder,
-	Conn_DLC2TowerKey,
 	Conn_KeyToKingsPassage,
 	Conn_HouseKey,
 	Conn_AldiaKey,
-	Conn_FireBomb,
 	Conn_FangKey,
 	Conn_VendrickSoul,
 	Conn_BowCrossbow,
@@ -926,6 +922,7 @@ typedef enum ConnectionType {
 	Conn_RingOfWhispers,
 	Conn_PateCreightonQuest,
 	Conn_DullEmber,
+	Conn_UndeadLockawayKey,
 	Conn_Tutorial3Branch,
 	Conn_RosabethBranch,
 	Conn_WharfBranch,
@@ -943,19 +940,22 @@ typedef enum ConnectionType {
 	Conn_AldiaBranch1,
 	Conn_AldiaBranch2,
 	Conn_DragonAerieBranch,
-}ConnectionType;
+} ConnectionType;
+
+typedef unsigned __int128 bitmask128_t;
+
+#define CT(value) (bitmask128_t)1 << (value)
 
 void print_connection_type(ConnectionType ct) {
 	switch (ct) {
 		case Conn_None                 : printf("None");                    break;
-		case Conn_FogGate               : printf("FogGate");                  break;
+		case Conn_FogGate              : printf("FogGate");                 break;
 		case Conn_RotundaLockstone     : printf("RotundaLockstone");        break;
 		case Conn_SoldiersKey          : printf("SoldiersKey");             break;
 		case Conn_KingsRing            : printf("KingsRing");               break;
 		case Conn_FirstFourSouls       : printf("FirstFourSouls");          break;
 		case Conn_Catring              : printf("Catring");                 break;
 		case Conn_AshenMistHeart       : printf("AshenMistHeart");          break;
-		case Conn_KingMemory           : printf("KingMemory");              break;
 		case Conn_OldKeyInBastille     : printf("OldKeyInBastille");        break;
 		case Conn_BastilleKey          : printf("BastilleKey");             break;
 		case Conn_PharrosLockstone     : printf("PharrosLockstone");        break;
@@ -974,15 +974,12 @@ void print_connection_type(ConnectionType ct) {
 		case Conn_ShipBellRang         : printf("ShipBellRang");            break;
 		case Conn_IronKeyToFireLizards : printf("IronKeyToFireLizards");    break;
 		case Conn_DragonStone          : printf("DragonStone");             break;
-		case Conn_BossKilled           : printf("BossKilled");              break;
 		case Conn_LudAndZallenDead     : printf("LudAndZallenDead");        break;
 		case Conn_Firebomb             : printf("Firebomb");                break;
 		case Conn_Gilligan_Ladder      : printf("Gilligan_Ladder");         break;
-		case Conn_DLC2TowerKey         : printf("DLC2TowerKey");            break;
 		case Conn_KeyToKingsPassage    : printf("KeyToKingsPassage");       break;
 		case Conn_HouseKey             : printf("HouseKey");                break;
 		case Conn_AldiaKey             : printf("AldiaKey");                break;
-		case Conn_FireBomb             : printf("FireBomb");                break;
 		case Conn_FangKey              : printf("FangKey");                 break;
 		case Conn_VendrickSoul         : printf("VendrickSoul");            break;
 		case Conn_BowCrossbow          : printf("BowCrossbow");             break;
@@ -1000,6 +997,7 @@ void print_connection_type(ConnectionType ct) {
 		case Conn_RingOfWhispers       : printf("RingOfWhispers");          break;
 		case Conn_PateCreightonQuest   : printf("PateCreightonQuest");      break;
 		case Conn_DullEmber            : printf("DullEmber");               break;
+		case Conn_UndeadLockawayKey    : printf("UndeadLockawayKey");       break;
 		case Conn_Tutorial3Branch      : printf("Conn_Tutorial3Branch");    break;
 		case Conn_RosabethBranch       : printf("Conn_RosabethBranch");     break;
 		case Conn_WharfBranch          : printf("Conn_WharfBranch");        break;
@@ -1024,7 +1022,7 @@ void print_connection_type(ConnectionType ct) {
 
 typedef struct {
 	WarpNode to;
-	ConnectionType type;
+	bitmask128_t type;
 	bool is_warp;
 } Connection;
 
@@ -1066,65 +1064,65 @@ void generate_connections() {
 	connection_init(GameStartSpawnDst, 8);
 	connection_add(GameStartSpawnDst, .to = Tutorial1EntryFront);
 	connection_add(GameStartSpawnDst, .to = Tutorial2EntryFront);
-	connection_add(GameStartSpawnDst, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
+	connection_add(GameStartSpawnDst, .to = Tutorial3EntryFront, .type = CT(Conn_Tutorial3Branch));
 	connection_add(GameStartSpawnDst, .to = MajulaToForestOfFallenGiantsFront);
-	connection_add(GameStartSpawnDst, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring); // TODO: cannot add Conn_Gilligan_Ladder to this type
+	connection_add(GameStartSpawnDst, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring)); // TODO: cannot add Conn_Gilligan_Ladder to this type
 	connection_add(GameStartSpawnDst, .to = MajulaToRotundaLockstoneFront);
-	connection_add(GameStartSpawnDst, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(GameStartSpawnDst, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	connection_add(GameStartSpawnDst, .to = MajulaToShadedWoodsFront);
 	warp_node_count++;
 
 	connection_init(Tutorial1EntryFront, 7);
 	connection_add(Tutorial1EntryFront, .to = Tutorial2EntryFront);
-	connection_add(Tutorial1EntryFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
+	connection_add(Tutorial1EntryFront, .to = Tutorial3EntryFront, .type = CT(Conn_Tutorial3Branch));
 	connection_add(Tutorial1EntryFront, .to = MajulaToForestOfFallenGiantsFront);
-	connection_add(Tutorial1EntryFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
+	connection_add(Tutorial1EntryFront, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial1EntryFront, .to = MajulaToRotundaLockstoneFront);
-	connection_add(Tutorial1EntryFront, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(Tutorial1EntryFront, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial1EntryFront, .to = MajulaToShadedWoodsFront);
 	warp_node_count++;
 
 	connection_init(Tutorial2EntryFront, 7);
 	connection_add(Tutorial2EntryFront, .to = Tutorial1EntryFront);
-	connection_add(Tutorial2EntryFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
+	connection_add(Tutorial2EntryFront, .to = Tutorial3EntryFront, .type = CT(Conn_Tutorial3Branch));
 	connection_add(Tutorial2EntryFront, .to = MajulaToForestOfFallenGiantsFront);
-	connection_add(Tutorial2EntryFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
+	connection_add(Tutorial2EntryFront, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial2EntryFront, .to = MajulaToRotundaLockstoneFront);
-	connection_add(Tutorial2EntryFront, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(Tutorial2EntryFront, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial2EntryFront, .to = MajulaToShadedWoodsFront);
 	warp_node_count++;
 
 	connection_init(Tutorial3EntryFront, 7);
 	connection_add(Tutorial3EntryFront, .to = Tutorial1EntryFront);
-	connection_add(Tutorial3EntryFront, .to = Tutorial2EntryFront, .type = Conn_Tutorial3Branch);
-	connection_add(Tutorial3EntryFront, .to = MajulaToForestOfFallenGiantsFront, .type = Conn_Tutorial3Branch);
-	connection_add(Tutorial3EntryFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring | Conn_Tutorial3Branch);
-	connection_add(Tutorial3EntryFront, .to = MajulaToRotundaLockstoneFront, .type = Conn_Tutorial3Branch);
-	connection_add(Tutorial3EntryFront, .to = MajulaToGutterFront, .type = Conn_Catring | Conn_Tutorial3Branch);
-	connection_add(Tutorial3EntryFront, .to = MajulaToShadedWoodsFront, .type = Conn_Tutorial3Branch);
+	connection_add(Tutorial3EntryFront, .to = Tutorial2EntryFront, .type = CT(Conn_Tutorial3Branch));
+	connection_add(Tutorial3EntryFront, .to = MajulaToForestOfFallenGiantsFront, .type = CT(Conn_Tutorial3Branch));
+	connection_add(Tutorial3EntryFront, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring) | CT(Conn_Tutorial3Branch));
+	connection_add(Tutorial3EntryFront, .to = MajulaToRotundaLockstoneFront, .type = CT(Conn_Tutorial3Branch));
+	connection_add(Tutorial3EntryFront, .to = MajulaToGutterFront, .type = CT(Conn_Catring) | CT(Conn_Tutorial3Branch));
+	connection_add(Tutorial3EntryFront, .to = MajulaToShadedWoodsFront, .type = CT(Conn_Tutorial3Branch));
 	warp_node_count++;
 
 	connection_init(MajulaToForestOfFallenGiantsFront, 7);
 	connection_add(MajulaToForestOfFallenGiantsFront, .to = Tutorial1EntryFront);
 	connection_add(MajulaToForestOfFallenGiantsFront, .to = Tutorial2EntryFront);
-	connection_add(MajulaToForestOfFallenGiantsFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
-	connection_add(MajulaToForestOfFallenGiantsFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
+	connection_add(MajulaToForestOfFallenGiantsFront, .to = Tutorial3EntryFront, .type = CT(Conn_Tutorial3Branch));
+	connection_add(MajulaToForestOfFallenGiantsFront, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring));
 	connection_add(MajulaToForestOfFallenGiantsFront, .to = MajulaToRotundaLockstoneFront);
-	connection_add(MajulaToForestOfFallenGiantsFront, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(MajulaToForestOfFallenGiantsFront, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	connection_add(MajulaToForestOfFallenGiantsFront, .to = MajulaToShadedWoodsFront);
 	warp_node_count++;
 
 	connection_init(MajulaToGraveOfSaintsFront, 1);
-	connection_add(MajulaToGraveOfSaintsFront, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(MajulaToGraveOfSaintsFront, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	warp_node_count++;
 
 	connection_init(MajulaToRotundaLockstoneFront, 7);
 	connection_add(MajulaToRotundaLockstoneFront, .to = Tutorial1EntryFront);
 	connection_add(MajulaToRotundaLockstoneFront, .to = Tutorial2EntryFront);
-	connection_add(MajulaToRotundaLockstoneFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
-	connection_add(MajulaToRotundaLockstoneFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
+	connection_add(MajulaToRotundaLockstoneFront, .to = Tutorial3EntryFront, .type = CT(Conn_Tutorial3Branch));
+	connection_add(MajulaToRotundaLockstoneFront, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring));
 	connection_add(MajulaToRotundaLockstoneFront, .to = MajulaToForestOfFallenGiantsFront);
-	connection_add(MajulaToRotundaLockstoneFront, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(MajulaToRotundaLockstoneFront, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	connection_add(MajulaToRotundaLockstoneFront, .to = MajulaToShadedWoodsFront);
 	warp_node_count++;
 
@@ -1134,10 +1132,10 @@ void generate_connections() {
 	connection_init(MajulaToShadedWoodsFront, 7);
 	connection_add(MajulaToShadedWoodsFront, .to = Tutorial1EntryFront);
 	connection_add(MajulaToShadedWoodsFront, .to = Tutorial2EntryFront);
-	connection_add(MajulaToShadedWoodsFront, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
-	connection_add(MajulaToShadedWoodsFront, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
+	connection_add(MajulaToShadedWoodsFront, .to = Tutorial3EntryFront, .type = CT(Conn_Tutorial3Branch));
+	connection_add(MajulaToShadedWoodsFront, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring));
 	connection_add(MajulaToShadedWoodsFront, .to = MajulaToForestOfFallenGiantsFront);
-	connection_add(MajulaToShadedWoodsFront, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(MajulaToShadedWoodsFront, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	connection_add(MajulaToShadedWoodsFront, .to = MajulaToRotundaLockstoneFront);
 	warp_node_count++;
 
@@ -1166,33 +1164,33 @@ void generate_connections() {
 	connection_init(Tutorial1ExitBack, 8);
 	connection_add(Tutorial1ExitBack, .to = Tutorial1EntryFront);
 	connection_add(Tutorial1ExitBack, .to = Tutorial2EntryFront);
-	connection_add(Tutorial1ExitBack, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
+	connection_add(Tutorial1ExitBack, .to = Tutorial3EntryFront, .type = CT(Conn_Tutorial3Branch));
 	connection_add(Tutorial1ExitBack, .to = MajulaToForestOfFallenGiantsFront);
-	connection_add(Tutorial1ExitBack, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
+	connection_add(Tutorial1ExitBack, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial1ExitBack, .to = MajulaToRotundaLockstoneFront);
-	connection_add(Tutorial1ExitBack, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(Tutorial1ExitBack, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial1ExitBack, .to = MajulaToShadedWoodsFront);
 	warp_node_count++;
 
 	connection_init(Tutorial2ExitBack, 8);
 	connection_add(Tutorial2ExitBack, .to = Tutorial1EntryFront);
 	connection_add(Tutorial2ExitBack, .to = Tutorial2EntryFront);
-	connection_add(Tutorial2ExitBack, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
+	connection_add(Tutorial2ExitBack, .to = Tutorial3EntryFront, .type = CT(Conn_Tutorial3Branch));
 	connection_add(Tutorial2ExitBack, .to = MajulaToForestOfFallenGiantsFront);
-	connection_add(Tutorial2ExitBack, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
+	connection_add(Tutorial2ExitBack, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial2ExitBack, .to = MajulaToRotundaLockstoneFront);
-	connection_add(Tutorial2ExitBack, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(Tutorial2ExitBack, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial2ExitBack, .to = MajulaToShadedWoodsFront);
 	warp_node_count++;
 
 	connection_init(Tutorial3ExitBack, 8);
 	connection_add(Tutorial3ExitBack, .to = Tutorial1EntryFront);
 	connection_add(Tutorial3ExitBack, .to = Tutorial2EntryFront);
-	connection_add(Tutorial3ExitBack, .to = Tutorial3EntryFront, .type = Conn_Tutorial3Branch);
+	connection_add(Tutorial3ExitBack, .to = Tutorial3EntryFront, .type = CT(Conn_Tutorial3Branch));
 	connection_add(Tutorial3ExitBack, .to = MajulaToForestOfFallenGiantsFront);
-	connection_add(Tutorial3ExitBack, .to = MajulaToGraveOfSaintsFront, .type = Conn_Catring);
+	connection_add(Tutorial3ExitBack, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial3ExitBack, .to = MajulaToRotundaLockstoneFront);
-	connection_add(Tutorial3ExitBack, .to = MajulaToGutterFront, .type = Conn_Catring);
+	connection_add(Tutorial3ExitBack, .to = MajulaToGutterFront, .type = CT(Conn_Catring));
 	connection_add(Tutorial3ExitBack, .to = MajulaToShadedWoodsFront);
 	warp_node_count++;
 
@@ -1215,9 +1213,9 @@ void generate_connections() {
 
 	connection_init(ForestOfFallenGiantsAfterFirstBonfireBack, 4);
 	connection_add(ForestOfFallenGiantsAfterFirstBonfireBack, .to = ForestOfFallenGiantsToCaleFront);
-	connection_add(ForestOfFallenGiantsAfterFirstBonfireBack, .to = GiantLordMemoryEntrySrc, .type = Conn_KingsRing | Conn_AshenMistHeart | Conn_SoldiersKey);
-	connection_add(ForestOfFallenGiantsAfterFirstBonfireBack, .to = LastGiantEntryFront, .type = Conn_Catring | Conn_IronKeyToFireLizards);
-	connection_add(ForestOfFallenGiantsAfterFirstBonfireBack, .to = ForestOfFallenGiantsBalconyBack, .type = Conn_Catring | Conn_IronKeyToFireLizards);
+	connection_add(ForestOfFallenGiantsAfterFirstBonfireBack, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_KingsRing) | CT(Conn_AshenMistHeart) | CT(Conn_SoldiersKey));
+	connection_add(ForestOfFallenGiantsAfterFirstBonfireBack, .to = LastGiantEntryFront, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards));
+	connection_add(ForestOfFallenGiantsAfterFirstBonfireBack, .to = ForestOfFallenGiantsBalconyBack, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards));
 	warp_node_count++;
 
 	connection_init(GiantLordMemoryEntrySrc, 1);
@@ -1245,31 +1243,31 @@ void generate_connections() {
 
 	connection_init(GiantLordMemoryExitDst, 5);
 	connection_add(GiantLordMemoryExitDst, .to = ForestOfFallenGiantsToCaleFront);
-	connection_add(GiantLordMemoryExitDst, .to = GiantLordMemoryEntrySrc, .type = Conn_AshenMistHeart);
-	connection_add(GiantLordMemoryExitDst, .to = LastGiantEntryFront, .type = Conn_Catring | Conn_IronKeyToFireLizards);
-	connection_add(GiantLordMemoryExitDst, .to = ForestOfFallenGiantsBalconyBack, .type = Conn_Catring | Conn_IronKeyToFireLizards);
+	connection_add(GiantLordMemoryExitDst, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_AshenMistHeart));
+	connection_add(GiantLordMemoryExitDst, .to = LastGiantEntryFront, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards));
+	connection_add(GiantLordMemoryExitDst, .to = ForestOfFallenGiantsBalconyBack, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards));
 	connection_add(GiantLordMemoryExitDst, .to = ForestOfFallenGiantsAfterFirstBonfireBack);
 	warp_node_count++;
 
 	connection_init(ForestOfFallenGiantsToCaleFront, 4);
-	connection_add(ForestOfFallenGiantsToCaleFront, .to = GiantLordMemoryEntrySrc, .type = Conn_SoldiersKey | Conn_KingsRing | Conn_AshenMistHeart);
-	connection_add(ForestOfFallenGiantsToCaleFront, .to = LastGiantEntryFront, .type = Conn_Catring | Conn_IronKeyToFireLizards);
-	connection_add(ForestOfFallenGiantsToCaleFront, .to = ForestOfFallenGiantsBalconyBack, .type = Conn_Catring | Conn_IronKeyToFireLizards);
-	connection_add(ForestOfFallenGiantsToCaleFront, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_SoldiersKey | Conn_KingsRing);
+	connection_add(ForestOfFallenGiantsToCaleFront, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_SoldiersKey) | CT(Conn_KingsRing) | CT(Conn_AshenMistHeart));
+	connection_add(ForestOfFallenGiantsToCaleFront, .to = LastGiantEntryFront, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards));
+	connection_add(ForestOfFallenGiantsToCaleFront, .to = ForestOfFallenGiantsBalconyBack, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards));
+	connection_add(ForestOfFallenGiantsToCaleFront, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = CT(Conn_SoldiersKey) | CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_init(ForestOfFallenGiantsBalconyBack, 4);
 	connection_add(ForestOfFallenGiantsBalconyBack, .to = LastGiantEntryFront);
 	connection_add(ForestOfFallenGiantsBalconyBack, .to = ForestOfFallenGiantsToCaleFront);
-	connection_add(ForestOfFallenGiantsBalconyBack, .to = GiantLordMemoryEntrySrc, .type = Conn_KingsRing | Conn_AshenMistHeart | Conn_SoldiersKey | Conn_FireBomb);
-	connection_add(ForestOfFallenGiantsBalconyBack, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_SoldiersKey | Conn_KingsRing);
+	connection_add(ForestOfFallenGiantsBalconyBack, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_KingsRing) | CT(Conn_AshenMistHeart) | CT(Conn_SoldiersKey) | CT(Conn_Firebomb));
+	connection_add(ForestOfFallenGiantsBalconyBack, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = CT(Conn_SoldiersKey) | CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_init(LastGiantEntryFront, 4);
 	connection_add(LastGiantEntryFront, .to = ForestOfFallenGiantsBalconyBack);
 	connection_add(LastGiantEntryFront, .to = ForestOfFallenGiantsToCaleFront);
-	connection_add(LastGiantEntryFront, .to = GiantLordMemoryEntrySrc, .type = Conn_KingsRing | Conn_AshenMistHeart | Conn_SoldiersKey);
-	connection_add(LastGiantEntryFront, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_SoldiersKey | Conn_KingsRing);
+	connection_add(LastGiantEntryFront, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_KingsRing) | CT(Conn_AshenMistHeart) | CT(Conn_SoldiersKey));
+	connection_add(LastGiantEntryFront, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = CT(Conn_SoldiersKey) | CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_init(LastGiantEntryBack, 0);
@@ -1277,13 +1275,13 @@ void generate_connections() {
 
 	connection_init(ForestOfFallenGiantsToCaleBack, 8);
 	connection_add(ForestOfFallenGiantsToCaleBack, .to = ForestOfFallenGiantsBalconyFront);
-	connection_add(ForestOfFallenGiantsToCaleBack, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = Conn_SoldiersKey);
-	connection_add(ForestOfFallenGiantsToCaleBack, .to = NearPateGiantMemoryEntrySrc, .type = Conn_AshenMistHeart);
-	connection_add(ForestOfFallenGiantsToCaleBack, .to = ForestOfFallenGiantsToCaleFront, .type = Conn_Firebomb);
-	connection_add(ForestOfFallenGiantsToCaleBack, .to = GiantLordMemoryEntrySrc, .type = Conn_SoldiersKey | Conn_KingsRing | Conn_AshenMistHeart | Conn_Firebomb);
-	connection_add(ForestOfFallenGiantsToCaleBack, .to = LastGiantEntryFront, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(ForestOfFallenGiantsToCaleBack, .to = ForestOfFallenGiantsBalconyBack, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(ForestOfFallenGiantsToCaleBack, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_Firebomb | Conn_SoldiersKey | Conn_KingsRing);
+	connection_add(ForestOfFallenGiantsToCaleBack, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = CT(Conn_SoldiersKey));
+	connection_add(ForestOfFallenGiantsToCaleBack, .to = NearPateGiantMemoryEntrySrc, .type = CT(Conn_AshenMistHeart));
+	connection_add(ForestOfFallenGiantsToCaleBack, .to = ForestOfFallenGiantsToCaleFront, .type = CT(Conn_Firebomb));
+	connection_add(ForestOfFallenGiantsToCaleBack, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_SoldiersKey) | CT(Conn_KingsRing) | CT(Conn_AshenMistHeart) | CT(Conn_Firebomb));
+	connection_add(ForestOfFallenGiantsToCaleBack, .to = LastGiantEntryFront, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(ForestOfFallenGiantsToCaleBack, .to = ForestOfFallenGiantsBalconyBack, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(ForestOfFallenGiantsToCaleBack, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = CT(Conn_Firebomb) | CT(Conn_SoldiersKey) | CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_init(NearPateGiantMemoryEntrySrc, 1);
@@ -1301,12 +1299,12 @@ void generate_connections() {
 	connection_init(NearPateGiantMemoryExitDst, 9);
 	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsToCaleBack);
 	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsBalconyFront);
-	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = Conn_SoldiersKey);
-	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsToCaleFront, .type = Conn_Firebomb);
-	connection_add(NearPateGiantMemoryExitDst, .to = GiantLordMemoryEntrySrc, .type = Conn_SoldiersKey | Conn_KingsRing | Conn_AshenMistHeart | Conn_Firebomb);
-	connection_add(NearPateGiantMemoryExitDst, .to = LastGiantEntryFront, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsBalconyBack, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_Firebomb | Conn_SoldiersKey | Conn_KingsRing);
+	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = CT(Conn_SoldiersKey));
+	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsToCaleFront, .type = CT(Conn_Firebomb));
+	connection_add(NearPateGiantMemoryExitDst, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_SoldiersKey) | CT(Conn_KingsRing) | CT(Conn_AshenMistHeart) | CT(Conn_Firebomb));
+	connection_add(NearPateGiantMemoryExitDst, .to = LastGiantEntryFront, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsBalconyBack, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(NearPateGiantMemoryExitDst, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = CT(Conn_Firebomb) | CT(Conn_SoldiersKey) | CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_init(ForestOfFallenGiantsToPursuerArenaFront, 0);
@@ -1315,15 +1313,15 @@ void generate_connections() {
 	connection_init(PursuerExitBack, 11);
 	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsToCaleBack);
 	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsBalconyFront);
-	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = Conn_SoldiersKey);
-	connection_add(PursuerExitBack, .to = NearPateGiantMemoryEntrySrc, .type = Conn_AshenMistHeart);
-	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsToCaleFront, .type = Conn_Firebomb);
-	connection_add(PursuerExitBack, .to = GiantLordMemoryEntrySrc, .type = Conn_SoldiersKey | Conn_KingsRing | Conn_AshenMistHeart | Conn_Firebomb);
-	connection_add(PursuerExitBack, .to = LastGiantEntryFront, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsBalconyBack, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_Firebomb | Conn_SoldiersKey | Conn_KingsRing);
+	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = CT(Conn_SoldiersKey));
+	connection_add(PursuerExitBack, .to = NearPateGiantMemoryEntrySrc, .type = CT(Conn_AshenMistHeart));
+	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsToCaleFront, .type = CT(Conn_Firebomb));
+	connection_add(PursuerExitBack, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_SoldiersKey) | CT(Conn_KingsRing) | CT(Conn_AshenMistHeart) | CT(Conn_Firebomb));
+	connection_add(PursuerExitBack, .to = LastGiantEntryFront, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsBalconyBack, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(PursuerExitBack, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = CT(Conn_Firebomb) | CT(Conn_SoldiersKey) | CT(Conn_KingsRing));
 	connection_add(PursuerExitBack, .to = NearPursuerBirdEntry);
-	connection_add(PursuerExitBack, .to = NearPursuerGiantMemoryEntrySrc, .type = Conn_AshenMistHeart);
+	connection_add(PursuerExitBack, .to = NearPursuerGiantMemoryEntrySrc, .type = CT(Conn_AshenMistHeart));
 	warp_node_count++;
 
 	connection_init(NearPursuerBirdEntry, 1);
@@ -1346,25 +1344,25 @@ void generate_connections() {
 	connection_add(NearPursuerGiantMemoryExitDst, .to = PursuerExitBack);
 	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsToCaleBack);
 	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsBalconyFront);
-	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = Conn_SoldiersKey);
-	connection_add(NearPursuerGiantMemoryExitDst, .to = NearPateGiantMemoryEntrySrc, .type = Conn_AshenMistHeart);
-	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsToCaleFront, .type = Conn_Firebomb);
-	connection_add(NearPursuerGiantMemoryExitDst, .to = GiantLordMemoryEntrySrc, .type = Conn_SoldiersKey | Conn_KingsRing | Conn_AshenMistHeart | Conn_Firebomb);
-	connection_add(NearPursuerGiantMemoryExitDst, .to = LastGiantEntryFront, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsBalconyBack, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_Firebomb | Conn_SoldiersKey | Conn_KingsRing);
+	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = CT(Conn_SoldiersKey));
+	connection_add(NearPursuerGiantMemoryExitDst, .to = NearPateGiantMemoryEntrySrc, .type = CT(Conn_AshenMistHeart));
+	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsToCaleFront, .type = CT(Conn_Firebomb));
+	connection_add(NearPursuerGiantMemoryExitDst, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_SoldiersKey) | CT(Conn_KingsRing) | CT(Conn_AshenMistHeart) | CT(Conn_Firebomb));
+	connection_add(NearPursuerGiantMemoryExitDst, .to = LastGiantEntryFront, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsBalconyBack, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(NearPursuerGiantMemoryExitDst, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = CT(Conn_Firebomb) | CT(Conn_SoldiersKey) | CT(Conn_KingsRing));
 	connection_add(NearPursuerGiantMemoryExitDst, .to = NearPursuerBirdEntry);
 	warp_node_count++;
 
 	connection_init(ForestOfFallenGiantsBalconyFront, 8);
 	connection_add(ForestOfFallenGiantsBalconyFront, .to = ForestOfFallenGiantsToCaleBack);
-	connection_add(ForestOfFallenGiantsBalconyFront, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = Conn_SoldiersKey);
-	connection_add(ForestOfFallenGiantsBalconyFront, .to = NearPateGiantMemoryEntrySrc, .type = Conn_AshenMistHeart);
-	connection_add(ForestOfFallenGiantsBalconyFront, .to = ForestOfFallenGiantsToCaleFront, .type = Conn_Firebomb);
-	connection_add(ForestOfFallenGiantsBalconyFront, .to = GiantLordMemoryEntrySrc, .type = Conn_SoldiersKey | Conn_KingsRing | Conn_AshenMistHeart | Conn_Firebomb);
-	connection_add(ForestOfFallenGiantsBalconyFront, .to = LastGiantEntryFront, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(ForestOfFallenGiantsBalconyFront, .to = ForestOfFallenGiantsBalconyBack, .type = Conn_Catring | Conn_IronKeyToFireLizards | Conn_Firebomb);
-	connection_add(ForestOfFallenGiantsBalconyFront, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = Conn_Firebomb | Conn_SoldiersKey | Conn_KingsRing);
+	connection_add(ForestOfFallenGiantsBalconyFront, .to = ForestOfFallenGiantsToPursuerArenaFront, .type = CT(Conn_SoldiersKey));
+	connection_add(ForestOfFallenGiantsBalconyFront, .to = NearPateGiantMemoryEntrySrc, .type = CT(Conn_AshenMistHeart));
+	connection_add(ForestOfFallenGiantsBalconyFront, .to = ForestOfFallenGiantsToCaleFront, .type = CT(Conn_Firebomb));
+	connection_add(ForestOfFallenGiantsBalconyFront, .to = GiantLordMemoryEntrySrc, .type = CT(Conn_SoldiersKey) | CT(Conn_KingsRing) | CT(Conn_AshenMistHeart) | CT(Conn_Firebomb));
+	connection_add(ForestOfFallenGiantsBalconyFront, .to = LastGiantEntryFront, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(ForestOfFallenGiantsBalconyFront, .to = ForestOfFallenGiantsBalconyBack, .type = CT(Conn_Catring) | CT(Conn_IronKeyToFireLizards) | CT(Conn_Firebomb));
+	connection_add(ForestOfFallenGiantsBalconyFront, .to = ForestOfFallenGiantsAfterFirstBonfireBack, .type = CT(Conn_Firebomb) | CT(Conn_SoldiersKey) | CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_two_way(ForestOfFallenGiantsToPursuerArenaBack, PursuerEntryFront);
@@ -1378,7 +1376,7 @@ void generate_connections() {
 
 	// lost bastille
 	connection_init(NearPursuerBirdExit, 1);
-	connection_add(NearPursuerBirdExit, .to = RuinSentinelsEntryFront, .type = Conn_BastilleBranch);
+	connection_add(NearPursuerBirdExit, .to = RuinSentinelsEntryFront, .type = CT(Conn_BastilleBranch));
 	warp_node_count++;
 
 	connection_init(RuinSentinelsEntryFront, 0); // TODO: confirm this
@@ -1458,10 +1456,10 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(RuinSentinesUpperExitBack, 3);
-	connection_add(RuinSentinesUpperExitBack, .to = RuinSentinelsEntryFront, .type = Conn_BastilleBranch);
+	connection_add(RuinSentinesUpperExitBack, .to = RuinSentinelsEntryFront, .type = CT(Conn_BastilleBranch));
 	connection_add(RuinSentinesUpperExitBack, .to = LostBastilleToSinnersRiseFront);
-	connection_add(RuinSentinesUpperExitBack, .to = LostBastilleToShipFromWharfBack, .type = Conn_OldKeyInBastille);
-	connection_add(RuinSentinesUpperExitBack, .to = LostBastilleToBelfryLunaFront, .type = Conn_PharrosLockstone);
+	connection_add(RuinSentinesUpperExitBack, .to = LostBastilleToShipFromWharfBack, .type = CT(Conn_OldKeyInBastille));
+	connection_add(RuinSentinesUpperExitBack, .to = LostBastilleToBelfryLunaFront, .type = CT(Conn_PharrosLockstone));
 	warp_node_count++;
 
 	connection_init(LostBastilleToSinnersRiseFront, 0);
@@ -1472,7 +1470,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(LostSinnerEntryFront, 1);
-	connection_add(LostSinnerEntryFront, .to = LostBastilleToSinnersRiseBack, .type = Conn_BastilleKey);
+	connection_add(LostSinnerEntryFront, .to = LostBastilleToSinnersRiseBack, .type = CT(Conn_BastilleKey));
 	warp_node_count++;
 
 	connection_init(LostSinnerEntryBack, 1);
@@ -1486,8 +1484,8 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(LostBastilleToShipFromWharfBack, 2);
-	connection_add(LostBastilleToShipFromWharfBack, .to = RuinSentinelsEntryFront, .type = Conn_BastilleBranch);
-	connection_add(LostBastilleToShipFromWharfBack, .to = LostBastilleToSinnersRiseFront, .type = Conn_OldKeyInBastille);
+	connection_add(LostBastilleToShipFromWharfBack, .to = RuinSentinelsEntryFront, .type = CT(Conn_BastilleBranch));
+	connection_add(LostBastilleToShipFromWharfBack, .to = LostBastilleToSinnersRiseFront, .type = CT(Conn_OldKeyInBastille));
 	warp_node_count++;
 
 	connection_init(LostBastilleToShipFromWharfFront, 0);
@@ -1499,9 +1497,9 @@ void generate_connections() {
 
 	connection_init(LostBastilleToBelfryLunaFront, 4);
 	connection_add(LostBastilleToBelfryLunaFront, .to = RuinSentinesUpperExitBack);
-	connection_add(LostBastilleToBelfryLunaFront, .to = RuinSentinelsEntryFront, .type = Conn_BastilleBranch);
+	connection_add(LostBastilleToBelfryLunaFront, .to = RuinSentinelsEntryFront, .type = CT(Conn_BastilleBranch));
 	connection_add(LostBastilleToBelfryLunaFront, .to = LostBastilleToSinnersRiseFront);
-	connection_add(LostBastilleToBelfryLunaFront, .to = LostBastilleToShipFromWharfBack, .type = Conn_OldKeyInBastille);
+	connection_add(LostBastilleToBelfryLunaFront, .to = LostBastilleToShipFromWharfBack, .type = CT(Conn_OldKeyInBastille));
 	warp_node_count++;
 
 	connection_two_way(LostBastilleToBelfryLunaBack, GargoylesEntryFront);
@@ -1517,7 +1515,7 @@ void generate_connections() {
 
 	// heides tower of flame
 	connection_init(MajulaToRotundaLockstoneBack, 2);
-	connection_add(MajulaToRotundaLockstoneBack, .to = MajulaToHuntsmanCopseFront, .type = Conn_RotundaLockstone);
+	connection_add(MajulaToRotundaLockstoneBack, .to = MajulaToHuntsmanCopseFront, .type = CT(Conn_RotundaLockstone));
 	connection_add(MajulaToRotundaLockstoneBack, .to = HeidesToMajulaFront);
 	warp_node_count++;
 
@@ -1663,14 +1661,14 @@ void generate_connections() {
 
 	connection_init(IronKeepToEarthenPeakBack, 5);
 	connection_add(IronKeepToEarthenPeakBack, .to = SmeltorDemonEntryFront);
-	connection_add(IronKeepToEarthenPeakBack, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = Conn_PharrosLockstone);
+	connection_add(IronKeepToEarthenPeakBack, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = CT(Conn_PharrosLockstone));
 	connection_add(IronKeepToEarthenPeakBack, .to = IronKeepNearFlameThrowerAndTurtleFront);
 	connection_add(IronKeepToEarthenPeakBack, .to = IronKeepNearFlameThrowerAndTurtleBack);
 	connection_add(IronKeepToEarthenPeakBack, .to = OldIronKingEntryFront);
 	warp_node_count++;
 
 	connection_init(SmeltorDemonEntryFront, 4);
-	connection_add(SmeltorDemonEntryFront, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = Conn_PharrosLockstone);
+	connection_add(SmeltorDemonEntryFront, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = CT(Conn_PharrosLockstone));
 	connection_add(SmeltorDemonEntryFront, .to = IronKeepNearFlameThrowerAndTurtleFront);
 	connection_add(SmeltorDemonEntryFront, .to = IronKeepNearFlameThrowerAndTurtleBack);
 	connection_add(SmeltorDemonEntryFront, .to = OldIronKingEntryFront);
@@ -1684,14 +1682,14 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(IronKeepNearFlameThrowerAndTurtleFront, 4);
-	connection_add(IronKeepNearFlameThrowerAndTurtleFront, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = Conn_PharrosLockstone);
+	connection_add(IronKeepNearFlameThrowerAndTurtleFront, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = CT(Conn_PharrosLockstone));
 	connection_add(IronKeepNearFlameThrowerAndTurtleFront, .to = IronKeepNearFlameThrowerAndTurtleBack);
 	connection_add(IronKeepNearFlameThrowerAndTurtleFront, .to = SmeltorDemonEntryFront);
 	connection_add(IronKeepNearFlameThrowerAndTurtleFront, .to = OldIronKingEntryFront);
 	warp_node_count++;
 
 	connection_init(IronKeepToBelfryAtPharrosLockstoneBack, 6);
-	connection_add(IronKeepToBelfryAtPharrosLockstoneBack, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = Conn_PharrosLockstone);
+	connection_add(IronKeepToBelfryAtPharrosLockstoneBack, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = CT(Conn_PharrosLockstone));
 	connection_add(IronKeepToBelfryAtPharrosLockstoneBack, .to = IronKeepNearFlameThrowerAndTurtleBack);
 	connection_add(IronKeepToBelfryAtPharrosLockstoneBack, .to = IronKeepNearFlameThrowerAndTurtleFront);
 	connection_add(IronKeepToBelfryAtPharrosLockstoneBack, .to = SmeltorDemonEntryFront);
@@ -1716,7 +1714,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(SmeltorDemonToBonfireBack, 6);
-	connection_add(SmeltorDemonToBonfireBack, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = Conn_PharrosLockstone);
+	connection_add(SmeltorDemonToBonfireBack, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = CT(Conn_PharrosLockstone));
 	connection_add(SmeltorDemonToBonfireBack, .to = IronKeepNearFlameThrowerAndTurtleBack);
 	connection_add(SmeltorDemonToBonfireBack, .to = IronKeepNearFlameThrowerAndTurtleFront);
 	connection_add(SmeltorDemonToBonfireBack, .to = SmeltorDemonEntryFront);
@@ -1736,7 +1734,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(BelfrySolExitBack, 7);
-	connection_add(BelfrySolExitBack, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = Conn_PharrosLockstone);
+	connection_add(BelfrySolExitBack, .to = IronKeepToBelfryAtPharrosLockstoneFront, .type = CT(Conn_PharrosLockstone));
 	connection_add(BelfrySolExitBack, .to = IronKeepToBelfryAtPharrosLockstoneBack);
 	connection_add(BelfrySolExitBack, .to = IronKeepNearFlameThrowerAndTurtleBack);
 	connection_add(BelfrySolExitBack, .to = IronKeepNearFlameThrowerAndTurtleFront);
@@ -1764,7 +1762,7 @@ void generate_connections() {
 
 	// dlc2
 	connection_init(DLC2EntranceDLC, 2);
-	connection_add(DLC2EntranceDLC, .to = BrumeTowerEntranceFromLiftFront, .type = Conn_DLC2Key);
+	connection_add(DLC2EntranceDLC, .to = BrumeTowerEntranceFromLiftFront, .type = CT(Conn_DLC2Key));
 	connection_add(DLC2EntranceDLC, .to = DLC2EntranceBaseGame, .is_warp = true);
 	warp_node_count++;
 
@@ -1779,12 +1777,12 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(BrumeTowerFrom2ndBonfireToCentralRoomBack, 6);
-	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = SirAlonneArmorDLCEntrySrc, .type = Conn_ActivateBrumeTower | Conn_AshenMistHeart);
+	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = SirAlonneArmorDLCEntrySrc, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_AshenMistHeart));
 	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = BrumeTowerToFoyerBonfireFromOutsideFront);
-	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = BrumeTowerToFoyerBonfireFromOutsideBack, .type = Conn_ActivateBrumeTower);
-	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = BrumeTowerToBlueSmelterDungeonFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = FumeKnightEntryFront, .type = Conn_ActivateBrumeTower);
-	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = BrumeTowerToScorchingIronSceptorKeyFront, .type = Conn_ActivateBrumeTower);
+	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = BrumeTowerToFoyerBonfireFromOutsideBack, .type = CT(Conn_ActivateBrumeTower));
+	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = BrumeTowerToBlueSmelterDungeonFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = FumeKnightEntryFront, .type = CT(Conn_ActivateBrumeTower));
+	connection_add(BrumeTowerFrom2ndBonfireToCentralRoomBack, .to = BrumeTowerToScorchingIronSceptorKeyFront, .type = CT(Conn_ActivateBrumeTower));
 	warp_node_count++;
 
 	connection_init(BrumeTowerToScorchingIronSceptorKeyBack, 0);
@@ -1814,32 +1812,32 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(SirAlonneMemoryExitDst, 6);
-	connection_add(SirAlonneMemoryExitDst, .to = SirAlonneArmorDLCEntrySrc, .type = Conn_AshenMistHeart);
-	connection_add(SirAlonneMemoryExitDst, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = Conn_ActivateBrumeTower);
-	connection_add(SirAlonneMemoryExitDst, .to = BrumeTowerToFoyerBonfireFromOutsideBack, .type = Conn_ActivateBrumeTower);
-	connection_add(SirAlonneMemoryExitDst, .to = BrumeTowerToBlueSmelterDungeonFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(SirAlonneMemoryExitDst, .to = FumeKnightEntryFront, .type = Conn_ActivateBrumeTower);
-	connection_add(SirAlonneMemoryExitDst, .to = BrumeTowerToScorchingIronSceptorKeyFront, .type = Conn_ActivateBrumeTower);
+	connection_add(SirAlonneMemoryExitDst, .to = SirAlonneArmorDLCEntrySrc, .type = CT(Conn_AshenMistHeart));
+	connection_add(SirAlonneMemoryExitDst, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = CT(Conn_ActivateBrumeTower));
+	connection_add(SirAlonneMemoryExitDst, .to = BrumeTowerToFoyerBonfireFromOutsideBack, .type = CT(Conn_ActivateBrumeTower));
+	connection_add(SirAlonneMemoryExitDst, .to = BrumeTowerToBlueSmelterDungeonFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(SirAlonneMemoryExitDst, .to = FumeKnightEntryFront, .type = CT(Conn_ActivateBrumeTower));
+	connection_add(SirAlonneMemoryExitDst, .to = BrumeTowerToScorchingIronSceptorKeyFront, .type = CT(Conn_ActivateBrumeTower));
 	warp_node_count++;
 
 	connection_init(BrumeTowerToFoyerBonfireFromOutsideFront, 0);
 	warp_node_count++;
 
 	connection_init(BrumeTowerToFoyerBonfireFromOutsideBack, 5);
-	connection_add(BrumeTowerToFoyerBonfireFromOutsideBack, .to = SirAlonneArmorDLCEntrySrc, .type = Conn_ActivateBrumeTower | Conn_AshenMistHeart);
-	connection_add(BrumeTowerToFoyerBonfireFromOutsideBack, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = Conn_ActivateBrumeTower);
-	connection_add(BrumeTowerToFoyerBonfireFromOutsideBack, .to = BrumeTowerToBlueSmelterDungeonFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BrumeTowerToFoyerBonfireFromOutsideBack, .to = FumeKnightEntryFront, .type = Conn_ActivateBrumeTower);
+	connection_add(BrumeTowerToFoyerBonfireFromOutsideBack, .to = SirAlonneArmorDLCEntrySrc, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_AshenMistHeart));
+	connection_add(BrumeTowerToFoyerBonfireFromOutsideBack, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = CT(Conn_ActivateBrumeTower));
+	connection_add(BrumeTowerToFoyerBonfireFromOutsideBack, .to = BrumeTowerToBlueSmelterDungeonFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BrumeTowerToFoyerBonfireFromOutsideBack, .to = FumeKnightEntryFront, .type = CT(Conn_ActivateBrumeTower));
 	connection_add(BrumeTowerToFoyerBonfireFromOutsideBack, .to = BrumeTowerToScorchingIronSceptorKeyFront);
 	warp_node_count++;
 
 	connection_init(BrumeTowerToBlueSmelterDungeonFront, 6);
-	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = SirAlonneArmorDLCEntrySrc, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey | Conn_AshenMistHeart);
-	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = BrumeTowerToFoyerBonfireFromOutsideBack, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = BrumeTowerFrom2ndBonfireToCentralRoomBack, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = FumeKnightEntryFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = BrumeTowerToScorchingIronSceptorKeyFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
+	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = SirAlonneArmorDLCEntrySrc, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey) | CT(Conn_AshenMistHeart));
+	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = BrumeTowerToFoyerBonfireFromOutsideBack, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = BrumeTowerFrom2ndBonfireToCentralRoomBack, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = FumeKnightEntryFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BrumeTowerToBlueSmelterDungeonFront, .to = BrumeTowerToScorchingIronSceptorKeyFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
 	warp_node_count++;
 
 	connection_init(FumeKnightEntryFront, 0);
@@ -1853,12 +1851,12 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(BrumeTowerToScorchingIronSceptorKeyFront, 6);
-	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = SirAlonneArmorDLCEntrySrc, .type = Conn_ActivateBrumeTower | Conn_AshenMistHeart);
-	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = Conn_ActivateBrumeTower);
+	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = SirAlonneArmorDLCEntrySrc, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_AshenMistHeart));
+	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = CT(Conn_ActivateBrumeTower));
 	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = BrumeTowerToFoyerBonfireFromOutsideBack);
-	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = BrumeTowerFrom2ndBonfireToCentralRoomBack, .type = Conn_ActivateBrumeTower);
-	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = FumeKnightEntryFront, .type = Conn_ActivateBrumeTower);
-	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = BrumeTowerToBlueSmelterDungeonFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
+	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = BrumeTowerFrom2ndBonfireToCentralRoomBack, .type = CT(Conn_ActivateBrumeTower));
+	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = FumeKnightEntryFront, .type = CT(Conn_ActivateBrumeTower));
+	connection_add(BrumeTowerToScorchingIronSceptorKeyFront, .to = BrumeTowerToBlueSmelterDungeonFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
 	warp_node_count++;
 
 	connection_init(BrumeTowerToBlueSmelterDungeonBack, 1);
@@ -1874,12 +1872,12 @@ void generate_connections() {
 
 	connection_init(BlueSmeltorDemonExitBack, 7);
 	connection_add(BlueSmeltorDemonExitBack, .to = BrumeTowerToBlueSmelterDungeonFront);
-	connection_add(BlueSmeltorDemonExitBack, .to = SirAlonneArmorDLCEntrySrc, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey | Conn_AshenMistHeart);
-	connection_add(BlueSmeltorDemonExitBack, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BlueSmeltorDemonExitBack, .to = BrumeTowerToFoyerBonfireFromOutsideBack, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BlueSmeltorDemonExitBack, .to = BrumeTowerFrom2ndBonfireToCentralRoomBack, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BlueSmeltorDemonExitBack, .to = FumeKnightEntryFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
-	connection_add(BlueSmeltorDemonExitBack, .to = BrumeTowerToScorchingIronSceptorKeyFront, .type = Conn_ActivateBrumeTower | Conn_DLC2TowerKey);
+	connection_add(BlueSmeltorDemonExitBack, .to = SirAlonneArmorDLCEntrySrc, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey) | CT(Conn_AshenMistHeart));
+	connection_add(BlueSmeltorDemonExitBack, .to = BrumeTowerToFoyerBonfireFromOutsideFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BlueSmeltorDemonExitBack, .to = BrumeTowerToFoyerBonfireFromOutsideBack, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BlueSmeltorDemonExitBack, .to = BrumeTowerFrom2ndBonfireToCentralRoomBack, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BlueSmeltorDemonExitBack, .to = FumeKnightEntryFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
+	connection_add(BlueSmeltorDemonExitBack, .to = BrumeTowerToScorchingIronSceptorKeyFront, .type = CT(Conn_ActivateBrumeTower) | CT(Conn_BrumeTowerKey));
 	warp_node_count++;
 
 	// grave of saints
@@ -1931,12 +1929,12 @@ void generate_connections() {
 	// black gulch
 	connection_init(BlackGulchEntranceBack, 2);
 	connection_add(BlackGulchEntranceBack, .to = TheRottenEntryFront);
-	connection_add(BlackGulchEntranceBack, .to = ChasmPortalFromBlackGulchSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(BlackGulchEntranceBack, .to = ChasmPortalFromBlackGulchSrc, .type = CT(Conn_DarkCovenentJoined));
 	warp_node_count++;
 
 	connection_init(TheRottenEntryFront, 2);
 	connection_add(TheRottenEntryFront, .to = BlackGulchEntranceBack);
-	connection_add(TheRottenEntryFront, .to = ChasmPortalFromBlackGulchSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(TheRottenEntryFront, .to = ChasmPortalFromBlackGulchSrc, .type = CT(Conn_DarkCovenentJoined));
 	warp_node_count++;
 
 	connection_init(ChasmPortalFromBlackGulchSrc, 1);
@@ -1959,7 +1957,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(ChasmGulchExitWarpDst, 1);
-	connection_add(ChasmGulchExitWarpDst, .to = ChasmPortalFromBlackGulchSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(ChasmGulchExitWarpDst, .to = ChasmPortalFromBlackGulchSrc, .type = CT(Conn_DarkCovenentJoined));
 	warp_node_count++;
 
 	connection_two_way(TheRottenEntryBack, TheRottenExitFront);
@@ -1978,15 +1976,15 @@ void generate_connections() {
 	// dlc1
 	connection_init(DLC1EntranceDLC, 2);
 	connection_add(DLC1EntranceDLC, .to = DLC1EntranceBaseGame, .is_warp = true);
-	connection_add(DLC1EntranceDLC, .to = ShulvaEntranceFront, .type = Conn_DLC1Key);
+	connection_add(DLC1EntranceDLC, .to = ShulvaEntranceFront, .type = CT(Conn_DLC1Key));
 	warp_node_count++;
 
 	connection_init(ShulvaEntranceFront, 1);
-	connection_add(ShulvaEntranceFront, .to = DLC1EntranceDLC, .type = Conn_DLC1Key); // TODO: verify this
+	connection_add(ShulvaEntranceFront, .to = DLC1EntranceDLC, .type = CT(Conn_DLC1Key)); // TODO: verify this
 	warp_node_count++;
 
 	connection_init(ShulvaEntranceBack, 2);
-	connection_add(ShulvaEntranceBack, .to = ShulvaToGankFight1Front, .type = Conn_ShulvaSanctumKey);
+	connection_add(ShulvaEntranceBack, .to = ShulvaToGankFight1Front, .type = CT(Conn_ShulvaSanctumKey));
 	connection_add(ShulvaEntranceBack, .to = NearJesterThomasFront);
 	warp_node_count++;
 
@@ -2015,16 +2013,16 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(GankSquadBossExitBack, 3);
-	connection_add(GankSquadBossExitBack, .to = ShulvaToGankFight1Front, .type = Conn_ShulvaSanctumKey);
+	connection_add(GankSquadBossExitBack, .to = ShulvaToGankFight1Front, .type = CT(Conn_ShulvaSanctumKey));
 	connection_add(GankSquadBossExitBack, .to = ShulvaEntranceBack);
 	connection_add(GankSquadBossExitBack, .to = NearJesterThomasFront);
 	warp_node_count++;
 
 	connection_init(NearJesterThomasBack, 4);
-	connection_add(NearJesterThomasBack, .to = ShulvaToGankFight1Front, .type = Conn_ShulvaSanctumKey);
+	connection_add(NearJesterThomasBack, .to = ShulvaToGankFight1Front, .type = CT(Conn_ShulvaSanctumKey));
 	connection_add(NearJesterThomasBack, .to = ShulvaEntranceBack);
 	connection_add(NearJesterThomasBack, .to = NearJesterThomasFront);
-	connection_add(NearJesterThomasBack, .to = ElanaTheSqualidQueenEntryFront, .type = Conn_ActivateDragonStone);
+	connection_add(NearJesterThomasBack, .to = ElanaTheSqualidQueenEntryFront, .type = CT(Conn_ActivateDragonStone));
 	warp_node_count++;
 
 	connection_init(ElanaTheSqualidQueenEntryFront, 0);
@@ -2050,45 +2048,45 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(ShadedWoodsFromMajulaBack, 4);
-	connection_add(ShadedWoodsFromMajulaBack, .to = ShadedWoodsToMistyAreaFront, .type = Conn_RosabethBranch);
-	connection_add(ShadedWoodsFromMajulaBack, .to = DLC3EntranceBaseGame, .type = Conn_RosabethBranch | Conn_FirstFourSouls);
-	connection_add(ShadedWoodsFromMajulaBack, .to = DrangleicCastleToShadedWoodsFront, .type = Conn_RosabethBranch | Conn_FirstFourSouls);
-	connection_add(ShadedWoodsFromMajulaBack, .to = AldiasKeepEntranceFront, .type = Conn_RosabethBranch | Conn_KingsRing);
+	connection_add(ShadedWoodsFromMajulaBack, .to = ShadedWoodsToMistyAreaFront, .type = CT(Conn_RosabethBranch));
+	connection_add(ShadedWoodsFromMajulaBack, .to = DLC3EntranceBaseGame, .type = CT(Conn_RosabethBranch) | CT(Conn_FirstFourSouls));
+	connection_add(ShadedWoodsFromMajulaBack, .to = DrangleicCastleToShadedWoodsFront, .type = CT(Conn_RosabethBranch) | CT(Conn_FirstFourSouls));
+	connection_add(ShadedWoodsFromMajulaBack, .to = AldiasKeepEntranceFront, .type = CT(Conn_RosabethBranch) | CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_init(ShadedWoodsToMistyAreaFront, 3);
-	connection_add(ShadedWoodsToMistyAreaFront, .to = DLC3EntranceBaseGame, .type = Conn_FirstFourSouls);
-	connection_add(ShadedWoodsToMistyAreaFront, .to = DrangleicCastleToShadedWoodsFront, .type = Conn_FirstFourSouls);
-	connection_add(ShadedWoodsToMistyAreaFront, .to = AldiasKeepEntranceFront, .type = Conn_KingsRing);
+	connection_add(ShadedWoodsToMistyAreaFront, .to = DLC3EntranceBaseGame, .type = CT(Conn_FirstFourSouls));
+	connection_add(ShadedWoodsToMistyAreaFront, .to = DrangleicCastleToShadedWoodsFront, .type = CT(Conn_FirstFourSouls));
+	connection_add(ShadedWoodsToMistyAreaFront, .to = AldiasKeepEntranceFront, .type = CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_init(DLC3EntranceBaseGame, 4);
-	connection_add(DLC3EntranceBaseGame, .to = ShadedWoodsToMistyAreaFront, .type = Conn_FirstFourSouls);
-	connection_add(DLC3EntranceBaseGame, .to = DrangleicCastleToShadedWoodsFront, .type = Conn_FirstFourSouls);
-	connection_add(DLC3EntranceBaseGame, .to = AldiasKeepEntranceFront, .type = Conn_KingsRing | Conn_FirstFourSouls);
+	connection_add(DLC3EntranceBaseGame, .to = ShadedWoodsToMistyAreaFront, .type = CT(Conn_FirstFourSouls));
+	connection_add(DLC3EntranceBaseGame, .to = DrangleicCastleToShadedWoodsFront, .type = CT(Conn_FirstFourSouls));
+	connection_add(DLC3EntranceBaseGame, .to = AldiasKeepEntranceFront, .type = CT(Conn_KingsRing) | CT(Conn_FirstFourSouls));
 	connection_add(DLC3EntranceBaseGame, .to = DLC3EntranceDLC, .is_warp = true);
 	warp_node_count++;
 
 	connection_init(AldiasKeepEntranceFront, 3);
-	connection_add(AldiasKeepEntranceFront, .to = DLC3EntranceBaseGame, .type = Conn_FirstFourSouls | Conn_KingsRing);
-	connection_add(AldiasKeepEntranceFront, .to = DrangleicCastleToShadedWoodsFront, .type = Conn_FirstFourSouls | Conn_KingsRing);
-	connection_add(AldiasKeepEntranceFront, .to = ShadedWoodsToMistyAreaFront, .type = Conn_KingsRing);
+	connection_add(AldiasKeepEntranceFront, .to = DLC3EntranceBaseGame, .type = CT(Conn_FirstFourSouls) | CT(Conn_KingsRing));
+	connection_add(AldiasKeepEntranceFront, .to = DrangleicCastleToShadedWoodsFront, .type = CT(Conn_FirstFourSouls) | CT(Conn_KingsRing));
+	connection_add(AldiasKeepEntranceFront, .to = ShadedWoodsToMistyAreaFront, .type = CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_init(DrangleicCastleToShadedWoodsFront, 3);
-	connection_add(DrangleicCastleToShadedWoodsFront, .to = DLC3EntranceBaseGame, .type = Conn_FirstFourSouls);
-	connection_add(DrangleicCastleToShadedWoodsFront, .to = AldiasKeepEntranceFront, .type = Conn_FirstFourSouls | Conn_KingsRing);
-	connection_add(DrangleicCastleToShadedWoodsFront, .to = ShadedWoodsToMistyAreaFront, .type = Conn_FirstFourSouls);
+	connection_add(DrangleicCastleToShadedWoodsFront, .to = DLC3EntranceBaseGame, .type = CT(Conn_FirstFourSouls));
+	connection_add(DrangleicCastleToShadedWoodsFront, .to = AldiasKeepEntranceFront, .type = CT(Conn_FirstFourSouls) | CT(Conn_KingsRing));
+	connection_add(DrangleicCastleToShadedWoodsFront, .to = ShadedWoodsToMistyAreaFront, .type = CT(Conn_FirstFourSouls));
 	warp_node_count++;
 
 	connection_init(ShadedWoodsToMistyAreaBack, 2);
 	connection_add(ShadedWoodsToMistyAreaBack, .to = ScorpionessNajkaEntryFront);
-	connection_add(ShadedWoodsToMistyAreaBack, .to = ChasmPortalFromShadedWoodsSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(ShadedWoodsToMistyAreaBack, .to = ChasmPortalFromShadedWoodsSrc, .type = CT(Conn_DarkCovenentJoined));
 	warp_node_count++;
 
 	connection_init(ScorpionessNajkaEntryFront, 2);
 	connection_add(ScorpionessNajkaEntryFront, .to = ShadedWoodsToMistyAreaBack);
-	connection_add(ScorpionessNajkaEntryFront, .to = ChasmPortalFromShadedWoodsSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(ScorpionessNajkaEntryFront, .to = ChasmPortalFromShadedWoodsSrc, .type = CT(Conn_DarkCovenentJoined));
 	warp_node_count++;
 
 	connection_two_way(ScorpionessNajkaEntryBack, ScorpionessNajkaExitFront);
@@ -2117,7 +2115,7 @@ void generate_connections() {
 	connection_init(ChasmShadedWoodsExitWarpDst, 3);
 	connection_add(ChasmShadedWoodsExitWarpDst, .to = ShadedWoodsToMistyAreaBack);
 	connection_add(ChasmShadedWoodsExitWarpDst, .to = ScorpionessNajkaEntryFront);
-	connection_add(ChasmShadedWoodsExitWarpDst, .to = ChasmPortalFromShadedWoodsSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(ChasmShadedWoodsExitWarpDst, .to = ChasmPortalFromShadedWoodsSrc, .type = CT(Conn_DarkCovenentJoined));
 	warp_node_count++;
 
 	connection_init(ScorpionessNajkaExitBack, 2);
@@ -2181,7 +2179,7 @@ void generate_connections() {
 
 	connection_init(DukesDearFreyjaEntryBack, 2);
 	connection_add(DukesDearFreyjaEntryBack, .to = DukesDearFreyjaExitFront);
-	connection_add(DukesDearFreyjaEntryBack, .to = DragonMemoriesCoveSrc, .type = Conn_AshenMistHeart);
+	connection_add(DukesDearFreyjaEntryBack, .to = DragonMemoriesCoveSrc, .type = CT(Conn_AshenMistHeart));
 	warp_node_count++;
 
 	connection_init(DragonMemoriesCoveSrc, 1);
@@ -2203,7 +2201,7 @@ void generate_connections() {
 
 	connection_init(DukesDearFreyjaExitFront, 2);
 	connection_add(DukesDearFreyjaExitFront, .to = DukesDearFreyjaEntryBack);
-	connection_add(DukesDearFreyjaExitFront, .to = DragonMemoriesCoveSrc, .type = Conn_AshenMistHeart);
+	connection_add(DukesDearFreyjaExitFront, .to = DragonMemoriesCoveSrc, .type = CT(Conn_AshenMistHeart));
 	warp_node_count++;
 
 
@@ -2213,15 +2211,15 @@ void generate_connections() {
 	// dlc3
 
 	connection_init(DLC3EntranceDLC, 3);
-	connection_add(DLC3EntranceDLC, .to = AavaTheKingsPetEntryFront, .type = Conn_DLC3Key);
-	connection_add(DLC3EntranceDLC, .to = EleumLoyceAfterGettingEyeToSeeGhostsFront, .type = Conn_DLC3Key);
-	connection_add(DLC3EntranceDLC, .to = CoffinWarpSrc, .type = Conn_FrigidOutskirtsKey);
+	connection_add(DLC3EntranceDLC, .to = AavaTheKingsPetEntryFront, .type = CT(Conn_DLC3Key));
+	connection_add(DLC3EntranceDLC, .to = EleumLoyceAfterGettingEyeToSeeGhostsFront, .type = CT(Conn_DLC3Key));
+	connection_add(DLC3EntranceDLC, .to = CoffinWarpSrc, .type = CT(Conn_FrigidOutskirtsKey));
 	warp_node_count++;
 
 	connection_init(AavaTheKingsPetEntryFront, 3);
-	connection_add(AavaTheKingsPetEntryFront, .to = DLC3EntranceDLC, .type = Conn_DLC3Key);
+	connection_add(AavaTheKingsPetEntryFront, .to = DLC3EntranceDLC, .type = CT(Conn_DLC3Key));
 	connection_add(AavaTheKingsPetEntryFront, .to = EleumLoyceAfterGettingEyeToSeeGhostsFront);
-	connection_add(AavaTheKingsPetEntryFront, .to = CoffinWarpSrc, .type = Conn_FrigidOutskirtsKey);
+	connection_add(AavaTheKingsPetEntryFront, .to = CoffinWarpSrc, .type = CT(Conn_FrigidOutskirtsKey));
 	warp_node_count++;
 
 	connection_init(CoffinWarpSrc, 1);
@@ -2240,7 +2238,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(LudAndZallenExitBack, 1);
-	connection_add(LudAndZallenExitBack, .to = LudAndZallenExitWarpSrc, .type = Conn_LudAndZallenDead);
+	connection_add(LudAndZallenExitBack, .to = LudAndZallenExitWarpSrc, .type = CT(Conn_LudAndZallenDead));
 	warp_node_count++;
 
 	connection_init(LudAndZallenExitWarpSrc, 1);
@@ -2256,11 +2254,11 @@ void generate_connections() {
 
 	connection_init(EleumLoyceAfterGettingEyeToSeeGhostsBack, 6);
 	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = AavaTheKingsPetEntryFront);
-	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = DLC3EntranceDLC, .type = Conn_DLC3Key);
+	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = DLC3EntranceDLC, .type = CT(Conn_DLC3Key));
 	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = EleumLoyceAfterGettingEyeToSeeGhostsFront);
-	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = CoffinWarpSrc, .type = Conn_FrigidOutskirtsKey);
-	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = AavaTheKingsPetExitBack, .type = Conn_DLC3Unfreezed);
-	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = EleumLoyceCathedraEntranceFront, .type = Conn_DLC3Unfreezed);
+	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = CoffinWarpSrc, .type = CT(Conn_FrigidOutskirtsKey));
+	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = AavaTheKingsPetExitBack, .type = CT(Conn_DLC3Unfreezed));
+	connection_add(EleumLoyceAfterGettingEyeToSeeGhostsBack, .to = EleumLoyceCathedraEntranceFront, .type = CT(Conn_DLC3Unfreezed));
 	warp_node_count++;
 
 	connection_init(AavaTheKingsPetExitBack, 1);
@@ -2271,7 +2269,7 @@ void generate_connections() {
 	connection_add(EleumLoyceCathedraEntranceFront, .to = AavaTheKingsPetExitBack);
 	warp_node_count++;
 
-	connection_two_way(AavaTheKingsPetEntryBack, AavaTheKingsPetExitFront, .type = Conn_DLC3Eye);
+	connection_two_way(AavaTheKingsPetEntryBack, AavaTheKingsPetExitFront, .type = CT(Conn_DLC3Eye));
 	warp_node_count++;
 	warp_node_count++;
 
@@ -2298,12 +2296,12 @@ void generate_connections() {
 
 	connection_init(DrangleicCastleToShadedWoodsBack, 3);
 	connection_add(DrangleicCastleToShadedWoodsBack, .to = DrangleicCastleToChasmPortalFront);
-	connection_add(DrangleicCastleToShadedWoodsBack, .to = FinalFightArenaFront, .type = Conn_KingsRing);
+	connection_add(DrangleicCastleToShadedWoodsBack, .to = FinalFightArenaFront, .type = CT(Conn_KingsRing));
 	connection_add(DrangleicCastleToShadedWoodsBack, .to = TwinDragonridersEntryFront);
 	warp_node_count++;
 
 	connection_init(DrangleicCastleToChasmPortalFront, 2);
-	connection_add(DrangleicCastleToChasmPortalFront, .to = FinalFightArenaFront, .type = Conn_KingsRing);
+	connection_add(DrangleicCastleToChasmPortalFront, .to = FinalFightArenaFront, .type = CT(Conn_KingsRing));
 	connection_add(DrangleicCastleToChasmPortalFront, .to = TwinDragonridersEntryFront);
 	warp_node_count++;
 
@@ -2311,12 +2309,12 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(FinalFightArenaFront, 2);
-	connection_add(FinalFightArenaFront, .to = DrangleicCastleToChasmPortalFront, .type = Conn_KingsRing);
-	connection_add(FinalFightArenaFront, .to = TwinDragonridersEntryFront, .type = Conn_KingsRing);
+	connection_add(FinalFightArenaFront, .to = DrangleicCastleToChasmPortalFront, .type = CT(Conn_KingsRing));
+	connection_add(FinalFightArenaFront, .to = TwinDragonridersEntryFront, .type = CT(Conn_KingsRing));
 	warp_node_count++;
 
 	connection_init(DrangleicCastleToChasmPortalBack, 1);
-	connection_add(DrangleicCastleToChasmPortalBack, .to = ChasmPortalFromCastleSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(DrangleicCastleToChasmPortalBack, .to = ChasmPortalFromCastleSrc, .type = CT(Conn_DarkCovenentJoined));
 	warp_node_count++;
 
 	connection_init(ChasmPortalFromCastleSrc, 1);
@@ -2339,7 +2337,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(ChasmCastleExitWarpDst, 1);
-	connection_add(ChasmCastleExitWarpDst, .to = ChasmPortalFromCastleSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(ChasmCastleExitWarpDst, .to = ChasmPortalFromCastleSrc, .type = CT(Conn_DarkCovenentJoined));
 	warp_node_count++;
 
 	connection_init(FinalFightArenaBack, 0);
@@ -2350,7 +2348,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(TwinDragonridersExitBack, 1);
-	connection_add(TwinDragonridersExitBack, .to = LookingGlassKnightEntryFront, .type = Conn_KeyToKingsPassage);
+	connection_add(TwinDragonridersExitBack, .to = LookingGlassKnightEntryFront, .type = CT(Conn_KeyToKingsPassage));
 	warp_node_count++;
 
 	connection_init(LookingGlassKnightEntryFront, 0);
@@ -2428,7 +2426,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(VendrickBack, 1);
-	connection_add(VendrickBack, .to = MemoryOfTheKingCryptSrc, .type = Conn_AshenMistHeart);
+	connection_add(VendrickBack, .to = MemoryOfTheKingCryptSrc, .type = CT(Conn_AshenMistHeart));
 	warp_node_count++;
 
 	connection_init(MemoryOfTheKingCryptSrc, 1);
@@ -2492,7 +2490,7 @@ void generate_connections() {
 
 	connection_init(ChasmDarkLurkerExitWarpDst, 1);
 	// TODO: confirm this => this is not correct as it depends on where you entered from
-	connection_add(ChasmDarkLurkerExitWarpDst, .to = ChasmPortalFromCastleSrc, .type = Conn_DarkCovenentJoined);
+	connection_add(ChasmDarkLurkerExitWarpDst, .to = ChasmPortalFromCastleSrc, .type = CT(Conn_DarkCovenentJoined));
 	warp_node_count++;
 
 	assert(warp_node_count == __WarpNodeCount);
