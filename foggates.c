@@ -600,10 +600,10 @@ static WarpPoint warp_points[] = {
 	[RuinSentinelsExitBack]             = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0001", .reverse = true),
 	[LostBastilleToSinnersRiseBack]     = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0005"),
 	[GargoylesExitBack]                 = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0006"),
-	[RuinSentinelsHiddenDoor1ExitBack]  = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0007", .boss = RuinSentinels),
-	[RuinSentinelsHiddenDoor2ExitBack]  = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0008", .boss = RuinSentinels),
-	[RuinSentinelsHiddenDoor3ExitBack]  = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0009", .boss = RuinSentinels),
-	[RuinSentinelsHiddenDoor4ExitBack]  = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0010", .boss = RuinSentinels),
+	[RuinSentinelsHiddenDoor1ExitBack]  = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0007"),
+	[RuinSentinelsHiddenDoor2ExitBack]  = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0008"),
+	[RuinSentinelsHiddenDoor3ExitBack]  = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0009"),
+	[RuinSentinelsHiddenDoor4ExitBack]  = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0010"),
 	[RuinSentinesUpperExitFront]        = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0011", .reverse = true),
 	[LostBastilleToShipFromWharfBack]   = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0012", .pvp = true, .reverse = true),
 	[LostBastilleToBelfryLunaBack]      = NEW_WARP_PT(.map = TheLostBastilleBelfryLuna, .obj_id = "o00_0500_0013", .pvp = true, .reverse = true),
@@ -1093,7 +1093,7 @@ void generate_connections() {
 	warp_node_count++;
 
 	connection_init(Tutorial3EntryFront, 7);
-	connection_add(Tutorial3EntryFront, .to = Tutorial1EntryFront);
+	connection_add(Tutorial3EntryFront, .to = Tutorial1EntryFront, .type = CT(Conn_Tutorial3Branch));
 	connection_add(Tutorial3EntryFront, .to = Tutorial2EntryFront, .type = CT(Conn_Tutorial3Branch));
 	connection_add(Tutorial3EntryFront, .to = MajulaToForestOfFallenGiantsFront, .type = CT(Conn_Tutorial3Branch));
 	connection_add(Tutorial3EntryFront, .to = MajulaToGraveOfSaintsFront, .type = CT(Conn_Catring) | CT(Conn_Tutorial3Branch));
@@ -1897,9 +1897,9 @@ void generate_connections() {
 	warp_node_count++;
 	warp_node_count++;
 
-	connection_init(RoyalRatAuthorityExitBack, 2);
-	connection_add(RoyalRatAuthorityExitBack, .to = MajulaToGutterBack);
-	connection_add(RoyalRatAuthorityExitBack, .to = TheGutterFromGraveOfSaintsFront);
+	connection_init(RoyalRatVanguardExitBack, 2);
+	connection_add(RoyalRatVanguardExitBack, .to = MajulaToGutterBack);
+	connection_add(RoyalRatVanguardExitBack, .to = TheGutterFromGraveOfSaintsFront);
 	warp_node_count++;
 
 	connection_init(MajulaToGutterBack, 1);
@@ -2151,10 +2151,10 @@ void generate_connections() {
 	warp_node_count++;
 	warp_node_count++;
 
-	connection_init(RoyalRatVanguardExitBack, 3);
-	connection_add(RoyalRatVanguardExitBack, .to = ScorpionessNajkaExitBack);
-	connection_add(RoyalRatVanguardExitBack, .to = DoorOfPharrosToRatKingDomainFront);
-	connection_add(RoyalRatVanguardExitBack, .to = DoorOfPharrosToRatKingDomainFront);
+	connection_init(RoyalRatAuthorityExitBack, 3);
+	connection_add(RoyalRatAuthorityExitBack, .to = ScorpionessNajkaExitBack);
+	connection_add(RoyalRatAuthorityExitBack, .to = DoorOfPharrosToRatKingDomainFront);
+	connection_add(RoyalRatAuthorityExitBack, .to = DoorOfPharrosToRatKingDomainFront);
 	warp_node_count++;
 
 	// brightstone cove
@@ -2613,6 +2613,8 @@ bool is_bell_check_required(WarpNode name) {
 }
 
 DA(ConnectionType, Keys);
+
+Keys null_keys = {0};
 
 typedef enum {
 	KeyArea,
