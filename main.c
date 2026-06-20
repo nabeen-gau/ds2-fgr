@@ -5887,9 +5887,10 @@ bool read_item_bank(ItemBank *ib, bool log) {
 				da_append(&item->locations.da, iv->node);
 			} else if (value->items[i].row_id == GiantSoulsEventId) {
 				da_foreach(ItemValue, gseid, &ib->giant_souls_event_locs) {
+					if (ht_find(&item->locations.hm, gseid->node) != NULL) continue;
 					da_append(&item->counts, value->items[i].amount);
-					da_append(&item->locations.da, gseid->node);
 					x2_append(&item->locations, gseid->node);
+					da_append(&item->required_keys, &null_keys);
 				}
 			} else {
 				// Could not identify the item location
@@ -6493,18 +6494,32 @@ restart_clusters_find_suitable_node:
 
 #define da_remove(da, item) \
 	do {\
+		bool da_remove_found = false;\
 		for (size_t i=0; i<(da)->count; i++) {\
 			if ((da)->items[i] == item) {\
 				da_remove_unordered(da, i);\
+				da_remove_found = true;\
 				break;\
 			}\
 		}\
+		assert(da_remove_found && "Item not found.");\
 	} while (0)
 
 typedef struct {
 	ConnectionGroup da;
 	HsWarpNode hm;
 } X2ConnectionGroup;
+
+void remove_locked_node(X2ConnectionGroup *cg, WarpNode wn) {
+	assert(ht_find_and_delete(&cg->hm, wn));
+	for (size_t i=0; i<cg->da.count; i++) {
+		if (cg->da.items[i].to == wn) {
+			da_remove_unordered(&cg->da, i);
+			return;
+		}
+	}
+	UNREACHABLE("gate is not present!");
+}
 
 typedef struct {
 	DArrz da;
@@ -6513,12 +6528,11 @@ typedef struct {
 
 typedef struct {
 	X2Keys keys;
-	size_t soul_of_giant_count;
 } Inventory2;
 
 typedef struct {
 	Keys *required_keys;
-	int unlocked_item_id;
+	KeyItemsEnum unlocked_item_id;
 } LockedNode;
 
 DA(LockedNode, DALockedKey);
@@ -6561,6 +6575,7 @@ typedef struct {
 	size_t torch_count;
 	size_t branches_count;
 	size_t wedges_count;
+	size_t giantssoul_count;
 } DS2FGR;
 
 void free_ds2fgr(DS2FGR *fgr) {
@@ -6761,7 +6776,7 @@ void update_inventory_from_visited_places(DS2FGR *fgr) {
 	   ) x2_append(&fgr->inventory.keys, Conn_LudAndZallenDead);
 	if (ht_find(&fgr->visitedx2.hm, MythaEntryBack) != NULL
 	   ) x2_append(&fgr->inventory.keys, Conn_Gilligan_Ladder);
-	if (fgr->inventory.soul_of_giant_count >= 4
+	if (fgr->giantssoul_count >= 4
 			&& ht_find(&fgr->visitedx2.hm, VendrickBack) != NULL
 	   ) x2_append(&fgr->inventory.keys, Conn_VendrickSoul);
 	if (ht_find(&fgr->visitedx2.hm, ScorpionessNajkaEntryBack) != NULL
@@ -6848,6 +6863,10 @@ ConnectionType get_connection_type_from_item_id(int item_id) {
 		return Conn_DullEmber;
 	} else if (item_id == ItemDullEmber) {
 		return Conn_DullEmber;
+	} else if (item_id == ItemUndeadLockawayKey) {
+		return Conn_UndeadLockawayKey;
+	} else if (item_id == ItemBrightstoneKey) {
+		return Conn_BrightstoneKey;
 	}
 	 return Conn_None;
 }
@@ -6868,6 +6887,12 @@ recursively_update_items_start:
 	}
 }
 
+bool is_item_bowcrossbow(KeyItemsEnum id) {
+#define X(value, name) || (id == Item ## name)
+	return false RangedItems RangedAmmo;
+#undef X
+}
+
 #define TorchObtainedKeyCheckLimit 5
 
 void inventory_update(DS2FGR *fgr) {
@@ -6882,6 +6907,10 @@ void inventory_update(DS2FGR *fgr) {
 				// check if its prerequisite keys have been obtained
 				bool has_key = true;
 				da_foreach(ConnectionType, key, item->required_keys.items[i]) {
+					// if (key == NULL) {
+					// 	// i added null ptrs as keys to soul of giant events which must be skipped
+					// 	continue;
+					// }
 					has_key = has_key && inventory_has(fgr, *key);
 				}
 				// if not skip adding it
@@ -6903,6 +6932,15 @@ void inventory_update(DS2FGR *fgr) {
 						fgr->branches_count++;
 					} else if (item->id == ItemSmelterWedge) {
 						fgr->wedges_count++;
+					} else if (is_item_bowcrossbow(item->id)) {
+						// skip 
+						// handled in `inventory_update_bowcrossbow(fgr)`
+					} else if (item->id == ItemSoulofaGiant) {
+						fgr->giantssoul_count++;
+					} else if (item->id == ItemGiantsKinship) {
+						// cosmetic
+					} else if (item->id == ItemPyromancyFlame || item->id == ItemDarkPyromancyFlame) {
+						// handled in `update_inventory_from_visited_places(fgr)`
 					} else {
 						TODO("");
 					}
@@ -6954,6 +6992,7 @@ unlock_gates_from_key_items_start:
 				x2_append(&fgr->unrandomized_gates, c->to);
 			}
 			x2_append(&fgr->visitedx2, c->to);
+			remove_gate_unordered(&fgr->remaining_nodes, c->to);
 			assert(ht_find_and_delete(&fgr->locked_nodes.hm, c->to));
 			da_remove_unordered(&fgr->locked_nodes.da, i);
 			start = i;
@@ -7091,12 +7130,28 @@ restart_merging_clusters:
 		size_t check_start = fgr->visitedx2.da.count;
 
 		x2_append(&fgr->visitedx2, node);
-		da_remove(&fgr->remaining_nodes, node);
+		remove_gate_unordered(&fgr->remaining_nodes, node);
 		ConnectionGroup *con_grp = &connections.items[node];
 
 		// collect all the points that the node can reach
 		for (size_t i=0; i<con_grp->count; i++) {
+			// skip the gate if it has been visited or if it is in locked_nodes/unrandomized_gates
 			if (ht_find(&fgr->visitedx2.hm, con_grp->items[i].to) != NULL) continue;
+			else if (ht_find(&fgr->locked_nodes.hm, con_grp->items[i].to) != NULL) { 
+				if (con_grp->items[i].type == Conn_None) {
+					// if the locked gate can be accessed without key, unlock it
+					if (warpnode_is_foggate(con_grp->items[i].to)) {
+						x2_append(&fgr->unrandomized_gates, con_grp->items[i].to);
+					}
+					x2_append(&fgr->visitedx2, con_grp->items[i].to);
+					remove_gate_unordered(&fgr->remaining_nodes, con_grp->items[i].to);
+					remove_locked_node(&fgr->locked_nodes, con_grp->items[i].to);
+				}
+				// skip if the locked node is still locked
+				// TODO: doesnot check if the new key that it might require may be unlocked
+				continue;
+			}
+			else if (ht_find(&fgr->unrandomized_gates.hm, con_grp->items[i].to) != NULL) continue;
 
 			if (con_grp->items[i].is_warp) {
 				x2_append(&fgr->warps, con_grp->items[i].to);
@@ -7105,8 +7160,9 @@ restart_merging_clusters:
 				x2_append_conn(&fgr->locked_nodes, con_grp->items[i]);
 			} else {
 				x2_append(&fgr->visitedx2, con_grp->items[i].to);
+				// only remove from remaining nodes if it is not locked
+				remove_gate_unordered(&fgr->remaining_nodes, con_grp->items[i].to);
 			}
-			remove_gate_unordered(&fgr->remaining_nodes, con_grp->items[i].to);
 		}
 
 		// if the point is a warp walk through it and collect all the points that you can reach there
@@ -7120,9 +7176,9 @@ restart_merging_clusters:
 					x2_append_conn(&fgr->locked_nodes, cg->items[j]);
 				} else {
 					x2_append(&fgr->visitedx2, cg->items[j].to);
+					// only remove from remaining nodes if it is not locked
+					remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
 				}
-
-				remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
 			}
 		}
 
@@ -7137,9 +7193,9 @@ restart_merging_clusters:
 						x2_append_conn(&fgr->locked_nodes, cg->items[j]);
 					} else {
 						x2_append(&fgr->visitedx2, cg->items[j].to);
+						// only remove from remaining nodes if it is not locked
+						remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
 					}
-
-					remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
 				}
 			}
 		}
@@ -7156,19 +7212,80 @@ restart_merging_clusters:
 			}
 		}
 
+restart_randomization:
 		inventory_update(fgr);
 		unlock_gates_from_key_items(fgr);
 		update_inventory_from_visited_places(fgr);
+		// TODO: when you can reach a place that is locked and does not require any key must be unlocked
+
+		if (fgr->unrandomized_gates.da.count == 0) {
+			bitmask128_t keys = get_updated_key_value(fgr);
+			while (fgr->remaining_nodes.count > 0) {
+				ht_foreach(value, &fgr->visitedx2.hm) {
+					WarpNode wn = ht_key(&fgr->visitedx2.hm, value);
+					ConnectionGroup *cg = &connections.items[wn];
+					da_foreach(Connection, c, cg) {
+						if (ht_find(&fgr->visitedx2.hm, c->to) != NULL) continue;
+						if (c->is_warp && (c->type == Conn_None || (keys & c->type))) {
+							x2_append(&fgr->visitedx2, c->to);
+							remove_gate_unordered(&fgr->remaining_nodes, c->to);
+							ConnectionGroup *cg_new = &connections.items[c->to];
+
+							for (size_t j=0; j<cg_new->count; j++) {
+								if (ht_find(&fgr->visitedx2.hm, cg_new->items[j].to) == NULL && ht_find(&fgr->locked_nodes.hm, cg_new->items[j].to) == NULL) {
+									if (cg_new->items[j].type == Conn_None || (keys & cg_new->items[j].to)) {
+										x2_append(&fgr->visitedx2, cg_new->items[j].to);
+										// only remove from remaining nodes if it is not locked
+										remove_gate_unordered(&fgr->remaining_nodes, cg_new->items[j].to);
+									} else {
+										x2_append_conn(&fgr->locked_nodes, cg_new->items[j]);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 
 		if (fgr->remaining_nodes.count > 0) {
 			WarpNode random_visited_node = ts_pop_random(&fgr->unrandomized_gates);
 			// choose a random cluster to travel to with total_nodes >= 2 and total_start_nodes >= 1
 			WarpNode random_target_node = clusters_find_suitable_node(&fgr->cg, &fgr->valid_clusters, &fgr->visitedx2);
 			// if there are no any such node available choose a random one
+			size_t loop_count = 0;
 			while (!warpnode_is_foggate_v2(random_target_node) || ht_find(&fgr->visitedx2.hm, random_target_node) != NULL) {
+				// the clusters do not have any suitable node so try to find a node either from remaining nodes or from the locked nodes
 				random_target_node = fgr->remaining_nodes.items[rand()%fgr->remaining_nodes.count];
+				if (loop_count++ > (fgr->remaining_nodes.count)*2) {
+					// check if any of the nodes are still foggates
+					bool found = false;
+					for (size_t i=0; i<fgr->remaining_nodes.count; i++) {
+						random_target_node = fgr->remaining_nodes.items[i];
+						if (warpnode_is_foggate_v2(random_target_node)) {
+							found = true;
+							break;
+						}
+					}
+					if (!found) {
+						goto restart_randomization;
+					} else {
+						// TODO: this is very unlikely to occur
+						// maybe handle this better somehow
+						break;
+					}
+				}
+
 			}
 
+			// if the chosen node is locked unlock it
+			if (ht_find(&fgr->locked_nodes.hm, random_target_node) != NULL) {
+				if (warpnode_is_foggate_v2(random_target_node)) {
+					remove_locked_node(&fgr->locked_nodes, random_target_node);
+				}
+			}
+
+			// if the chosen node is in unrandomized_list remove it
 			if (ht_find(&fgr->unrandomized_gates.hm, random_target_node)) {
 				x2_remove(&fgr->unrandomized_gates, random_target_node);
 			}
@@ -7201,7 +7318,7 @@ restart_merging_clusters:
 		}
 	} while (fgr->remaining_nodes.count > 0);
 
-	if (0) {
+	if (1) {
 		*ht_put(&fgr->visited, start) = true;
 		ds2_dfs(fgr, &fgr->conns.items[start].items[0], start, 0, 0, true, true);
 		// ds2_bfs(fgr, fgr->conns.items[start].items[0], start, true);
@@ -7258,6 +7375,9 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 
 		WarpPoint *wp1 = &warp_points[*i];
 		WarpPoint *wp2 = &warp_points[j];
+
+		// printf("%s <=> %s\n", WarpNodeNames[*i], WarpNodeNames[j]);
+
 		ESD *esd_src = &editor->esd_sbs.items[wp1->map].esd;
 		ESD *esd_dst = &editor->esd_sbs.items[wp2->map].esd;
 
