@@ -956,7 +956,9 @@ void write_sub_cond_evaluator(String_Builder *sb, ESD *esd, State *s, DArrz *add
 			if (assert_cond->evaluator.items[0] == EzGetRet
 					&& (assert_cond->evaluator.items[1] == EzRetVal || assert_cond->evaluator.items[1] <= EzNumber)
 					&& (assert_cond->evaluator.items[2] == EzNeq || assert_cond->evaluator.items[2] == EzEq)
-					&& assert_cond->evaluator.items[3] == EzFin) {
+					&& assert_cond->evaluator.items[3] == EzFin
+					&& assert_cond->target_state_id == -1) {
+				// this writing is necessary to create true copy of esd for ds2 unless touched by other mods
 				assert(assert_cond->sub_conditions_ids.count == 1);
 				Condition *scond = &esd->conditions.items[assert_cond->sub_conditions_ids.items[0]];
 				if (da_containsz(added_states, scond->target_state_id)) continue;
@@ -998,7 +1000,7 @@ void write_pass_commands_args(String_Builder *sb, ESD *esd, Dictzuzu *end_args_o
 	}
 }
 
-void write_esd(String_Builder *sb, ESD *esd) {
+void write_esd(String_Builder *sb, ESD *esd, const char *name) {
 	write_esd_header(sb, esd);
 	write_state_group_header(sb, esd);
 	void *dst =  sb_base(sb) + offsetof(StateGroupHeader, stateGroupsOffset);
@@ -1566,7 +1568,21 @@ void write_esd(String_Builder *sb, ESD *esd) {
 	src = sb_offset(sb);
 	memcpy(dst, &src, size);
 
-	assert(esd->name != NULL);
+	// some mod will not write the esd names so build it yourself
+	char name_buf[128] = {0};
+	if (name == NULL) {
+		assert(esd->name != NULL);
+	} else if (esd->name == NULL) {
+		assert(name != NULL);
+		int len = strlen(name);
+		for (int i=0; i<len; i++) {
+			name_buf[2*i] = name[i];
+			name_buf[2*i+1] = 0;
+		}
+		name_buf[2*len] = 0;
+		name_buf[2*len+1] = 0;
+		esd->name = (wchar_t *)name_buf;
+	}
 	sb_pad_align(sb, sizeof(wchar_t));
 
 	// write name offset

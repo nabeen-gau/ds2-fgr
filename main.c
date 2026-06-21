@@ -5,6 +5,8 @@
 #include <string.h>
 #include <math.h>
 
+// #define LOG_GENERATED_FILES
+
 #include "common.c"
 #include "foggates.c"
 
@@ -14,6 +16,12 @@
 
 #define OUT_FOLDER_PATH "output/"
 
+// where to load the param/map/esd files from
+#define fgr_data_path  "./data/"
+// this is OUT_FOLDER_PATH because ierando files will be copied to this path
+#define ier_files_path OUT_FOLDER_PATH
+// where to copy the randomizer files from
+#define ier_data_path "./.itemrando/randomizer/"
 
 // [          FILE        ]
 // [Header][ModelInfo][...]
@@ -1363,7 +1371,7 @@ BoneNames read_bone_names(String_View *sv) {
 		da_append(&names.names, name);
 	}
 #ifdef LOG_GENERATED_FILES
-	nob_log(INFO, "Read %zu BoneNames", names.count);
+	nob_log(INFO, "Read %zu BoneNames", names.names.count);
 #endif
 	sv->data = map_begin + param.next_param_offset;
 	return names;
@@ -2810,7 +2818,7 @@ int test_loading_all_esds() {
 
 
 		ESD esd = read_esd(sv);
-		write_esd(&wsb, &esd);
+		write_esd(&wsb, &esd, NULL);
 
 		for (size_t j=0; j<wsb.count; j++) {
 			if(wsb.items[j] != sb.items[j] && j < wsb.count - 0xf - 4) asm("int3");
@@ -3431,6 +3439,40 @@ int test_loading_enc_reg() {
 }
 
 #define WHITE_DOOR_PARAM_NAME "MapObjectWhiteDoorParam.param"
+
+bool disable_fog_gate_v2(char *input_path, char *output_path) {
+	String_Builder sb = {0};
+	if (!nob_read_entire_file(input_path, &sb)) {
+		return false;
+	}
+#ifdef LOG_GENERATED_FILES
+	printf("[Read] %s: %zu bytes\n", input_path, sb.count);
+#endif
+	String_Builder param_sb = {0};
+	String_Builder out_param_sb = {0};
+
+	if (!nob_read_entire_file(input_path, &param_sb)) {
+		return false;
+	}
+	String_View sv = sb_to_sv(param_sb);
+	PARAM param = load_param(&sv, Cell_MapObjectWhiteDoorParam);
+	da_foreach(Cell, cell, &param.cells) {
+		cell->as.map_obj_white_door_param.key_guide_id_1 = 0; // for disabling the fog gate key guide
+		cell->as.map_obj_white_door_param.key_guide_id_2 = 0; // for disabling the fog gate key guide
+		cell->as.map_obj_white_door_param.unk04 = 0; // to diable boss gates to disappear
+	}
+	write_param(&out_param_sb, &param);
+
+	if (!write_entire_file(output_path, out_param_sb.items, out_param_sb.count)) return false;
+#ifdef LOG_GENERATED_FILES
+	printf("[Generated] %s\n", output_path);
+#endif
+
+	da_free(out_param_sb);
+	free_PARAM(&param);
+	da_free(sb);
+	return true;
+}
 
 bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path) {
 	String_Builder sb = {0};
@@ -4513,8 +4555,10 @@ size_t create_change_obj_state(ESD *esd, String_Builder *bytecode_buf, int id, i
 }
 
 bool load_map_from_name(String_Builder *sb, MapName name, MSB2 *map) {
-	const char *map_path = map_paths[name];
+	size_t mark = temp_save();
+	const char *map_path = temp_sprintf(fgr_data_path"%s", map_paths[name]);
 	if (!nob_read_entire_file(map_path, sb)) {
+		temp_rewind(mark);
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
@@ -4523,6 +4567,7 @@ bool load_map_from_name(String_Builder *sb, MapName name, MSB2 *map) {
 
 	String_View sv = sb_to_sv(*sb);
 	*map = load_map(map_path, sv);
+	temp_rewind(mark);
 	return true;
 }
 
@@ -4541,38 +4586,55 @@ bool write_map_from_name(String_Builder *wsb, MapName name, MSB2 *map) {
 }
 
 
-bool load_obj_inst_param_from_map_name(String_Builder *sb, MapName name, PARAM *param) {
-	const char *param_path = obj_inst_param_paths[name];
+bool load_obj_inst_param_from_map_name(String_Builder *sb, MapName name, PARAM *param, bool load_item_rando) {
+	size_t mark = temp_save();
+	const char *param_path = load_item_rando? 
+		temp_sprintf("%s%s", ier_files_path, obj_inst_param_paths[name]): 
+		temp_sprintf("%s%s", fgr_data_path, obj_inst_param_paths[name]);
 	if (!nob_read_entire_file(param_path, sb)) {
+		temp_rewind(mark);
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
 	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
 #endif
+	temp_rewind(mark);
 	String_View sv = sb_to_sv(*sb);
 	*param = load_param(&sv, Cell_MapObjInstanceParam);
 	return true;
 }
 
-bool load_event_param_from_map_name(String_Builder *sb, MapName name, PARAM *param) {
-	if (!nob_read_entire_file(event_param_paths[name], sb)) {
+bool load_event_param_from_map_name(String_Builder *sb, MapName name, PARAM *param, bool load_item_rando) {
+	size_t mark = temp_save();
+	const char *param_path = load_item_rando? 
+		temp_sprintf("%s%s", ier_files_path, event_param_paths[name]): 
+		temp_sprintf("%s%s", fgr_data_path, event_param_paths[name]);
+	if (!nob_read_entire_file(param_path, sb)) {
+		temp_rewind(mark);
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", event_param_paths[name], sb->count);
+	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
 #endif
+	temp_rewind(mark);
 	String_View sv = sb_to_sv(*sb);
 	*param = load_param(&sv, Cell_EventParam);
 	return true;
 }
 
-bool load_event_loc_from_map_name(String_Builder *sb, MapName name, PARAM *param) {
-	if (!nob_read_entire_file(event_loc_paths[name], sb)) {
+bool load_event_loc_from_map_name(String_Builder *sb, MapName name, PARAM *param, bool load_item_rando) {
+	size_t mark = temp_save();
+	const char *param_path = load_item_rando? 
+		temp_sprintf("%s%s", ier_files_path, event_loc_paths[name]): 
+		temp_sprintf("%s%s", fgr_data_path, event_loc_paths[name]);
+	if (!nob_read_entire_file(param_path, sb)) {
+		temp_rewind(mark);
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", event_loc_paths[name], sb->count);
+	printf("[Read] %s: %zu bytes\n", param_path, sb->count);
 #endif
+	temp_rewind(mark);
 	String_View sv = sb_to_sv(*sb);
 	*param = load_param(&sv, Cell_EventLoc);
 	return true;
@@ -4602,7 +4664,7 @@ bool load_esd_from_map_name(String_Builder *sb, MapName name, ESD *esd) {
 }
 
 bool write_esd_from_map_name(String_Builder *wsb, MapName name, ESD *esd) {
-	write_esd(wsb, esd);
+	write_esd(wsb, esd, map_names[name]);
 	const char *output_path = temp_sprintf(OUT_FOLDER_PATH"%s", esd_paths[name]);
 	if (!write_entire_file(output_path, wsb->items, wsb->count)) return false;
 #ifdef LOG_GENERATED_FILES
@@ -4787,7 +4849,7 @@ int bell_ring_param_id = -1;
 int unfreeze_param_id = -1;
 int ship_arrival_msg_id = -1;
 
-bool generate_map_objects(Editor *editor) {
+bool generate_map_objects(Editor *editor, bool load_item_rando) {
 	Ht(size_t, bool) completed_ids = {0};
 	Part warp_part = {0};
 	Entry warp_model = {0};
@@ -4799,7 +4861,7 @@ bool generate_map_objects(Editor *editor) {
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"map")) return false;
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return false;
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
-		printf("Loading maps %d/%d\r", map_name_id, __MapNameCount-1);
+		fprintf(stderr, "Loading maps %d/%d\r", map_name_id, __MapNameCount-1);
 		ht_reset(&completed_ids);
 		name_buf.count = 0;
 		editor->map_sb.count = 0;
@@ -4869,7 +4931,7 @@ bool generate_map_objects(Editor *editor) {
 
 		PARAM obj_inst_param, ev_param, el_param;
 
-		if (!load_obj_inst_param_from_map_name(&editor->oip_sb, map_name_id, &obj_inst_param)) return false;
+		if (!load_obj_inst_param_from_map_name(&editor->oip_sb, map_name_id, &obj_inst_param, load_item_rando)) return false;
 
 		size_t n_warp_points = compute_n_warp_points(map_name_id);
 		Pair pair = find_row_id_gap(obj_inst_param.rows, n_warp_points);
@@ -4882,12 +4944,12 @@ bool generate_map_objects(Editor *editor) {
 		size_t total_event_count = n_warp_points + CUTSCENES_COUNT;
 		if (map_name_id == NomansWharf || map_name_id == FrozenEleumLoyce) total_event_count++;
 
-		if (!load_event_param_from_map_name(&editor->ep_sb, map_name_id, &ev_param)) return false;
+		if (!load_event_param_from_map_name(&editor->ep_sb, map_name_id, &ev_param, load_item_rando)) return false;
 		size_t event_param_id = find_row_id_gap(ev_param.rows, total_event_count).from;
 
 		assert(event_param_id >= 0);
 
-		if (!load_event_loc_from_map_name(&editor->el_sb, map_name_id, &el_param)) return false;
+		if (!load_event_loc_from_map_name(&editor->el_sb, map_name_id, &el_param, load_item_rando)) return false;
 		pair = find_row_id_gap(el_param.rows, n_warp_points);
 		size_t warp_point_begin = pair.from;
 		size_t el_insert_loc = pair.to;
@@ -4898,12 +4960,23 @@ bool generate_map_objects(Editor *editor) {
 		ESD esd_orig = {0};
 		String_Builder esd_sb_orig = {0};
 
-		if (!nob_read_entire_file(esd_paths[map_name_id], &esd_sb_orig)) {
+		size_t mark2 = temp_save();
+		// event_m10_29_00_00 : 12 : MajulaShadedWoods
+		// event_m10_30_00_00 : 13 : HeidesToNoMansWharf
+		// event_m20_10_00_00 : 18 : MemoryofVammarOrroandJeigh
+		// event_m20_26_00_00 : 22 : DragonMemories
+		// 
+		// NOTE: itemrando v.3.4.1 does not ship with the above esd files so load from fgr_data_path
+		bool load_fgr_esd = !load_item_rando || map_name_id == MajulaShadedWoods || map_name_id == HeidesToNoMansWharf || map_name_id == MemoryofVammarOrroandJeigh || map_name_id == DragonMemories;
+		const char *esd_full_path = temp_sprintf("%s%s", load_fgr_esd?fgr_data_path:ier_files_path, esd_paths[map_name_id]);
+		if (!nob_read_entire_file(esd_full_path, &esd_sb_orig)) {
+			temp_rewind(mark2);
 			return false;
 		}
 #ifdef LOG_GENERATED_FILES
-		printf("[Read] %s: %zu bytes\n", esd_paths[name], sb->count);
+		printf("[Read] %s: %zu bytes\n", esd_full_path, esd_sb_orig.count);
 #endif
+		temp_rewind(mark2);
 		da_append(&editor->esd_sbs, ((ESD_Data){esd_sb_orig, esd_orig}));
 
 		// get the instance id from map name
@@ -5069,10 +5142,10 @@ bool generate_map_objects(Editor *editor) {
 		if (!write_param_from_map_name(&editor->write_buf, output_path, &el_param)) return false;
 		temp_rewind(mark);
 	}
-	printf("\n");
+	fprintf(stderr, "\n");
 	ht_free(&completed_ids);
 
-	if (!add_pirate_ship_msg_to_game_files(MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
+	if (!add_pirate_ship_msg_to_game_files(fgr_data_path MAP_EVENT_TEXT_LOCATION, OUT_FOLDER_PATH MAP_EVENT_TEXT_LOCATION, &ship_arrival_msg_id)) return 1;
 
 	// initialize the pool of foggates
 	// da_init(&editor->pool, AllFogGatesEnd - AllFogGatesStart + 1);
@@ -5747,9 +5820,7 @@ void free_item_bank(ItemBank *ib) {
 	da_free(ib->items);
 }
 
-#define ModPath ""
-
-bool read_item_bank(ItemBank *ib, bool log) {
+bool read_item_bank(ItemBank *ib, bool load_item_rando, bool log) {
 	if (gate_item_infos.count == 0) generate_item_infos();
 	ht_reset(&ib->item_locs);
 #define GiantSoulsEventId 60004000
@@ -5773,13 +5844,16 @@ bool read_item_bank(ItemBank *ib, bool log) {
 	}
 	ht_reset(&ib->game_items); // key = item_id, value = item_loc_id(row_id)
 
-	const char *chr_param_path = ModPath "./Param/ItemLotParam2_Chr.param";
+	const char *chr_param_path = load_item_rando ?
+		OUT_FOLDER_PATH"Param/ItemLotParam2_Chr.param" :
+		fgr_data_path"Param/ItemLotParam2_Chr.param";
+
 	ib->sb.count = 0;
 	if (!nob_read_entire_file(chr_param_path, &ib->sb)) {
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", param_path, ib->sb.count);
+	printf("[Read] %s: %zu bytes\n", chr_param_path, ib->sb.count);
 #endif
 
 	ht_reset(&ib->key_items);
@@ -5815,13 +5889,16 @@ bool read_item_bank(ItemBank *ib, bool log) {
 	}
 
 	free_PARAM(&param);
-	const char *other_param_path = ModPath "./Param/ItemLotParam2_Other.param";
+	const char *other_param_path = load_item_rando ?
+		OUT_FOLDER_PATH"Param/ItemLotParam2_Other.param" :
+		fgr_data_path"Param/ItemLotParam2_Other.param";
+
 	ib->sb.count = 0;
 	if (!nob_read_entire_file(other_param_path, &ib->sb)) {
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", param_path, ib->sb.count);
+	printf("[Read] %s: %zu bytes\n", other_param_path, ib->sb.count);
 #endif
 	sv = sb_to_sv(ib->sb);
 	param = load_param(&sv, Cell_ItemLotParam2_Chr);
@@ -5844,13 +5921,15 @@ bool read_item_bank(ItemBank *ib, bool log) {
 	}
 
 	free_PARAM(&param);
-	const char *shop_param_path = ModPath "./Param/ShopLineupParam.param";
+	const char *shop_param_path = load_item_rando ?
+		OUT_FOLDER_PATH"Param/ShopLineupParam.param" :
+		fgr_data_path"Param/ShopLineupParam.param";
 	ib->sb.count = 0;
 	if (!nob_read_entire_file(shop_param_path, &ib->sb)) {
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", param_path, ib->sb->count);
+	printf("[Read] %s: %zu bytes\n", shop_param_path, ib->sb.count);
 #endif
 	sv = sb_to_sv(ib->sb);
 	param = load_param(&sv, Cell_ShopLineupParam);
@@ -6576,6 +6655,8 @@ typedef struct {
 	size_t branches_count;
 	size_t wedges_count;
 	size_t giantssoul_count;
+
+	bitmask128_t keys;
 } DS2FGR;
 
 void free_ds2fgr(DS2FGR *fgr) {
@@ -6747,6 +6828,14 @@ void inventory_update_bowcrossbow(DS2FGR *fgr) {
 // Conn_SmelterWedge
 // Conn_PharrosLockstone
 
+bitmask128_t get_updated_key_value(DS2FGR *fgr) {
+	bitmask128_t ret = 0;
+	ht_foreach(i, &fgr->inventory.keys.hm) {
+		ConnectionType type = ht_key(&fgr->inventory.keys.hm, i);
+		ret |= CT(type);
+	}
+	return ret;
+}
 
 // does not add duplicate keys
 void update_inventory_from_visited_places(DS2FGR *fgr) {
@@ -6786,6 +6875,9 @@ void update_inventory_from_visited_places(DS2FGR *fgr) {
 			&& ht_find(&fgr->visitedx2.hm, ShadedWoodsToMistyAreaBack) != NULL
 			&& ht_find(&fgr->visitedx2.hm, CongregationExitBack) != NULL
 	   ) x2_append(&fgr->inventory.keys, Conn_PateCreightonQuest);
+	// licia will unlock the rotunda if you found her
+	if (ht_find(&fgr->visitedx2.hm, DragonriderExitBack) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_RotundaLockstone);
 
 	// fire defense requires obtaining flash sweat and pyro flame
 	if ((ht_find(&fgr->obtained_items.hm, ItemFlashSweat))
@@ -6939,7 +7031,7 @@ void inventory_update(DS2FGR *fgr) {
 						fgr->giantssoul_count++;
 					} else if (item->id == ItemGiantsKinship) {
 						// cosmetic
-					} else if (item->id == ItemPyromancyFlame || item->id == ItemDarkPyromancyFlame) {
+					} else if (item->id == ItemPyromancyFlame || item->id == ItemDarkPyromancyFlame || item->id == ItemFlashSweat) {
 						// handled in `update_inventory_from_visited_places(fgr)`
 					} else {
 						TODO("");
@@ -6972,13 +7064,27 @@ void inventory_update(DS2FGR *fgr) {
 	// TODO: add checks for checking shop for infinite arrows and firebombs
 }
 
-bitmask128_t get_updated_key_value(DS2FGR *fgr) {
-	bitmask128_t ret = 0;
-	ht_foreach(i, &fgr->inventory.keys.hm) {
-		ConnectionType type = ht_key(&fgr->inventory.keys.hm, i);
-		ret |= CT(type);
+void go_through_the_warps(DS2FGR *fgr) {
+	for (size_t i=0; i<fgr->warps.da.count; i++) {
+		ConnectionGroup *cg = &connections.items[fgr->warps.da.items[i]];
+		for (size_t j=0; j<cg->count; j++) {
+			if (ht_find(&fgr->visitedx2.hm, cg->items[j].to) != NULL) continue;
+			assert(!cg->items[j].is_warp);
+			if (cg->items[j].type != Conn_None) {
+				x2_append_conn(&fgr->locked_nodes, cg->items[j]);
+			} else {
+				if (warpnode_is_foggate_v2(cg->items[j].to)) {
+					x2_append(&fgr->unrandomized_gates, cg->items[j].to);
+				}
+				x2_append(&fgr->visitedx2, cg->items[j].to);
+				// only remove from remaining nodes if it is not locked
+				remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
+
+				if (ht_find(&fgr->locked_nodes.hm, cg->items[j].to) != NULL) remove_locked_node(&fgr->locked_nodes, cg->items[j].to);
+			}
+		}
 	}
-	return ret;
+	x2_reset(&fgr->warps);
 }
 
 void unlock_gates_from_key_items(DS2FGR *fgr) {
@@ -6988,8 +7094,11 @@ unlock_gates_from_key_items_start:
 	for (size_t i=start; i<fgr->locked_nodes.da.count; i++) {
 		Connection *c = &fgr->locked_nodes.da.items[i];
 		if (c->type & keys) {
-			if (warpnode_is_foggate(c->to)) {
+			if (warpnode_is_foggate_v2(c->to)) {
 				x2_append(&fgr->unrandomized_gates, c->to);
+			}
+			if (c->is_warp) {
+				x2_append(&fgr->warps, c->to);
 			}
 			x2_append(&fgr->visitedx2, c->to);
 			remove_gate_unordered(&fgr->remaining_nodes, c->to);
@@ -6999,6 +7108,158 @@ unlock_gates_from_key_items_start:
 			goto unlock_gates_from_key_items_start;
 		}
 	}
+	go_through_the_warps(fgr);
+}
+
+void add_node(DS2FGR *fgr, WarpNode node);
+void add_connection(DS2FGR *fgr, Connection *c);
+
+void add_warp(DS2FGR *fgr) {
+	ht_foreach(wn, &fgr->warps.hm) {
+		ConnectionGroup *cg = &connections.items[*wn];
+		da_foreach(Connection, c, cg) {
+			add_connection(fgr, c);
+		}
+	}
+	x2_reset(&fgr->warps);
+}
+
+void add_node(DS2FGR *fgr, WarpNode node) {
+	if (ht_find(&fgr->visitedx2.hm, node)) return;
+	x2_append(&fgr->visitedx2, node);
+	da_remove(&fgr->remaining_nodes, node);
+
+	if (warpnode_is_foggate_v2(node)) {
+		if (ht_find(&fgr->randomized_gates, node) == NULL) {
+			x2_append(&fgr->unrandomized_gates, node);
+		}
+	}
+
+	da_foreach(Connection, c, &connections.items[node]) {
+		add_connection(fgr, c);
+	}
+	add_warp(fgr);
+}
+
+void remove_lock(DS2FGR *fgr, WarpNode node) {
+	assert(ht_find_and_delete(&fgr->locked_nodes.hm, node));
+	for (size_t i=0; i<fgr->locked_nodes.da.count; i++) {
+		if (fgr->locked_nodes.da.items[i].to == node) {
+			da_remove_unordered(&fgr->locked_nodes.da, i);
+			return;
+		}
+	}
+	UNREACHABLE("node not found");
+}
+
+void add_connection(DS2FGR *fgr, Connection *c) {
+	// if it is locked add to the locked nodes list and return
+	if (!(c->type == Conn_None || c->type & fgr->keys)) {
+		x2_append_conn(&fgr->locked_nodes, *c);
+		return;
+	}
+	// the connection exists in locked node
+	if (ht_find(&fgr->locked_nodes.hm, c->to)) {
+		remove_lock(fgr, c->to);
+	}
+	// if it is unlocked add the connected node
+	add_node(fgr, c->to);
+}
+
+void unlock_gates(DS2FGR *fgr) {
+unlock_gates_start:
+	for (size_t i=0; i<fgr->locked_nodes.da.count; i++) {
+		Connection *c = &fgr->locked_nodes.da.items[i];
+		if (c->type & fgr->keys) {
+			add_node(fgr, c->to);
+			remove_lock(fgr, c->to);
+			goto unlock_gates_start;
+		}
+	}
+}
+
+bool is_valid_target(DS2FGR *fgr, WarpNode node) {
+	return (node != __WarpNodeCount && ht_find(&fgr->visitedx2.hm, node) == NULL && ht_find(&fgr->locked_nodes.hm, node) == NULL);
+}
+
+WarpNode get_suitable_node_from_clusters(DS2FGR *fgr) {
+	if (fgr->valid_clusters.items == NULL) {
+		clusters_get_valid_ids(&fgr->cg, &fgr->valid_clusters);
+	}
+
+restart_clusters_find_suitable_node:
+	if (fgr->valid_clusters.count == 0) return __WarpNodeCount;
+	size_t idx_id = rand()%fgr->valid_clusters.count;
+	size_t idx = fgr->valid_clusters.items[idx_id];
+	Cluster *c = &fgr->cg.clusters.items[idx];
+	WarpNode wn = ts_pop_random(&c->start_nodes);
+	// if the random node in the random cluster has already been visited change it to something else
+	while (ht_find(&fgr->visitedx2.hm, wn) != NULL) {
+		if (c->start_nodes.da.count == 0) {
+			da_remove_unordered(&fgr->valid_clusters, idx_id);
+			goto restart_clusters_find_suitable_node;
+		}
+		wn = ts_pop_random(&c->start_nodes);
+	}
+	if (c->start_nodes.da.count == 0) da_remove_unordered(&fgr->valid_clusters, idx_id);
+	// check the no. of new locations that the random node can reach
+	ConnectionGroup *cg = &connections.items[wn];
+	size_t new_loc_count = 0;
+	da_foreach(Connection, conn, cg) {
+		if (ht_find(&fgr->visitedx2.hm, conn->to) != NULL) continue;
+		if (!(conn->type == Conn_None || conn->type & fgr->keys)) continue;
+		new_loc_count++;
+	}
+	// if no new nodes can be reached just restart selection process
+	if (new_loc_count == 0) {
+		goto restart_clusters_find_suitable_node;
+	}
+	assert(ht_find(&fgr->unrandomized_gates.hm, wn) == NULL);
+	// TODO: the flexile sentry's boat cannot be accessed unless obtained Conn_ShipBellRang
+	return wn;
+}
+
+WarpNode get_suitable_target(DS2FGR *fgr) {
+	WarpNode random_target_node = get_suitable_node_from_clusters(fgr);
+	while (!is_valid_target(fgr, random_target_node)) {
+		if (fgr->valid_clusters.count == 0) {
+			// select a foggate from remaining_nodes
+			bool found = false;
+			for (size_t i=0; i<fgr->remaining_nodes.count; i++) {
+				random_target_node = fgr->remaining_nodes.items[i];
+				if (warpnode_is_foggate_v2(random_target_node)) {
+					found = true;
+					break;
+				}
+			}
+			// if no fog gate exists in remaining_nodes
+			if (!found) {
+				// get a random one from unrandomized_gates
+				if (fgr->unrandomized_gates.da.count > 0) {
+					random_target_node = ts_pop_random(&fgr->unrandomized_gates);
+				} else {
+					TODO("select_random_target");
+				}
+			}
+			break;
+		}
+		random_target_node = clusters_find_suitable_node(&fgr->cg, &fgr->valid_clusters, &fgr->visitedx2);
+	}
+	// check if the unrandomized gates contain the target
+	assert(ht_find(&fgr->unrandomized_gates.hm, random_target_node) == NULL);
+	// check if the locked nodes contain the  target if so then remove from the list
+	if (ht_find(&fgr->locked_nodes.hm, random_target_node) != NULL) {
+		for (size_t i=0; i<fgr->locked_nodes.da.count; i++) {
+			Connection *c = &fgr->locked_nodes.da.items[i];
+			if (c->to == random_target_node) {
+				assert(ht_find_and_delete(&fgr->locked_nodes.hm, random_target_node));
+				da_remove_unordered(&fgr->locked_nodes.da, i);
+				add_node(fgr, c->to);
+				break;
+			}
+		}
+	}
+	return random_target_node;
 }
 
 void randomize_nodes(DS2FGR *fgr) {
@@ -7125,7 +7386,61 @@ restart_merging_clusters:
 
 	WarpNode start = GameStartSpawnSrc;
 	WarpNode node = start;
+
+	do {
+		add_node(fgr, node);
+		inventory_update(fgr);
+		update_inventory_from_visited_places(fgr);
+		fgr->keys = get_updated_key_value(fgr);
+		unlock_gates(fgr);
+
+		if (fgr->unrandomized_gates.da.count > 0) {
+			WarpNode random_visited_node = ts_pop_random(&fgr->unrandomized_gates);
+			// if (fgr->unrandomized_gates.da.count == 0) asm("int3");
+			WarpNode random_target_node = get_suitable_target(fgr);
+
+			da_append(&fgr->conns.items[random_target_node], ((Connection){
+						.to = random_visited_node, .type = Conn_FogGate, .is_warp = true,
+						}));
+			da_append(&fgr->conns.items[random_visited_node], ((Connection){
+						.to = random_target_node, .type = Conn_FogGate, .is_warp = true,
+						}));
+
+			// if (random_visited_node == ForestOfFallenGiantsToPursuerArenaBack) asm("int3");
+			// if (random_target_node == ForestOfFallenGiantsToPursuerArenaBack) asm("int3");
+
+			assert(ht_find(&fgr->randomized_gates, random_visited_node) == NULL);
+			assert(ht_find(&fgr->randomized_gates,  random_target_node) == NULL);
+			*ht_put(&fgr->randomized_gates, random_target_node) = random_visited_node;
+			*ht_put(&fgr->randomized_gates, random_visited_node) = random_target_node;
+
+			node = random_target_node;
+		} else {
+			TODO("");
+		}
+
+	} while (fgr->remaining_nodes.count > 0);
+	while (fgr->unrandomized_gates.da.count > 0) {
+		WarpNode random_visited_node = ts_pop_random(&fgr->unrandomized_gates);
+		WarpNode random_target_node = ts_pop_random(&fgr->unrandomized_gates);
+		da_append(&fgr->conns.items[random_target_node], ((Connection){
+					.to = random_visited_node, .type = Conn_FogGate, .is_warp = true,
+					}));
+		da_append(&fgr->conns.items[random_visited_node], ((Connection){
+					.to = random_target_node, .type = Conn_FogGate, .is_warp = true,
+					}));
+
+		// if (random_visited_node == ForestOfFallenGiantsToPursuerArenaBack) asm("int3");
+		// if (random_target_node == ForestOfFallenGiantsToPursuerArenaBack) asm("int3");
+
+		assert(ht_find(&fgr->randomized_gates, random_visited_node) == NULL);
+		assert(ht_find(&fgr->randomized_gates,  random_target_node) == NULL);
+		*ht_put(&fgr->randomized_gates, random_target_node) = random_visited_node;
+		*ht_put(&fgr->randomized_gates, random_visited_node) = random_target_node;
+	}
+	assert(fgr->randomized_gates.count == AllFogGatesCount);
 	// main randomization loop
+	if (0) {
 	do {
 		size_t check_start = fgr->visitedx2.da.count;
 
@@ -7140,8 +7455,11 @@ restart_merging_clusters:
 			else if (ht_find(&fgr->locked_nodes.hm, con_grp->items[i].to) != NULL) { 
 				if (con_grp->items[i].type == Conn_None) {
 					// if the locked gate can be accessed without key, unlock it
-					if (warpnode_is_foggate(con_grp->items[i].to)) {
+					if (warpnode_is_foggate_v2(con_grp->items[i].to)) {
 						x2_append(&fgr->unrandomized_gates, con_grp->items[i].to);
+					}
+					if (con_grp->items[i].is_warp) {
+						x2_append(&fgr->warps, con_grp->items[i].to);
 					}
 					x2_append(&fgr->visitedx2, con_grp->items[i].to);
 					remove_gate_unordered(&fgr->remaining_nodes, con_grp->items[i].to);
@@ -7159,6 +7477,11 @@ restart_merging_clusters:
 			if (con_grp->items[i].type != Conn_None) {
 				x2_append_conn(&fgr->locked_nodes, con_grp->items[i]);
 			} else {
+
+				if (warpnode_is_foggate_v2(con_grp->items[i].to)) {
+					x2_append(&fgr->unrandomized_gates, con_grp->items[i].to);
+				}
+
 				x2_append(&fgr->visitedx2, con_grp->items[i].to);
 				// only remove from remaining nodes if it is not locked
 				remove_gate_unordered(&fgr->remaining_nodes, con_grp->items[i].to);
@@ -7166,23 +7489,7 @@ restart_merging_clusters:
 		}
 
 		// if the point is a warp walk through it and collect all the points that you can reach there
-		for (size_t i=0; i<fgr->warps.da.count; i++) {
-			ConnectionGroup *cg = &connections.items[fgr->warps.da.items[i]];
-			for (size_t j=0; j<cg->count; j++) {
-				if (ht_find(&fgr->visitedx2.hm, cg->items[j].to) != NULL) continue;
-				assert(!cg->items[j].is_warp);
-
-				if (cg->items[j].type != Conn_None) {
-					x2_append_conn(&fgr->locked_nodes, cg->items[j]);
-				} else {
-					x2_append(&fgr->visitedx2, cg->items[j].to);
-					// only remove from remaining nodes if it is not locked
-					remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
-				}
-			}
-		}
-
-		x2_reset(&fgr->warps);
+		go_through_the_warps(fgr);
 
 		// from all the places in the visited list, find any places that can be reached from the visited list that has been missed
 		for (size_t i=check_start; i<fgr->visitedx2.da.count; i++) {
@@ -7192,6 +7499,11 @@ restart_merging_clusters:
 					if (cg->items[j].type != Conn_None) {
 						x2_append_conn(&fgr->locked_nodes, cg->items[j]);
 					} else {
+
+						if (warpnode_is_foggate_v2(cg->items[j].to)) {
+							x2_append(&fgr->unrandomized_gates, cg->items[j].to);
+						}
+
 						x2_append(&fgr->visitedx2, cg->items[j].to);
 						// only remove from remaining nodes if it is not locked
 						remove_gate_unordered(&fgr->remaining_nodes, cg->items[j].to);
@@ -7220,28 +7532,61 @@ restart_randomization:
 
 		if (fgr->unrandomized_gates.da.count == 0) {
 			bitmask128_t keys = get_updated_key_value(fgr);
+			size_t count = 0;
 			while (fgr->remaining_nodes.count > 0) {
+				if (count++ > fgr->remaining_nodes.count*10) {
+					// this loop is looping
+					printf("ERROR: this should not happen. Report this issue with the seed. Change the seed to randomize.\n");
+					ht_foreach(dst, &fgr->randomized_gates) {
+						WarpNode src = ht_key(&fgr->randomized_gates, dst);
+						printf("%s <=> %s\n", WarpNodeNames[src], WarpNodeNames[*dst]);
+					}
+					return;
+				}
 				ht_foreach(value, &fgr->visitedx2.hm) {
 					WarpNode wn = ht_key(&fgr->visitedx2.hm, value);
 					ConnectionGroup *cg = &connections.items[wn];
 					da_foreach(Connection, c, cg) {
 						if (ht_find(&fgr->visitedx2.hm, c->to) != NULL) continue;
-						if (c->is_warp && (c->type == Conn_None || (keys & c->type))) {
-							x2_append(&fgr->visitedx2, c->to);
-							remove_gate_unordered(&fgr->remaining_nodes, c->to);
-							ConnectionGroup *cg_new = &connections.items[c->to];
+						if ((c->type == Conn_None || (keys & c->type))) {
+							if (c->is_warp) {
 
-							for (size_t j=0; j<cg_new->count; j++) {
-								if (ht_find(&fgr->visitedx2.hm, cg_new->items[j].to) == NULL && ht_find(&fgr->locked_nodes.hm, cg_new->items[j].to) == NULL) {
-									if (cg_new->items[j].type == Conn_None || (keys & cg_new->items[j].to)) {
-										x2_append(&fgr->visitedx2, cg_new->items[j].to);
-										// only remove from remaining nodes if it is not locked
-										remove_gate_unordered(&fgr->remaining_nodes, cg_new->items[j].to);
-									} else {
-										x2_append_conn(&fgr->locked_nodes, cg_new->items[j]);
+								if (warpnode_is_foggate_v2(c->to)) {
+									x2_append(&fgr->unrandomized_gates, c->to);
+								}
+
+
+								x2_append(&fgr->visitedx2, c->to);
+								remove_gate_unordered(&fgr->remaining_nodes, c->to);
+								ConnectionGroup *cg_new = &connections.items[c->to];
+
+								for (size_t j=0; j<cg_new->count; j++) {
+									if (ht_find(&fgr->visitedx2.hm, cg_new->items[j].to) == NULL && ht_find(&fgr->locked_nodes.hm, cg_new->items[j].to) == NULL) {
+										if (cg_new->items[j].type == Conn_None || (keys & cg_new->items[j].to)) {
+
+											if (warpnode_is_foggate_v2(cg_new->items[j].to)) {
+												x2_append(&fgr->unrandomized_gates, cg_new->items[j].to);
+											}
+
+											x2_append(&fgr->visitedx2, cg_new->items[j].to);
+											// only remove from remaining nodes if it is not locked
+											remove_gate_unordered(&fgr->remaining_nodes, cg_new->items[j].to);
+										} else {
+											x2_append_conn(&fgr->locked_nodes, cg_new->items[j]);
+										}
 									}
 								}
+							} else {
+
+								if (warpnode_is_foggate_v2(c->to)) {
+									x2_append(&fgr->unrandomized_gates, c->to);
+								}
+
+
+								x2_append(&fgr->visitedx2, c->to);
+								remove_gate_unordered(&fgr->remaining_nodes, c->to);
 							}
+							goto restart_randomization;
 						}
 					}
 				}
@@ -7289,6 +7634,14 @@ restart_randomization:
 			if (ht_find(&fgr->unrandomized_gates.hm, random_target_node)) {
 				x2_remove(&fgr->unrandomized_gates, random_target_node);
 			}
+			
+			// if the chosen node is in remaining_nodes remove it
+			for(size_t i=0; i<fgr->remaining_nodes.count; i++) {
+				if (fgr->remaining_nodes.items[i] == random_visited_node) {
+					da_remove_unordered(&fgr->remaining_nodes, i);
+					break;
+				}
+			}
 
 			da_append(&fgr->conns.items[random_target_node], ((Connection){
 						.to = random_visited_node, .type = Conn_FogGate, .is_warp = true,
@@ -7316,9 +7669,36 @@ restart_randomization:
 				// *ht_put(&fgr->randomized_gates, rn2) = rn1;
 			}
 		}
-	} while (fgr->remaining_nodes.count > 0);
 
-	if (1) {
+		// collect all the warps from the visited places
+collection_start:
+		ht_foreach(wn, &fgr->visitedx2.hm) {
+			bitmask128_t keys = get_updated_key_value(fgr);
+			ConnectionGroup *con_grp = &connections.items[*wn];
+			da_foreach(Connection, c, con_grp) {
+				if (ht_find(&fgr->visitedx2.hm, c->to) != NULL) continue;
+				if (ht_find(&fgr->locked_nodes.hm, c->to) != NULL) continue;
+				if (ht_find(&fgr->unrandomized_gates.hm, c->to) != NULL) continue;
+				if (ht_find(&fgr->randomized_gates, c->to) != NULL) continue;
+				if (!c->is_warp) continue;
+				if (c->type == Conn_None || c->type & keys)  {
+					if (warpnode_is_foggate_v2(c->to)) {
+						x2_append(&fgr->unrandomized_gates, c->to);
+					}
+
+
+					x2_append(&fgr->warps, c->to);
+					x2_append(&fgr->visitedx2, c->to);
+					remove_gate_unordered(&fgr->remaining_nodes, c->to);
+					goto collection_start;
+				}
+			}
+		}
+		go_through_the_warps(fgr);
+
+	} while (fgr->remaining_nodes.count > 0);}
+
+	if (0) {
 		*ht_put(&fgr->visited, start) = true;
 		ds2_dfs(fgr, &fgr->conns.items[start].items[0], start, 0, 0, true, true);
 		// ds2_bfs(fgr, fgr->conns.items[start].items[0], start, true);
@@ -7340,9 +7720,10 @@ restart_randomization:
 }
 
 bool randomize_warps(Editor *editor, DS2FGR *fgr) {
-	int seed = 2496; // TODO: set seed dynamically
+	int seed = 1781955102; // TODO: set seed dynamically
 	// int seed = time(NULL);
 	srand(seed);
+	printf("Current Seed: %d\n", seed);
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
 		size_t mark = temp_save();
 		
@@ -7365,9 +7746,16 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 	// randomization of nodes
 	randomize_nodes(fgr);
 
+	// check if all the gates are connected
+	ht_foreach(wn, &fgr->visitedx2.hm) {
+		if (!warpnode_is_foggate_v2(*wn)) continue;
+		if (ht_find(&fgr->randomized_gates, *wn) != NULL) continue;
+		printf("Unrandomized Gate: %s\n", WarpNodeNames[*wn]);
+	}
+
 	size_t count = 0;
 	ht_foreach(i, &fgr->randomized_gates) {
-		printf("Adding warps %zu/%zu\r", count++, fgr->randomized_gates.count);
+		fprintf(stderr, "Adding warps %zu/%zu\r", ++count, fgr->randomized_gates.count);
 		WarpNode j = ht_key(&fgr->randomized_gates, i);
 
 		// if (i == Tutorial1EntryFront) j = IvoryKingBack;
@@ -7394,31 +7782,95 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 		add_esd_event(esd_src, &editor->bytecode_buf, *i, j, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
 		add_esd_event(esd_dst, &editor->bytecode_buf, j, *i, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
 	}
-	printf("\n");
+	fprintf(stderr, "\n");
 
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
 		editor->write_buf.count = 0;
-		printf("Saving maps %d/%d\r", map_name_id, __MapNameCount-1);
+		fprintf(stderr, "Saving maps %d/%d\r", map_name_id, __MapNameCount-1);
 		if (!write_esd_from_map_name(&editor->write_buf, map_name_id, &editor->esd_sbs.items[map_name_id].esd)) return false;
 	}
-	printf("\n");
+	fprintf(stderr, "\n");
 
 	return true;
 }
 
+bool delete_flat_directory(const char *dir) {
+#ifdef _WIN32
+    char search[MAX_PATH];
+    WIN32_FIND_DATA fd;
+    snprintf(search, MAX_PATH, "%s\\*", dir);
+    HANDLE hFind = FindFirstFile(search, &fd);
+    if (hFind == INVALID_HANDLE_VALUE) {
+		fprintf(stderr, "[WARNING]: Could not remove %s: %s\n", dir, nob_win32_error_message(GetLastError()));
+        return false; // Folder doesn't exist or access denied
+    }
+    do {
+        // Skip the current and parent directory markers
+        if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0) {
+            continue;
+        }
+        // If it is a directory, report the error and return false
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            printf("Error: Expected only files, but found a directory: %s\n", fd.cFileName);
+            FindClose(hFind);
+            return false; 
+        }
+        // Build the full path to the file
+        char path[MAX_PATH];
+        snprintf(path, MAX_PATH, "%s\\%s", dir, fd.cFileName);
+        // Strip read-only attributes just in case, so DeleteFile doesn't silently fail
+        SetFileAttributes(path, FILE_ATTRIBUTE_NORMAL);
+        // Attempt to delete the file, bail out if it fails
+        if (!DeleteFile(path)) {
+            printf("Error: Could not delete file: %s\n", path);
+            FindClose(hFind);
+            return false;
+        }
+    } while (FindNextFile(hFind, &fd));
+    FindClose(hFind);
+#ifdef LOG_GENERATED_FILES
+	printf("[DELETE] folder %s successfully deleted.\n", dir);
+#endif
+	return true;
+#else
+	TODO("Not Implemented");
+#endif
+}
+
+#define enc_reg_file_name "enc_regulation.bnd.dcx"
+
 int main() {
+	bool load_item_rando = true;
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
-	if (!disable_fog_gate("enc_regulation.bnd.dcx", WHITE_DOOR_PARAM_NAME,  OUT_FOLDER_PATH"enc_regulation.bnd.dcx")) return 1;
+
+	delete_flat_directory(OUT_FOLDER_PATH"sound");
+	delete_flat_directory(OUT_FOLDER_PATH"sfx");
+	delete_flat_directory(OUT_FOLDER_PATH"Param");
+	delete_flat_directory(OUT_FOLDER_PATH"ezstate");
+
+	if (load_item_rando) {
+		copy_directory_recursively(ier_data_path"ezstate", ier_files_path"ezstate");
+		copy_directory_recursively(ier_data_path"Param", ier_files_path"Param");
+		copy_directory_recursively(ier_data_path"sfx", ier_files_path"sfx");
+		copy_directory_recursively(ier_data_path"sound", ier_files_path"sound");
+		copy_file(ier_data_path enc_reg_file_name, ier_files_path enc_reg_file_name);
+		if (!disable_fog_gate(ier_data_path enc_reg_file_name, ier_files_path"Param/"WHITE_DOOR_PARAM_NAME, OUT_FOLDER_PATH enc_reg_file_name)) return 1;
+	} else {
+		if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return 1;
+		if (!disable_fog_gate(fgr_data_path enc_reg_file_name, fgr_data_path"Param/"WHITE_DOOR_PARAM_NAME, OUT_FOLDER_PATH enc_reg_file_name)) return 1;
+	}
+
 	Editor editor = {0};
 	DS2FGR fgr = {0};
 	generate_connections();
-	if (!generate_map_objects(&editor)) return 1;
-	if (!read_item_bank(&fgr.item_bank, false)) return 1;
+	if (!generate_map_objects(&editor, load_item_rando)) return 1;
+	if (!read_item_bank(&fgr.item_bank, load_item_rando, false)) return 1;
 	if (!randomize_warps(&editor, &fgr)) return 1;
 	free_editor(&editor);
 
 	free_ds2fgr(&fgr);
 	free_connections();
+	printf("Exit.\n");
 	return 0;
 }

@@ -381,6 +381,7 @@ bool point_has_cutscene(WarpNode node) {
 }
 
 bool warpnode_is_foggate(WarpNode node) {
+	printf("Warning: this will only check entry gates");
 	return node >= FogGateStart && node <= FogGateEnd;
 }
 
@@ -2671,6 +2672,7 @@ WarpNode get_item_warp_node(size_t item_id) {
 // 3. Unlocking Gilligan ladder in Majula
 // 4. Luring and enemy to the soul-opening-door in Drangleic Castle from behind the main path and opening it to access Ruin
 //	  Sentinels Room
+// 5. Killing Licia when items are randomized in tower of flame might softlock you as she is able to unlock Rotunda
 //
 // might be difficult to find these
 // 1. You can enter back into smeltor demon arena after the fog gate by jumping down
