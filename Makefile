@@ -11,11 +11,11 @@ item_info.c: data/item-lot.txt reformat-item-info.py
 DS2FGR: $(DEPS)
 	gcc $(CFLAGS) $(CPPFLAGS) -o DS2FGR $(SOURCES)
 
+pdb: $(DEPS)
+	./llvm-mingw-20260616-msvcrt-x86_64/llvm-mingw-20260616-msvcrt-x86_64/bin/gcc.exe $(CFLAGS) $(CPPFLAGS) -Wl,--pdb=DS2FGR.pdb -o DS2FGR $(SOURCES)
+
 release: $(DEPS)
 	gcc -O3 -Wno-unused-function -Wno-initializer-overrides $(CPPFLAGS) -o DS2FGR $(SOURCES)
-
-memcheck: main.c
-	clang -fsanitize=address -ggdb -Wall -Wextra -Wno-unused-function -Iother -o DS2FGR main.c other/miniz.c
 
 test: test.c
 	gcc -ggdb -Wall -Wextra -Iother -o test test.c other/miniz.c

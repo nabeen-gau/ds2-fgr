@@ -9,6 +9,9 @@
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <stdlib.h>
+
 // #define LOG_GENERATED_FILES
 
 #ifndef LOG_GENERATED_FILES

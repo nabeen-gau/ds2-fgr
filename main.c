@@ -1,7 +1,5 @@
 #include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
@@ -12,7 +10,7 @@
 
 #include "miniz.h"
 
-#define COMPRESSION_ALLOC_SIZE 10*1024*1024
+#define COMPRESSION_ALLOC_SIZE 1*1024*1024
 
 #define OUT_FOLDER_PATH "output/"
 
@@ -2287,8 +2285,8 @@ Row new_row(String_View *sv, const char *start, PARAM *param) {
 }
 
 void PARAM_apply_paramdef(PARAM *param, CellType type) {
-	Cells cells = {0};
-	cells.type = type;
+	param->cells = (Cells){0};
+	param->cells.type = type;
 	da_foreach(Row, row, &param->rows) {
 		if (row->DataOffset == 0) continue;
 		String_View sv = param->data;
@@ -2315,9 +2313,8 @@ void PARAM_apply_paramdef(PARAM *param, CellType type) {
 			break;
 		default: TODO("CellType enum not implemented");
 		}
-		da_append(&cells, cell);
+		da_append(&param->cells, cell);
 	}
-	param->cells = cells;
 }
 
 #define PARAM_FORMAT_POSITION 0x2C
@@ -3440,40 +3437,6 @@ int test_loading_enc_reg() {
 
 #define WHITE_DOOR_PARAM_NAME "MapObjectWhiteDoorParam.param"
 
-bool disable_fog_gate_v2(char *input_path, char *output_path) {
-	String_Builder sb = {0};
-	if (!nob_read_entire_file(input_path, &sb)) {
-		return false;
-	}
-#ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", input_path, sb.count);
-#endif
-	String_Builder param_sb = {0};
-	String_Builder out_param_sb = {0};
-
-	if (!nob_read_entire_file(input_path, &param_sb)) {
-		return false;
-	}
-	String_View sv = sb_to_sv(param_sb);
-	PARAM param = load_param(&sv, Cell_MapObjectWhiteDoorParam);
-	da_foreach(Cell, cell, &param.cells) {
-		cell->as.map_obj_white_door_param.key_guide_id_1 = 0; // for disabling the fog gate key guide
-		cell->as.map_obj_white_door_param.key_guide_id_2 = 0; // for disabling the fog gate key guide
-		cell->as.map_obj_white_door_param.unk04 = 0; // to diable boss gates to disappear
-	}
-	write_param(&out_param_sb, &param);
-
-	if (!write_entire_file(output_path, out_param_sb.items, out_param_sb.count)) return false;
-#ifdef LOG_GENERATED_FILES
-	printf("[Generated] %s\n", output_path);
-#endif
-
-	da_free(out_param_sb);
-	free_PARAM(&param);
-	da_free(sb);
-	return true;
-}
-
 bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path) {
 	String_Builder sb = {0};
 	if (!nob_read_entire_file(input_path, &sb)) {
@@ -3517,6 +3480,7 @@ bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path
 			cell->as.map_obj_white_door_param.unk04 = 0; // to diable boss gates to disappear
 		}
 		write_param(&out_param_sb, &param);
+		free_PARAM(&param);
 		BinderFile file = {0};
 		file.bytes = (void *)out_param_sb.items;
 		file.count = out_param_sb.count;
@@ -3539,6 +3503,7 @@ bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path
 				cell->as.map_obj_white_door_param.unk04 = 0; // to diable boss gates to disappear
 			}
 			write_param(&white_door_param_buf, &param);
+			free_PARAM(&param);
 			file->bytes = (uint8_t *)white_door_param_buf.items;
 			file->count = white_door_param_buf.count;
 			break;
@@ -3556,7 +3521,6 @@ bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path
 #endif
 
 	da_free(out_param_sb);
-	free_PARAM(&param);
 	da_free(white_door_param_buf);
 	da_free(sb);
 	free_dcx(&dcx);
@@ -4817,8 +4781,6 @@ typedef struct {
 	ESD_Data *items;
 	size_t count;
 	size_t capacity;
-
-	size_t previous_count;
 } DA_ESD_Data;
 
 typedef Ht(int, bool) HashSet;
@@ -4857,7 +4819,10 @@ void reset_editor(Editor *editor) {
 	editor->ep_sb.count = 0;
 	editor->el_sb.count = 0;
 
-	editor->esd_sbs.previous_count = editor->esd_sbs.count;
+
+	da_foreach(ESD_Data, esd_sb, &editor->esd_sbs) {
+		da_free(esd_sb->sb);
+	}
 	editor->esd_sbs.count = 0;
 
 	editor->write_buf.count = 0;
@@ -4865,10 +4830,7 @@ void reset_editor(Editor *editor) {
 	editor->name_buf.count = 0;
 }
 
-ESD_Data* editor_get_esd_data(Editor *editor, MapName name) {
-	if (name < editor->esd_sbs.previous_count) {
-		return &editor->esd_sbs.items[editor->esd_sbs.count++];
-	}
+ESD_Data* editor_get_esd_data(Editor *editor) {
 	da_append(&editor->esd_sbs, (ESD_Data){0});
 	return &editor->esd_sbs.items[editor->esd_sbs.count-1];
 }
@@ -4883,10 +4845,10 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 	Ht(size_t, bool) completed_ids = {0};
 	Part warp_part = {0};
 	Entry warp_model = {0};
-	const char warp_part_name_buf[128];
-	const char warp_model_name_buf[128];
+	const char warp_part_name_buf[128] = {0};
+	const char warp_model_name_buf[128] = {0};
 	if (editor->name_buf.capacity == 0)     da_init(&editor->name_buf, 1024);
-	if (editor->bytecode_buf.capacity == 0) da_init(&editor->bytecode_buf, 10*1024*1024); // 10mb for holding bytecode
+	if (editor->bytecode_buf.capacity == 0) da_init(&editor->bytecode_buf, 1*1024*1024); // 1mb for holding bytecode
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"map")) return false;
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return false;
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
@@ -4984,7 +4946,7 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 		assert(warp_point_begin >= 0);
 		assert(el_insert_loc >= 0);
 
-		ESD_Data *esd_data = editor_get_esd_data(editor, map_name_id);
+		ESD_Data *esd_data = editor_get_esd_data(editor);
 		esd_data->sb.count = 0;
 
 		size_t mark2 = temp_save();
@@ -5415,30 +5377,12 @@ typedef struct {
 	Item *items;
 	size_t count;
 	size_t capacity;
-
-	size_t previous_count;
 } DAItem;
 
-void da_items_reset(DAItem *items) {
-	items->previous_count = items->count;
-	da_foreach(Item, item, items) {
-		item->id = 0;
-		item->counts.count = 0;
-		x2_reset(&item->locations);
-		item->required_keys.count = 0;
-	}
-	items->count = 0;
-}
-
 Item *da_item_new(DAItem *items, size_t id) {
-	if (items->count >= items->previous_count) {
-		da_append(items, (Item){0});
-		items->items[items->count-1].id = id;
-		return &items->items[items->count-1];
-	} else {
-		items->items[items->count].id = id;
-		return &items->items[items->count++];
-	}
+	da_append(items, (Item){0});
+	items->items[items->count-1].id = id;
+	return &items->items[items->count-1];
 }
 
 typedef struct {
@@ -5463,13 +5407,32 @@ void free_item_bank(ItemBank *ib) {
 	da_free(ib->sb);
 
 	da_foreach(Item, item, &ib->items) {
+		da_free(item->counts);
 		x2_free(&item->locations);
 		da_free(item->required_keys);
 	}
 	da_free(ib->items);
 }
 
+void reset_item_bank(ItemBank *ib) {
+	ht_reset(&ib->item_locs);
+	ht_foreach(value, &ib->game_items) {
+		da_free(*value);
+	}
+	ht_reset(&ib->game_items);
+	ht_reset(&ib->key_items);
+	ib->giant_souls_event_locs.count = 0;
+	ib->sb.count = 0;
+	da_foreach(Item, item, &ib->items) {
+		da_free(item->counts);
+		x2_free(&item->locations);
+		da_free(item->required_keys);
+	}
+	ib->items.count = 0;
+}
+
 bool read_item_bank(ItemBank *ib, bool load_item_rando, bool log) {
+	reset_item_bank(ib);
 	if (gate_item_infos.count == 0) generate_item_infos();
 	ht_reset(&ib->item_locs);
 #define GiantSoulsEventId 60004000
@@ -5488,9 +5451,6 @@ bool read_item_bank(ItemBank *ib, bool load_item_rando, bool log) {
 		}
 	}
 
-	ht_foreach(value, &ib->game_items) {
-		da_free(*value);
-	}
 	ht_reset(&ib->game_items); // key = item_id, value = item_loc_id(row_id)
 
 	const char *chr_param_path = load_item_rando ?
@@ -5600,7 +5560,6 @@ bool read_item_bank(ItemBank *ib, bool load_item_rando, bool log) {
 	}
 
 	free_PARAM(&param);
-	da_items_reset(&ib->items);
 	if (ib->items.capacity == 0) da_init(&ib->items, ib->game_items.count);
 
 	ht_foreach(value, &ib->game_items) {
@@ -6605,7 +6564,9 @@ int main() {
 	DS2FGR fgr = {0};
 	generate_connections();
 	// char input[128] = {0};
+	size_t count = 0;
 	while (true) {
+		size_t mark = temp_save();
 		// int seed =  1782032163; // TODO: set seed dynamically
 		int seed = time(NULL);
 		srand(seed);
@@ -6629,17 +6590,20 @@ int main() {
 			if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return 1;
 			if (!disable_fog_gate(fgr_data_path enc_reg_file_name, fgr_data_path"Param/"WHITE_DOOR_PARAM_NAME, OUT_FOLDER_PATH enc_reg_file_name)) return 1;
 		}
-		if (!read_item_bank(&fgr.item_bank, load_item_rando, false)) return 1;
 
 		reset_editor(&editor);
+		if (!read_item_bank(&fgr.item_bank, load_item_rando, false)) return 1;
 		if (!generate_map_objects(&editor, load_item_rando)) return 1;
 		if (!randomize_warps(&editor, &fgr)) return 1;
 		// fgets(input, sizeof(input), stdin);
 		// if (strcmp(input, "q\n") == 0) break;
+		temp_rewind(mark);
+		if (count++ >= 5) break;
 	}
 	free_editor(&editor);
 	free_ds2fgr(&fgr);
 	free_connections();
 	printf("Exit.\n");
+
 	return 0;
 }

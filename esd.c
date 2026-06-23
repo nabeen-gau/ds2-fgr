@@ -621,10 +621,11 @@ void free_esd(ESD *esd) {
 	da_foreach(StateGroup, sg, &esd->state_groups) {
 		da_free(sg->states_ids);
 	}
+	da_free(esd->state_groups);
 	da_foreach(Condition, cond, &esd->conditions) {
 		free_condition(cond);
 	}
-	da_free(esd->state_groups);
+	da_free(esd->conditions);
 	ht_free(&esd->dict_cond);
 	free_commands(&esd->commands);
 	da_foreach(Arg, arg, &esd->args) {
