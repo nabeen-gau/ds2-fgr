@@ -10,7 +10,7 @@
 
 #include "miniz.h"
 
-#define COMPRESSION_ALLOC_SIZE 1*1024*1024
+#define COMPRESSION_ALLOC_SIZE 10*1024*1024
 
 #define OUT_FOLDER_PATH "output/"
 
@@ -3436,60 +3436,20 @@ int test_loading_enc_reg() {
 }
 
 #define WHITE_DOOR_PARAM_NAME "MapObjectWhiteDoorParam.param"
+#define enc_reg_file_name "enc_regulation.bnd.dcx"
 
-bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path) {
+bool disable_fog_gate_fgr() {
 	String_Builder sb = {0};
-	if (!nob_read_entire_file(input_path, &sb)) {
+	if (!nob_read_entire_file(fgr_data_path enc_reg_file_name, &sb)) {
 		return false;
 	}
 #ifdef LOG_GENERATED_FILES
-	printf("[Read] %s: %zu bytes\n", input_path, sb.count);
+	printf("[Read] %s: %zu bytes\n", fgr_data_path enc_reg_file_name, sb.count);
 #endif
 	BinaryReader br = sb_to_br(sb);
 	DCX dcx = decompress_dcx(br);
 	BND4 bnd4 = read_bnd4(&dcx);
 	PARAM param = {0};
-
-	bool param_exists = false;
-	byte flags = 0;
-	for (size_t i=0; i<bnd4.files.count; i++) {
-		BinderFile *file = &bnd4.files.items[i];
-		if (strcmp(file->name, WHITE_DOOR_PARAM_NAME) == 0) {
-			param_exists = true;
-			break;
-		}
-
-		if (i == 0) {
-			flags = file->flags;
-		}
-	}
-
-	// add white door param to the reg file if it does not exist
-	// when merging with other mods this is necessary
-	String_Builder out_param_sb = {0};
-	if (!param_exists) {
-		String_Builder param_sb = {0};
-		if (!nob_read_entire_file(param_file_path, &param_sb)) {
-			return false;
-		}
-		String_View sv = sb_to_sv(param_sb);
-		param = load_param(&sv, Cell_MapObjectWhiteDoorParam);
-		da_foreach(Cell, cell, &param.cells) {
-			cell->as.map_obj_white_door_param.key_guide_id_1 = 0; // for disabling the fog gate key guide
-			cell->as.map_obj_white_door_param.key_guide_id_2 = 0; // for disabling the fog gate key guide
-			cell->as.map_obj_white_door_param.unk04 = 0; // to diable boss gates to disappear
-		}
-		write_param(&out_param_sb, &param);
-		free_PARAM(&param);
-		BinderFile file = {0};
-		file.bytes = (void *)out_param_sb.items;
-		file.count = out_param_sb.count;
-		file.flags = flags;
-		file.id = bnd4.files.count;
-		file.name = WHITE_DOOR_PARAM_NAME;
-		da_append(&bnd4.files, file);
-		da_free(param_sb);
-	}
 
 	// disable fog gates
 	String_Builder white_door_param_buf = {0};
@@ -3515,18 +3475,45 @@ bool disable_fog_gate(char *input_path, char *param_file_path, char *output_path
 	String_Builder wsb = {0};
 	compress_dcx(&wsb, &dcx, &bnd4_sb);
 
-	if (!write_entire_file(output_path, wsb.items, wsb.count)) return false;
+	if (!write_entire_file(OUT_FOLDER_PATH enc_reg_file_name, wsb.items, wsb.count)) return false;
 #ifdef LOG_GENERATED_FILES
-	printf("[Generated] %s\n", output_path);
+	printf("[Generated] %s\n", OUT_FOLDER_PATH enc_reg_file_name);
 #endif
 
-	da_free(out_param_sb);
 	da_free(white_door_param_buf);
 	da_free(sb);
 	free_dcx(&dcx);
 	free_bnd4(&bnd4);
 	da_free(bnd4_sb);
 	da_free(wsb);
+	return true;
+}
+
+bool disable_fog_gate_ier() {
+	String_Builder sb = {0};
+	String_Builder wsb = {0};
+	if (!nob_read_entire_file(ier_data_path"Param/"WHITE_DOOR_PARAM_NAME, &sb)) {
+		return false;
+	}
+#ifdef LOG_GENERATED_FILES
+	printf("[Read] %s: %zu bytes\n", ier_data_path"Param/"WHITE_DOOR_PARAM_NAME, sb.count);
+#endif
+	String_View sv = sb_to_sv(sb);
+	PARAM param = load_param(&sv, Cell_MapObjectWhiteDoorParam);
+	da_foreach(Cell, cell, &param.cells) {
+		cell->as.map_obj_white_door_param.key_guide_id_1 = 0; // for disabling the fog gate key guide
+		cell->as.map_obj_white_door_param.key_guide_id_2 = 0; // for disabling the fog gate key guide
+		cell->as.map_obj_white_door_param.unk04 = 0; // to diable boss gates to disappear
+	}
+	write_param(&wsb, &param);
+	if (!nob_write_entire_file(OUT_FOLDER_PATH"Param/"WHITE_DOOR_PARAM_NAME, wsb.items, wsb.count)) return false;
+#ifdef LOG_GENERATED_FILES
+	printf("[Generated] %s\n", OUT_FOLDER_PATH"Param/"WHITE_DOOR_PARAM_NAME);
+#endif
+
+	da_free(sb);
+	da_free(wsb);
+	free_PARAM(&param);
 	return true;
 }
 
@@ -6555,16 +6542,60 @@ bool delete_flat_directory(const char *dir) {
 #endif
 }
 
-#define enc_reg_file_name "enc_regulation.bnd.dcx"
+int main_test() {
+	String_Builder sb = {0};
+	String_Builder wsb = {0};
+	if (!nob_read_entire_file(ier_data_path"Param/"WHITE_DOOR_PARAM_NAME, &sb)) {
+		return false;
+	}
+	String_View sv = sb_to_sv(sb);
+	PARAM param = load_param(&sv, Cell_MapObjectWhiteDoorParam);
+	da_foreach(Cell, cell, &param.cells) {
+		cell->as.map_obj_white_door_param.key_guide_id_1 = 0; // for disabling the fog gate key guide
+		cell->as.map_obj_white_door_param.key_guide_id_2 = 0; // for disabling the fog gate key guide
+		cell->as.map_obj_white_door_param.unk04 = 0; // to diable boss gates to disappear
+	}
+	write_param(&wsb, &param);
+	if (!nob_write_entire_file(OUT_FOLDER_PATH"Param/"WHITE_DOOR_PARAM_NAME, wsb.items, wsb.count)) return 1;
+
+	da_free(sb);
+	da_free(wsb);
+	free_PARAM(&param);
+	return 0;
+	// String_Builder sb = {0};
+	// if (!nob_read_entire_file(OUT_FOLDER_PATH enc_reg_file_name".correct", &sb)) {
+	// 	return false;
+	// }
+	// BinaryReader br = sb_to_br(sb);
+	// DCX dcx = decompress_dcx(br);
+	// BND4 bnd4 = read_bnd4(&dcx);
+	// String_View sv = {.data = (const char *)bnd4.files.items[23].bytes, .count = bnd4.files.items[23].count};
+	// PARAM param = load_param(&sv, Cell_MapObjectWhiteDoorParam);
+	//
+	//
+	// String_Builder sb2 = {0};
+	// if (!nob_read_entire_file(OUT_FOLDER_PATH enc_reg_file_name".incorrect", &sb2)) {
+	// 	return false;
+	// }
+	// BinaryReader br2 = sb_to_br(sb2);
+	// DCX dcx2 = decompress_dcx(br2);
+	// BND4 bnd42 = read_bnd4(&dcx2);
+	// String_View sv2 = {.data = (const char *)bnd42.files.items[23].bytes, .count = bnd42.files.items[23].count};
+	// PARAM param2 = load_param(&sv2, Cell_MapObjectWhiteDoorParam);
+	//
+	// for (size_t i=0; i<bnd4.file_headers.count; i++) {
+	// 	printf("%zu: %s\n", i, bnd4.file_headers.items[i].name);
+	// }
+	// return 0;
+}
 
 int main() {
-	bool load_item_rando = true;
+	bool load_item_rando = false;
 
 	Editor editor = {0};
 	DS2FGR fgr = {0};
 	generate_connections();
-	// char input[128] = {0};
-	size_t count = 0;
+	// size_t count = 0;
 	while (true) {
 		size_t mark = temp_save();
 		// int seed =  1782032163; // TODO: set seed dynamically
@@ -6580,25 +6611,22 @@ int main() {
 		delete_flat_directory(OUT_FOLDER_PATH"ezstate");
 
 		if (load_item_rando) {
-			copy_directory_recursively(ier_data_path"ezstate", ier_files_path"ezstate");
-			copy_directory_recursively(ier_data_path"Param", ier_files_path"Param");
-			copy_directory_recursively(ier_data_path"sfx", ier_files_path"sfx");
-			copy_directory_recursively(ier_data_path"sound", ier_files_path"sound");
-			copy_file(ier_data_path enc_reg_file_name, ier_files_path enc_reg_file_name);
-			if (!disable_fog_gate(ier_data_path enc_reg_file_name, ier_files_path"Param/"WHITE_DOOR_PARAM_NAME, OUT_FOLDER_PATH enc_reg_file_name)) return 1;
+			if (!copy_directory_recursively(ier_data_path"ezstate", ier_files_path"ezstate")) return 1;
+			if (!copy_directory_recursively(ier_data_path"Param", ier_files_path"Param")) return 1;
+			if (!copy_directory_recursively(ier_data_path"sfx", ier_files_path"sfx")) return 1;
+			if (!copy_directory_recursively(ier_data_path"sound", ier_files_path"sound")) return 1;
+			if (!disable_fog_gate_ier()) return 1;
 		} else {
-			if (!mkdir_if_not_exists(OUT_FOLDER_PATH"Param/")) return 1;
-			if (!disable_fog_gate(fgr_data_path enc_reg_file_name, fgr_data_path"Param/"WHITE_DOOR_PARAM_NAME, OUT_FOLDER_PATH enc_reg_file_name)) return 1;
+			if (!disable_fog_gate_fgr()) return 1;
 		}
 
 		reset_editor(&editor);
 		if (!read_item_bank(&fgr.item_bank, load_item_rando, false)) return 1;
 		if (!generate_map_objects(&editor, load_item_rando)) return 1;
 		if (!randomize_warps(&editor, &fgr)) return 1;
-		// fgets(input, sizeof(input), stdin);
-		// if (strcmp(input, "q\n") == 0) break;
 		temp_rewind(mark);
-		if (count++ >= 5) break;
+		break;
+		// if (count++ >= 5) break;
 	}
 	free_editor(&editor);
 	free_ds2fgr(&fgr);
