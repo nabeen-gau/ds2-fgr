@@ -4997,6 +4997,18 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 			da_append(&ev_param.rows, row);
 			da_append(&ev_param.cells, cell);
 			ev_param.rowCount++;
+		} else if (map_name_id == TheLostBastilleBelfryLuna) { // adjust the ruin sentinels boss spawn event loc
+			for (size_t k=0; k<el_param.rows.count; k++) {
+				Row *row = &el_param.rows.items[k];
+				Cell *cell = &el_param.cells.items[k];
+				int32_t ruin_sentinels_spawn_event_loc_id = 1400000;
+				float ruin_sentinels_spawn_event_posy = -4.522f;
+				float ruin_sentinels_spawn_event_scaley = 16.0f;
+				if (row->ID == ruin_sentinels_spawn_event_loc_id) {
+					cell->as.event_loc.position.y = ruin_sentinels_spawn_event_posy;
+					cell->as.event_loc.scale.y = ruin_sentinels_spawn_event_scaley;
+				}
+			}
 		}
 
 		for (size_t i=0; i<ARRAY_LEN(warp_points); i++) {
@@ -5045,11 +5057,19 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 					Row *row = &el_param.rows.items[k];
 					Cell *cell = &el_param.cells.items[k];
 					if (row->ID == event_loc_id) {
-						cell->as.event_loc.position.x = fog_gate->part.position.x - pos_offs_event_loc.x;
-						cell->as.event_loc.position.z = fog_gate->part.position.z - pos_offs_event_loc.z;
-						cell->as.event_loc.scale.x = 1.0f;
-						cell->as.event_loc.scale.z = 1.0f;
-						cell->as.event_loc.position = v3f_move(cell->as.event_loc.position, rot, i == DarkLurkerExitFront ? 2.0f: -2.0f);
+						if (i == OldDragonslayerExitFront) {
+							// for setting the boss activation box throughout the arena
+							// fixes softlock behind large bosses at the boss exit
+							cell->as.event_loc.position.x = -151.070587f;
+							cell->as.event_loc.position.z = -0.159576f;
+							cell->as.event_loc.scale.x = 35.0f;
+						} else {
+							cell->as.event_loc.position.x = fog_gate->part.position.x - pos_offs_event_loc.x;
+							cell->as.event_loc.position.z = fog_gate->part.position.z - pos_offs_event_loc.z;
+							cell->as.event_loc.scale.x = 1.0f;
+							cell->as.event_loc.scale.z = 1.0f;
+							cell->as.event_loc.position = v3f_move(cell->as.event_loc.position, rot, i == DarkLurkerExitFront ? 2.0f: -2.0f);
+						}
 					}
 				}
 			}
@@ -6462,8 +6482,8 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 		fprintf(stderr, "Adding warps %zu/%zu\r", ++count, fgr->randomized_gates.count);
 		WarpNode j = ht_key(&fgr->randomized_gates, i);
 
-		// if (i == Tutorial1EntryFront) j = IvoryKingBack;
-		// else if (i == IvoryKingBack) j = Tutorial1EntryFront;
+		if (*i == Tutorial1EntryFront) j = ChariotExitFront;
+		else if (j == Tutorial1EntryFront) *i = ChariotExitFront;
 
 		WarpPoint *wp1 = &warp_points[*i];
 		WarpPoint *wp2 = &warp_points[j];
@@ -6590,7 +6610,7 @@ int main_test() {
 }
 
 int main() {
-	bool load_item_rando = false;
+	bool load_item_rando = true;
 
 	Editor editor = {0};
 	DS2FGR fgr = {0};
@@ -6615,6 +6635,7 @@ int main() {
 			if (!copy_directory_recursively(ier_data_path"Param", ier_files_path"Param")) return 1;
 			if (!copy_directory_recursively(ier_data_path"sfx", ier_files_path"sfx")) return 1;
 			if (!copy_directory_recursively(ier_data_path"sound", ier_files_path"sound")) return 1;
+			if (!copy_file(ier_data_path enc_reg_file_name, OUT_FOLDER_PATH enc_reg_file_name)) return 1;
 			if (!disable_fog_gate_ier()) return 1;
 		} else {
 			if (!disable_fog_gate_fgr()) return 1;
