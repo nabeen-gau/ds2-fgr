@@ -4899,6 +4899,7 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 		assert(model_index != -1);
 		assert(warp_model.name != NULL);
 		assert(warp_part.name != NULL);
+
 		// disabling the visibility of warp_part
 		for (size_t i=0; i<ARRAY_LEN(warp_part.part.draw_groups); i++) {
 			warp_part.part.draw_groups[i] = 0;
@@ -4916,6 +4917,38 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 
 		assert(warp_obj_inst_id >= 0);
 		assert(oip_insert_loc >= 0);
+
+		// fixing draw groups for fog gates
+		if (map_name_id == BrumeTower) {
+			for (size_t j=0; j<map.parts.Objects.count; j++) {
+				Part *part = &map.parts.Objects.items[j];
+				// fume knight exit gate
+				if (wcscmp(part->name, L"o00_0501_0001") == 0) {
+					part->part.draw_groups[1] = 1879048192;
+					part->part.disp_groups[1] = 1879048192;
+					break;
+				}
+			}
+			for (size_t j=0; j<obj_inst_param.rows.count; j++) {
+				Row *row = &obj_inst_param.rows.items[j];
+				// entrance to blue smeltor dungeon
+				if (row->ID == 50360640) {
+					obj_inst_param.cells.items[j].as.map_obj_instance_param.headerID = 503600;
+					break;
+				}
+			}
+		} else if (map_name_id == IronKeepBelfrySol) {
+			for (size_t j=0; j<obj_inst_param.rows.count; j++) {
+				Row *row = &obj_inst_param.rows.items[j];
+				// belfry sol exit
+				if (row->ID == 10190641) {
+					obj_inst_param.cells.items[j].as.map_obj_instance_param.headerID = 101960;
+					break;
+				}
+			}
+		}
+
+
 
 		size_t total_event_count = n_warp_points + CUTSCENES_COUNT;
 		if (map_name_id == NomansWharf || map_name_id == FrozenEleumLoyce) total_event_count++;
@@ -6486,7 +6519,7 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 	// force swap these gates
 	// for testing
 	WarpNode a = IvoryKingFront;
-	WarpNode b = IvoryKingBack;
+	WarpNode b = FumeKnightExitBack;
 
 	size_t count = 0;
 	ht_foreach(i, &fgr->randomized_gates) {
