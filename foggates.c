@@ -811,7 +811,7 @@ static WarpPoint warp_points[] = {
 	[GankSquadBossExitFront]            = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0003", .boss = Gankfight),
 	[ShulvaToGankFight1Front]           = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0005", .pvp = true),
 	[ShulvaEntranceFront]               = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0007", .pvp = true),
-	[BetweenElanaAndSihnFront]          = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0010", .offset = (V3f){0.0f, 5.0f * (74.744f - 73.291f) / 12.0f, 0.0f}),
+	[BetweenElanaAndSihnFront]          = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0008"),
 	[ShulvaToGankFight2Front]           = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0011"),
 	[NearJesterThomasFront]             = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0012", .offset = (V3f){0.0f, 41.540f - 41.289f, 0.0f}),
 
@@ -821,7 +821,7 @@ static WarpPoint warp_points[] = {
 	[GankSquadBossExitBack]             = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0003"),
 	[ShulvaToGankFight1Back]            = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0005", .pvp = true),
 	[ShulvaEntranceBack]                = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0007", .pvp = true),
-	[BetweenElanaAndSihnBack]           = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0010", .offset = (V3f){0.0f, 5.0f * (74.744f - 73.291f) / 12.0f, 0.0f}),
+	[BetweenElanaAndSihnBack]           = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0010", .offset = (V3f){0.0f, 5.0f * (74.744f - 73.291f) / 12.0f, 0.0f}, .reverse = true),
 	[ShulvaToGankFight2Back]            = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0011"),
 	[NearJesterThomasBack]              = NEW_WARP_PT(.map = ShulvaSanctumCity, .obj_id = "o00_0501_0012", .offset = (V3f){0.0f, 41.540f - 41.289f, 0.0f}),
 
@@ -2684,8 +2684,6 @@ WarpNode get_item_warp_node(size_t item_id) {
 // 6. You do not need to light the sconce in darkchasm dungeons to complete it, just kill all the enemies and exit from fog gate 
 //    to resgister it as completed dungeon
 //
-// TODO: The fog gate at the exit of elana should disappear when the boss is dead
-//       It seems the location of the foggate is messed up
 // TODO: Try to get the homies to drop in Ivory King fight
 // TODO: fix the draw group for FumeKnightExit Gate
 // TODO: the see through fog gates:

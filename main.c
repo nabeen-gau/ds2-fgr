@@ -6477,13 +6477,15 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 		printf("Unrandomized Gate: %s\n", WarpNodeNames[*wn]);
 	}
 
+	// force swap these gates
+	// for testing
+	WarpNode a = BetweenElanaAndSihnFront;
+	WarpNode b = BetweenElanaAndSihnBack;
+
 	size_t count = 0;
 	ht_foreach(i, &fgr->randomized_gates) {
 		fprintf(stderr, "Adding warps %zu/%zu\r", ++count, fgr->randomized_gates.count);
 		WarpNode j = ht_key(&fgr->randomized_gates, i);
-
-		if (*i == Tutorial1EntryFront) j = ChariotExitFront;
-		else if (j == Tutorial1EntryFront) *i = ChariotExitFront;
 
 		WarpPoint *wp1 = &warp_points[*i];
 		WarpPoint *wp2 = &warp_points[j];
@@ -6503,10 +6505,20 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 			add_esd_cutscene_trigger(esd_dst, &editor->bytecode_buf, wp1->cutscene_event_id, wp1->warp_pt_id, wn->fog_gate_id);
 		}
 
+		if (*i == a || *i == b) continue;
+		if ( j == a ||  j == b) continue;
+
 		add_esd_event(esd_src, &editor->bytecode_buf, *i, j, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
 		add_esd_event(esd_dst, &editor->bytecode_buf, j, *i, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
 	}
 	fprintf(stderr, "\n");
+
+	WarpPoint *wp1 = &warp_points[a];
+	WarpPoint *wp2 = &warp_points[b];
+	ESD *esd_src = &editor->esd_sbs.items[wp1->map].esd;
+	ESD *esd_dst = &editor->esd_sbs.items[wp2->map].esd;
+	add_esd_event(esd_src, &editor->bytecode_buf, a, b, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
+	add_esd_event(esd_dst, &editor->bytecode_buf, b, a, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
 
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
