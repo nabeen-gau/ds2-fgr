@@ -5100,7 +5100,13 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 				size_t ep_id2 = event_param_id++;
 				add_event_param_warpobj(&ev_param, ep_id2, woi_id2);
 				size_t wp1 = warp_point_begin++;
-				add_event_loc_warpobj(&el_param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
+
+				// Fix for the homies for ivory king battle
+				if (wp->map == FrozenEleumLoyce && wp->fog_gate_id == 50370605) {
+					add_event_loc_warpobj(&el_param, wp1, v3f_sub((V3f){211.0f, -4.6f, -50.4f}, pos_offs_event_loc), rot, el_insert_loc++);
+				} else {
+					add_event_loc_warpobj(&el_param, wp1, v3f_move(v3f_sub(pos, pos_offs_event_loc), rot, -1.0f), rot, el_insert_loc++);
+				}
 
 				wp->warp_pt_id = wp1;
 				wp->event_param_id = ep_id2;
@@ -6479,8 +6485,8 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 
 	// force swap these gates
 	// for testing
-	WarpNode a = BetweenElanaAndSihnFront;
-	WarpNode b = BetweenElanaAndSihnBack;
+	WarpNode a = IvoryKingFront;
+	WarpNode b = IvoryKingBack;
 
 	size_t count = 0;
 	ht_foreach(i, &fgr->randomized_gates) {

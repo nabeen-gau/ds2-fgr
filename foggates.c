@@ -2684,7 +2684,6 @@ WarpNode get_item_warp_node(size_t item_id) {
 // 6. You do not need to light the sconce in darkchasm dungeons to complete it, just kill all the enemies and exit from fog gate 
 //    to resgister it as completed dungeon
 //
-// TODO: Try to get the homies to drop in Ivory King fight
 // TODO: fix the draw group for FumeKnightExit Gate
 // TODO: the see through fog gates:
 //			- Belfry luna before ringing the bell (don't know how it should be fixed)
