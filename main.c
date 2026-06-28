@@ -12,14 +12,18 @@
 
 #define COMPRESSION_ALLOC_SIZE 10*1024*1024
 
-#define OUT_FOLDER_PATH "output/"
-
 // where to load the param/map/esd files from
 #define fgr_data_path  "./data/"
+// where to copy the randomizer files from
+#ifdef RELEASE
+#define ier_data_path "../randomizer/"
+#define OUT_FOLDER_PATH ""
+#else
+#define ier_data_path "./.itemrando/randomizer/"
+#define OUT_FOLDER_PATH "output/"
+#endif
 // this is OUT_FOLDER_PATH because ierando files will be copied to this path
 #define ier_files_path OUT_FOLDER_PATH
-// where to copy the randomizer files from
-#define ier_data_path "./.itemrando/randomizer/"
 
 // [          FILE        ]
 // [Header][ModelInfo][...]
@@ -6868,7 +6872,9 @@ int start_randomization(bool load_item_rando, int seed) {
 	srand(seed);
 	printf("Current Seed: %d\n", seed);
 
+#ifndef RELEASE
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
+#endif
 
 	delete_flat_directory(OUT_FOLDER_PATH"sound");
 	delete_flat_directory(OUT_FOLDER_PATH"sfx");

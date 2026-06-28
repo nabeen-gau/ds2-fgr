@@ -10,11 +10,12 @@
 #define WINDOW_HEIGHT 400
 
 #define BTN_HEIGHT 30
-#define MARGIN_Y 20
+#define MARGIN_Y 10
 
 HWND hSeedEdit;
 HWND hBeginBtn;
 HWND hItemCheck;
+HWND hStatusLabel;
 HBRUSH hDarkBrush;
 
 // will be linked during compilation
@@ -23,11 +24,32 @@ void init_rando();
 void deinit_rando();
 
 DWORD WINAPI RandomizeTask(LPVOID lpParam) {
+	HWND hwnd = (HWND)lpParam;
+
 	char seedStr[16];
     GetWindowText(hSeedEdit, seedStr, sizeof(seedStr));
     int seed = atoi(seedStr);
 	BOOL load_item_rando = (SendMessage(hItemCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
-	start_randomization(load_item_rando, seed);
+	if (load_item_rando) {
+		DWORD fileAttr = GetFileAttributes("..\\randomizer\\DS2SRandomizer.exe");
+        
+        if (fileAttr == INVALID_FILE_ATTRIBUTES) {
+            // File is missing! Show dialog, unlock button, and abort thread.
+            MessageBox(hwnd, 
+                       "Item rando is not installed. Ensure DS2SRandomizer.exe is in the (GameFolder)/randomizer/ folder. Uncheck the load item randomizer button to proceed.", 
+                       "Missing File Error", 
+                       MB_ICONERROR | MB_OK);
+                       
+			SetWindowText(hStatusLabel, "Status: Ready");
+            EnableWindow(hBeginBtn, TRUE);
+            return 1; // Exit thread early
+        }
+	}
+	if (start_randomization(load_item_rando, seed) == 0) {
+		SetWindowText(hStatusLabel, "Status: Randomization Complete!");
+	} else {
+		SetWindowText(hStatusLabel, "Status: Randomization Failed!");
+	}
 	EnableWindow(hBeginBtn, TRUE);
     return 0;
 }
@@ -40,11 +62,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             DwmSetWindowAttribute(hwnd, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &dark, sizeof(dark));
 
 			int currentY = (WINDOW_HEIGHT / 2) - 100;
-			int chkWidth = 250;
+			int chkWidth = 275;
             int chkX = (WINDOW_WIDTH - chkWidth) / 2;
 
             // 2. Checkbox for item randomizer
-            hItemCheck = CreateWindow("BUTTON", "Include Item Randomizer", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 
+            hItemCheck = CreateWindow("BUTTON", "Include Item and Enemy Randomizer", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 
                          10, 10, chkWidth, BTN_HEIGHT, hwnd, NULL, NULL, NULL);
 
 			currentY += BTN_HEIGHT + MARGIN_Y;
@@ -68,6 +90,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             hBeginBtn = CreateWindow("BUTTON", "Start Randomization", WS_CHILD | WS_VISIBLE, 
                          beginX, currentY, beginWidth, 45, hwnd, (HMENU)2, NULL, NULL);
 
+			hStatusLabel = CreateWindow("STATIC", "Status: Ready", WS_CHILD | WS_VISIBLE | SS_CENTER, 
+                                    0, WINDOW_HEIGHT - 80, WINDOW_WIDTH, 20, hwnd, NULL, NULL, NULL);
+
 			char savedSeed[16];
             GetPrivateProfileString("Config", "Seed", "666666", savedSeed, sizeof(savedSeed), ".\\settings.ini");
             SetWindowText(hSeedEdit, savedSeed);
@@ -88,8 +113,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 SetWindowText(hSeedEdit, seedStr);
             } else if (LOWORD(wParam) == 2) { 
 				EnableWindow(hBeginBtn, FALSE);
+				SetWindowText(hStatusLabel, "Status: Randomizing...");
                 // Begin randomize button clicked
-                CreateThread(NULL, 0, RandomizeTask, NULL, 0, NULL);
+                CreateThread(NULL, 0, RandomizeTask, (LPVOID)hwnd, 0, NULL);
             }
             break;
 
@@ -129,10 +155,11 @@ int main() {
     wc.hInstance = GetModuleHandle(NULL);
     wc.hbrBackground = hDarkBrush;
     wc.lpszClassName = "RandApp";
+	wc.hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE(101));
     RegisterClass(&wc);
 
     // Create a fixed-size, non-resizable window
-    HWND hwnd = CreateWindow("RandApp", "DS2S-FGR", 
+    HWND hwnd = CreateWindow("RandApp", "DS2S Fog Gate Randomizer by nabeen", 
                              WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE, 
                              100, 100, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, wc.hInstance, 0);
 
