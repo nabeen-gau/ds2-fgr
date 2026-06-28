@@ -5070,7 +5070,7 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 					Row *row = &obj_inst_param.rows.items[k];
 					if (row->ID == wp->fog_gate_id) {
 						Cell *cell = &obj_inst_param.cells.items[k];
-						cell->as.map_obj_instance_param.headerID = 100450;
+						cell->as.map_obj_instance_param.headerID = 103200;
 						cell->as.map_obj_instance_param.Unk04 = 6;
 						break;
 					}
@@ -5150,6 +5150,27 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 					add_event_param_cutscene_trigger(&ev_param, wp->cutscene_event_id);
 				}
 
+			}
+		}
+
+		// special fixes for weird foggates
+		if (map_name_id == Majula) {
+			for (size_t j=0; j<map.parts.Objects.count; j++) {
+				Part *part = &map.parts.Objects.items[j];
+				// majula to shaded woods
+				if (wcscmp(part->name, L"o00_0502_0103") == 0) {
+					part->part.position.y = 14.380;
+					break;
+				}
+			}
+		} else if (map_name_id == UndeadCrypt) {
+			for (size_t j=0; j<map.parts.Objects.count; j++) {
+				Part *part = &map.parts.Objects.items[j];
+				// entrance to undead crypt
+				if (wcscmp(part->name, L"o00_0502_0000") == 0) {
+					part->part.position.y = -142.539;
+					break;
+				}
 			}
 		}
 
