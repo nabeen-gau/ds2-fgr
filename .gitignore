@@ -6,3 +6,6 @@ test.c
 /other/ChangeLog.md
 /other/examples/
 item_info.c
+*.o
+*.ini
+*.html

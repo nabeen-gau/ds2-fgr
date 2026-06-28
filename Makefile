@@ -16,9 +16,6 @@ DS2FGR: $(DEPS)
 pdb: $(DEPS)
 	./llvm-mingw-20260616-msvcrt-x86_64/llvm-mingw-20260616-msvcrt-x86_64/bin/gcc.exe $(CFLAGS) $(CPPFLAGS) -Wl,--pdb=DS2FGR.pdb -o DS2FGR $(SOURCES)
 
-release: $(DEPS)
-	gcc -O3 $(WFLAGS) $(CPPFLAGS) -o DS2FGR $(SOURCES)
-
 test: test.c
 	gcc -ggdb -Wall -Wextra -Iother -o test test.c other/miniz.c
 
@@ -31,5 +28,11 @@ map.svg: map.dot
 fgr: main.c
 	gcc -c main.c $(WFLAGS) $(CPPFLAGS) -o fgr.o
 
+fgr-release: main.c
+	gcc -O3 -c main.c $(WFLAGS) $(CPPFLAGS) -o fgr.o
+
 ui: ui.c fgr
 	gcc ui.c fgr.o $(MINIZ) -o DS2FGR -ldwmapi -lgdi32
+
+release: ui.c fgr-release
+	gcc -O3 ui.c fgr.o $(MINIZ) -o DS2FGR -ldwmapi -lgdi32
