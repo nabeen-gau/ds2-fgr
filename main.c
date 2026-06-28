@@ -6539,8 +6539,8 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 
 	// force swap these gates
 	// for testing
-	WarpNode a = IvoryKingFront;
-	WarpNode b = FumeKnightExitBack;
+	WarpNode a = __WarpNodeCount;
+	WarpNode b = __WarpNodeCount;
 
 	size_t count = 0;
 	ht_foreach(i, &fgr->randomized_gates) {
@@ -6573,12 +6573,14 @@ bool randomize_warps(Editor *editor, DS2FGR *fgr) {
 	}
 	fprintf(stderr, "\n");
 
-	WarpPoint *wp1 = &warp_points[a];
-	WarpPoint *wp2 = &warp_points[b];
-	ESD *esd_src = &editor->esd_sbs.items[wp1->map].esd;
-	ESD *esd_dst = &editor->esd_sbs.items[wp2->map].esd;
-	add_esd_event(esd_src, &editor->bytecode_buf, a, b, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
-	add_esd_event(esd_dst, &editor->bytecode_buf, b, a, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
+	 if (a != __WarpNodeCount && b != __WarpNodeCount) {
+		WarpPoint *wp1 = &warp_points[a];
+		WarpPoint *wp2 = &warp_points[b];
+		ESD *esd_src = &editor->esd_sbs.items[wp1->map].esd;
+		ESD *esd_dst = &editor->esd_sbs.items[wp2->map].esd;
+		add_esd_event(esd_src, &editor->bytecode_buf, a, b, wp2->map, wp1->event_param_id, wp1->warp_obj_inst_id, wp2->warp_pt_id, wp1->boss, ship_arrival_msg_id);
+		add_esd_event(esd_dst, &editor->bytecode_buf, b, a, wp1->map, wp2->event_param_id, wp2->warp_obj_inst_id, wp1->warp_pt_id, wp2->boss, ship_arrival_msg_id);
+	}
 
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"ezstate/")) return false;
 	for (MapName map_name_id=ThingsBetwixt; map_name_id<__MapNameCount; map_name_id++) {
@@ -6681,50 +6683,216 @@ int main_test() {
 	// return 0;
 }
 
-int main() {
-	bool load_item_rando = true;
+void export_to_graphviz(DS2FGR *fgr, String_Builder *sb) {
+    sb_appendf(sb, "digraph DS2FGR {\n");
+    // Styling to make it look clean and readable
+    sb_appendf(sb, "    backgroundcolor=\"#1e1e1e\";\n");
+    sb_appendf(sb, "    node [shape=box, style=filled, fillcolor=\"#202020\", color=\"#569cd6\", fontcolor=\"#dcdcdc\", fontname=\"Arial\"];\n");
+    sb_appendf(sb, "    edge [color=\"#ff0000\", arrowhead=vee, arrowsize=1.5];\n");
+    sb_appendf(sb, "    rankdir=LR;\n"); 
+    sb_appendf(sb, "    concentrate=true;\n"); 
+    sb_appendf(sb, "    overlap=false;\n\n");  
 
-	Editor editor = {0};
-	DS2FGR fgr = {0};
-	generate_connections();
-	// size_t count = 0;
-	while (true) {
-		size_t mark = temp_save();
-		// int seed =  1782032163; // TODO: set seed dynamically
-		int seed = time(NULL);
-		srand(seed);
-		printf("Current Seed: %d\n", seed);
+    x2_reset(&fgr->visited);
+    for (WarpNode i=AllConnectionsStart; i<=AllConnectionsEnd; i++) {
+        ConnectionGroup *cg = &fgr->conns.items[i];
+        
+        if (cg->count == 0) continue; 
 
-		if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
+        x2_append(&fgr->visited, i);
 
-		delete_flat_directory(OUT_FOLDER_PATH"sound");
-		delete_flat_directory(OUT_FOLDER_PATH"sfx");
-		delete_flat_directory(OUT_FOLDER_PATH"Param");
-		delete_flat_directory(OUT_FOLDER_PATH"ezstate");
+        // OPTIONAL: Tell Vis.js these nodes belong to the same group 
+        // (This changes their color to match and helps the physics engine cluster them)
+        sb_appendf(sb, "    \"%s\" [group=\"%s\"];\n", WarpNodeNames[i], WarpNodeNames[i]);
 
-		if (load_item_rando) {
-			if (!copy_directory_recursively(ier_data_path"ezstate", ier_files_path"ezstate")) return 1;
-			if (!copy_directory_recursively(ier_data_path"Param", ier_files_path"Param")) return 1;
-			if (!copy_directory_recursively(ier_data_path"sfx", ier_files_path"sfx")) return 1;
-			if (!copy_directory_recursively(ier_data_path"sound", ier_files_path"sound")) return 1;
-			if (!copy_file(ier_data_path enc_reg_file_name, OUT_FOLDER_PATH enc_reg_file_name)) return 1;
-			if (!disable_fog_gate_ier()) return 1;
-		} else {
-			if (!disable_fog_gate_fgr()) return 1;
-		}
+        // Print edges directly at the root level so Vis.js can parse them
+        for (size_t j=0; j<cg->count; j++) {
+            sb_appendf(sb, "    \"%s\" -> \"%s\";\n", WarpNodeNames[i], WarpNodeNames[cg->items[j].to]);
+            x2_append(&fgr->visited, cg->items[j].to);
+            
+            // Assign the target node to the same group so they cluster together
+            sb_appendf(sb, "    \"%s\" [group=\"%s\"];\n", WarpNodeNames[cg->items[j].to], WarpNodeNames[i]);
+        }
+    }
 
-		reset_editor(&editor);
-		if (!read_item_bank(&fgr.item_bank, load_item_rando, false)) return 1;
-		if (!generate_map_objects(&editor, load_item_rando)) return 1;
-		if (!randomize_warps(&editor, &fgr)) return 1;
-		temp_rewind(mark);
-		break;
-		// if (count++ >= 5) break;
+    sb_appendf(sb, "}\n");
+}
+
+void export_to_interactive_html(DS2FGR *fgr, String_Builder *sb) {
+    // 1. Print the HTML and JS library setup
+    sb_appendf(sb, "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n");
+    sb_appendf(sb, "    <meta charset=\"UTF-8\">\n");
+    sb_appendf(sb, "    <title>Dark Souls Randomizer Map</title>\n");
+    sb_appendf(sb, "    <script src=\"https://unpkg.com/vis-network/standalone/umd/vis-network.min.js\"></script>\n");
+    sb_appendf(sb, "    <style>\n");
+    sb_appendf(sb, "        body { margin: 0; padding: 0; background-color: #1e1e1e; font-family: Arial, sans-serif; }\n");
+    sb_appendf(sb, "        #mynetwork { width: 100vw; height: 100vh; }\n");
+    // Search UI styling
+    sb_appendf(sb, "        #search-container { position: absolute; top: 20px; left: 20px; z-index: 10; }\n");
+    sb_appendf(sb, "        #search-input { padding: 10px 15px; width: 250px; background-color: #2d2d2d; color: #dcdcdc; border: 1px solid #569cd6; border-radius: 4px; outline: none; }\n");
+    sb_appendf(sb, "        #search-input::placeholder { color: #888888; }\n");
+    sb_appendf(sb, "        #search-input:focus { border-color: #4ec9b0; }\n");
+    sb_appendf(sb, "    </style>\n");
+    sb_appendf(sb, "</head>\n<body>\n");
+    
+    // Add Search Input Element
+    sb_appendf(sb, "<div id=\"search-container\">\n");
+    sb_appendf(sb, "    <input type=\"text\" id=\"search-input\" placeholder=\"Search for a location...\">\n");
+    sb_appendf(sb, "</div>\n");
+
+    sb_appendf(sb, "<div id=\"mynetwork\"></div>\n");
+    
+    // 2. Start the JS string literal for the DOT data
+    sb_appendf(sb, "<script type=\"text/javascript\">\n");
+    sb_appendf(sb, "const dotString = `\n");
+    export_to_graphviz(fgr, sb);
+    sb_appendf(sb, "`;\n\n");
+    sb_appendf(sb, "const container = document.getElementById('mynetwork');\n");
+    
+    // Updated parser syntax
+    sb_appendf(sb, "const parsedData = vis.networkDOTParser.parseDOT(dotString);\n");
+    sb_appendf(sb, "parsedData.nodes.forEach(node => { node.label = node.id; });\n");
+    sb_appendf(sb, "const data = { nodes: parsedData.nodes, edges: parsedData.edges };\n");
+    
+    // Apply styling, layout fixes, and physics config
+    sb_appendf(sb, "const options = {\n");
+    sb_appendf(sb, "    layout: { improvedLayout: false },\n");
+    sb_appendf(sb, "    physics: {\n");
+    sb_appendf(sb, "        barnesHut: { gravitationalConstant: -2000, centralGravity: 0.1, springLength: 200 }\n");
+    sb_appendf(sb, "    },\n");
+    sb_appendf(sb, "    nodes: {\n");
+    sb_appendf(sb, "        shape: 'box',\n");
+    sb_appendf(sb, "        color: { background: '#2d2d2d', border: '#569cd6', highlight: { background: '#4ec9b0', border: '#ffffff' } },\n");
+    sb_appendf(sb, "        font: { color: '#dcdcdc', face: 'Arial' }\n");
+    sb_appendf(sb, "    },\n");
+    sb_appendf(sb, "    edges: {\n");
+    sb_appendf(sb, "        color: { color: '#9cdcfe', highlight: '#4ec9b0', inherit: false },\n");
+    sb_appendf(sb, "        smooth: { type: 'continuous' }\n");
+    sb_appendf(sb, "    }\n");
+    sb_appendf(sb, "};\n");
+    
+    sb_appendf(sb, "const network = new vis.Network(container, data, options);\n\n");
+
+    // 3. Smart Tokenized Search Logic
+    sb_appendf(sb, "const searchInput = document.getElementById('search-input');\n");
+    sb_appendf(sb, "searchInput.addEventListener('input', function(e) {\n");
+    sb_appendf(sb, "    const rawTerm = e.target.value.toLowerCase().trim();\n");
+    sb_appendf(sb, "    if (!rawTerm) {\n");
+    sb_appendf(sb, "        network.unselectAll();\n"); // Clear selection if empty
+    sb_appendf(sb, "        return;\n");
+    sb_appendf(sb, "    }\n");
+    
+    // Split the user's search into an array of words
+    sb_appendf(sb, "    const searchTokens = rawTerm.split(' ').filter(t => t.length > 0);\n");
+
+    // Find nodes that contain ALL the words the user typed
+    sb_appendf(sb, "    let matches = parsedData.nodes.filter(n => {\n");
+    sb_appendf(sb, "        const name = (n.label || n.id).toLowerCase();\n");
+    sb_appendf(sb, "        return searchTokens.every(token => name.includes(token));\n");
+    sb_appendf(sb, "    });\n");
+
+    // Sort to find the best possible match
+    sb_appendf(sb, "    if (matches.length > 0) {\n");
+    sb_appendf(sb, "        matches.sort((a, b) => {\n");
+    sb_appendf(sb, "            const nameA = (a.label || a.id).toLowerCase();\n");
+    sb_appendf(sb, "            const nameB = (b.label || b.id).toLowerCase();\n");
+    
+    // Rule 1: Exact match (ignoring spaces entirely as a fallback)
+    sb_appendf(sb, "            const termNoSpaces = rawTerm.replaceAll(' ', '');\n");
+    sb_appendf(sb, "            const aExact = nameA.replaceAll(' ', '') === termNoSpaces;\n");
+    sb_appendf(sb, "            const bExact = nameB.replaceAll(' ', '') === termNoSpaces;\n");
+    sb_appendf(sb, "            if (aExact && !bExact) return -1;\n");
+    sb_appendf(sb, "            if (!aExact && bExact) return 1;\n");
+
+    // Rule 2: \"Starts with\" the first word the user typed
+    sb_appendf(sb, "            const aStarts = nameA.startsWith(searchTokens[0]);\n");
+    sb_appendf(sb, "            const bStarts = nameB.startsWith(searchTokens[0]);\n");
+    sb_appendf(sb, "            if (aStarts && !bStarts) return -1;\n");
+    sb_appendf(sb, "            if (!aStarts && bStarts) return 1;\n");
+
+    // Rule 3: Tie-breaker - shortest string wins (fewer extra characters)
+    sb_appendf(sb, "            return nameA.length - nameB.length;\n");
+    sb_appendf(sb, "        });\n");
+
+    // Focus and highlight the best match
+    sb_appendf(sb, "        const bestMatch = matches[0];\n");
+    sb_appendf(sb, "        network.focus(bestMatch.id, {\n");
+    sb_appendf(sb, "            scale: 1.2,\n");
+    sb_appendf(sb, "            animation: { duration: 400, easingFunction: 'easeInOutQuad' }\n");
+    sb_appendf(sb, "        });\n");
+    sb_appendf(sb, "        network.selectNodes([bestMatch.id]);\n");
+    sb_appendf(sb, "    }\n");
+    sb_appendf(sb, "});\n");
+
+    sb_appendf(sb, "</script>\n</body>\n</html>\n");
+}
+
+bool generate_graph(DS2FGR *fgr) {
+	String_Builder sb = {0};
+	export_to_interactive_html(fgr, &sb);
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"log/")) return false;
+	size_t mark = temp_save();
+	long long int t = time(NULL);
+	char *tg = temp_sprintf(OUT_FOLDER_PATH"log/""%lld-graph-log.html", t);
+	if (!write_entire_file(tg, sb.items, sb.count)) return false;
+	printf("Generated graph-log at %s\n", tg);
+	sb.count = 0;
+	sb_appendf(&sb, "INFO: suffix Front and Back below specify either side of the fog gate\nFront usually means the way you usually encounter the fog gate while traversing the game normally\nBack  is the opposite side of Front.\n\n");
+	ht_foreach(value, &fgr->randomized_gates) {
+		sb_appendf(&sb, "%s - %s\n", WarpNodeNames[ht_key(&fgr->randomized_gates, value)], WarpNodeNames[*value]);
 	}
+	char *tt = temp_sprintf(OUT_FOLDER_PATH"log/""%lld-conn-log.txt", t);
+	if (!write_entire_file(tt, sb.items, sb.count)) return false;
+	printf("Generated text-log at %s\n", tt);
+	da_free(sb);
+	temp_rewind(mark);
+	return true;
+}
+
+Editor editor = {0};
+DS2FGR fgr = {0};
+
+void init_rando() {
+	generate_connections();
+}
+
+void deinit_rando() {
 	free_editor(&editor);
 	free_ds2fgr(&fgr);
 	free_connections();
 	printf("Exit.\n");
+}
 
+int start_randomization(bool load_item_rando, int seed) {
+	size_t mark = temp_save();
+	srand(seed);
+	printf("Current Seed: %d\n", seed);
+
+	if (!mkdir_if_not_exists(OUT_FOLDER_PATH)) return 1;
+
+	delete_flat_directory(OUT_FOLDER_PATH"sound");
+	delete_flat_directory(OUT_FOLDER_PATH"sfx");
+	delete_flat_directory(OUT_FOLDER_PATH"Param");
+	delete_flat_directory(OUT_FOLDER_PATH"ezstate");
+
+	if (load_item_rando) {
+		if (!copy_directory_recursively(ier_data_path"ezstate", ier_files_path"ezstate")) return 1;
+		if (!copy_directory_recursively(ier_data_path"Param", ier_files_path"Param")) return 1;
+		if (!copy_directory_recursively(ier_data_path"sfx", ier_files_path"sfx")) return 1;
+		if (!copy_directory_recursively(ier_data_path"sound", ier_files_path"sound")) return 1;
+		if (!copy_file(ier_data_path enc_reg_file_name, OUT_FOLDER_PATH enc_reg_file_name)) return 1;
+		if (!disable_fog_gate_ier()) return 1;
+	} else {
+		if (!disable_fog_gate_fgr()) return 1;
+	}
+
+	reset_editor(&editor);
+	if (!read_item_bank(&fgr.item_bank, load_item_rando, false)) return 1;
+	if (!generate_map_objects(&editor, load_item_rando)) return 1;
+	if (!randomize_warps(&editor, &fgr)) return 1;
+
+	generate_graph(&fgr);
+
+	temp_rewind(mark);
 	return 0;
 }

@@ -2682,5 +2682,5 @@ WarpNode get_item_warp_node(size_t item_id) {
 // 4. You can drop from the bonfire in 3. to access other parts of earthen peak
 // 5. In shulva after gank fight foggate you can drop and explore whole initial shulva section
 // 6. You do not need to light the sconce in darkchasm dungeons to complete it, just kill all the enemies and exit from fog gate 
-//    to resgister it as completed dungeon
+//    to register it as completed dungeon
 //

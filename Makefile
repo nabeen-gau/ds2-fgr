@@ -1,9 +1,11 @@
-CFLAGS := -ggdb -Wall -Wextra -Wno-unused-function -Wno-initializer-overrides
+WFLAGS := -Wall -Wextra -Wno-unused-function -Wno-initializer-overrides
+CFLAGS := -ggdb $(WFLAGS)
 CPPFLAGS := -Iother
-DEPS := item_info.c other/miniz.c
-SOURCES := main.c other/miniz.c
+MINIZ := other/miniz.c
+DEPS := item_info.c $(MINIZ)
+SOURCES := main.c $(MINIZ)
 
-all: DS2FGR
+all: ui
 
 item_info.c: data/item-lot.txt reformat-item-info.py
 	python reformat-item-info.py
@@ -15,7 +17,7 @@ pdb: $(DEPS)
 	./llvm-mingw-20260616-msvcrt-x86_64/llvm-mingw-20260616-msvcrt-x86_64/bin/gcc.exe $(CFLAGS) $(CPPFLAGS) -Wl,--pdb=DS2FGR.pdb -o DS2FGR $(SOURCES)
 
 release: $(DEPS)
-	gcc -O3 -Wno-unused-function -Wno-initializer-overrides $(CPPFLAGS) -o DS2FGR $(SOURCES)
+	gcc -O3 $(WFLAGS) $(CPPFLAGS) -o DS2FGR $(SOURCES)
 
 test: test.c
 	gcc -ggdb -Wall -Wextra -Iother -o test test.c other/miniz.c
@@ -25,3 +27,9 @@ dump-esd: dump-esd.c
 
 map.svg: map.dot
 	other\Graphviz-14.1.5-win64\bin\dot.exe -Tsvg map.dot -o map.svg
+
+fgr: main.c
+	gcc -c main.c $(WFLAGS) $(CPPFLAGS) -o fgr.o
+
+ui: ui.c fgr
+	gcc ui.c fgr.o $(MINIZ) -o DS2FGR -ldwmapi -lgdi32
