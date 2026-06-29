@@ -10,3 +10,4 @@ item_info.c
 *.ini
 *.html
 *.res
+/bin
