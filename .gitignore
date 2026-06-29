@@ -9,4 +9,4 @@ item_info.c
 *.o
 *.ini
 *.html
-*.rc
+*.res
