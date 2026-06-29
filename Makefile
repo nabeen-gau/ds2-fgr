@@ -45,7 +45,4 @@ release: ui.c fgr-release
 	xcopy /s /q /i /y "data" ".\bin\mod\data"
 
 zip: release
-	cd bin && zip -r DS2FGR.zip mod/DS2FGR.exe mod/data/map/ mod/data/menu/ mod/data/Param/ mod/data/ezstate/ dinput8.dll modengine.ini
-
-
-
+	cd bin && zip -r DS2FGR.zip mod/DS2FGR.exe mod/data/enc_regulation.bnd.dcx mod/data/map/ mod/data/menu/ mod/data/Param/ mod/data/ezstate/ dinput8.dll modengine.ini
