@@ -28,10 +28,10 @@ dump-esd: dump-esd.c
 map.svg: map.dot
 	other\Graphviz-14.1.5-win64\bin\dot.exe -Tsvg map.dot -o map.svg
 
-fgr: main.c resource.res
+fgr: main.c resource.res item_info.c
 	gcc -c main.c $(WFLAGS) $(CPPFLAGS) -o fgr.o
 
-fgr-release: main.c resource.res
+fgr-release: main.c resource.res item_info.c
 	gcc -O3 -DRELEASE -c main.c $(WFLAGS) $(CPPFLAGS) -o fgr.o
 
 ui: ui.c fgr
