@@ -2867,31 +2867,6 @@ typedef packed_struct {
     s32 compressed_header_length;
 } DCX_Header;
 
-typedef struct {
-	uint8_t *data;
-	size_t position;
-	size_t length;
-} BinaryReader;
-
-BinaryReader sb_to_br(String_Builder sb) {
-	return (BinaryReader) {
-		.data = (void *)sb.items,
-		.length = sb.count,
-		.position = 0
-	};
-}
-
-#define br_read(br, type) *(type *)((br)->data + (br)->position); (br)->position += sizeof(type);
-#define br_head(br) (void *)((br)->data + (br)->position)
-#define br_rem_bytes(br) (br)->length - (br)->position
-#define br_at(br, offset) (void *)((br)->data + offset)
-#define br_assert(br, type, value) \
-	do {\
-		type __i__ = br_read((br), type);\
-		assert(__i__ == (value));\
-	} while (0)
-
-
 // initialize the dst before passsing here
 bool inflate_zlib(String_View src, String_Builder *dst) {
     z_stream stream = {0};

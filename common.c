@@ -143,4 +143,28 @@ void sb_append_utf16t(String_Builder *sb, utf16_t *str) {
 	sb->count += name_size;
 }
 
+typedef struct {
+	uint8_t *data;
+	size_t position;
+	size_t length;
+} BinaryReader;
+
+BinaryReader sb_to_br(String_Builder sb) {
+	return (BinaryReader) {
+		.data = (uint8_t *)sb.items,
+		.position = 0,
+		.length = sb.count,
+	};
+}
+
+#define br_read(br, type) *(type *)((br)->data + (br)->position); (br)->position += sizeof(type);
+#define br_head(br) (void *)((br)->data + (br)->position)
+#define br_rem_bytes(br) (br)->length - (br)->position
+#define br_at(br, offset) (void *)((br)->data + offset)
+#define br_assert(br, type, value) \
+	do {\
+		type __i__ = br_read((br), type);\
+		assert(__i__ == (value));\
+	} while (0)
+
 #endif
