@@ -18,6 +18,22 @@ BinaryReader br = {0};
 		}\
 	} while (0)
 
+#define da_read_arg(da, n, f, arg) \
+	do {\
+		da_init((da), (n));\
+		for (size_t i=0; i<(size_t)(n); i++) {\
+			da_append((da), f(arg));\
+		}\
+	} while (0)
+
+#define da_read_null(da, n, f, arg) \
+	do {\
+		da_init((da), (n));\
+		for (size_t i=0; i<(size_t)(n); i++) {\
+			f(arg);\
+		}\
+	} while (0)
+
 typedef struct {
     int unk00;
     // Many fields like this appear to just be padding in 64-bit,
@@ -108,16 +124,6 @@ void texture_free(Texture *t) {
 
 DA(Texture, DATexture);
 
-Texture read_texture() {
-	Texture t = {0};
-	t.texture = br_read(&br, TextureHeader);
-    assert(t.texture.unk0A == 0);
-    assert(t.texture.unk0C == 0);
-    assert(t.texture.unk12 == 0);
-	t.name = (const char *)(br.data + t.texture.name_offset);
-	return t;
-}
-
 typedef struct {
     V2f position;
     V2f scale;
@@ -139,35 +145,12 @@ typedef struct {
 
 typedef struct {
 	SpriteHeader header;
-	Texture texture;
+	size_t texture_idx;
     TexRegion texRegion;
 } Sprite;
 
 void sprite_free(Sprite *s) {
-	texture_free(&s->texture);
 	tex_region_free(&s->texRegion);
-}
-
-Sprite read_sprite() {
-	Sprite sprite = {0};
-	sprite.header = br_read(&br, SpriteHeader);
-    assert(sprite.header.unk18 == -1);
-#ifdef VARINT_LONG
-	assert(sprite.header.pad1C == 0);
-#endif
-    assert(sprite.header.unk2A == 0);
-#ifdef VARINT_LONG
-	assert(sprite.header.pad2C == 0);
-#endif
-    assert(sprite.header.unk38 == 0);
-    assert(sprite.header.unk3C == 0);
-	size_t pos = br.position;
-    FSeek(sprite.header.textureOffset);
-	sprite.texture = read_texture();
-    FSeek(sprite.header.texRegionOffset);
-    sprite.texRegion = read_tex_region();
-    FSeek(pos);
-	return sprite;
 }
 
 DA(Sprite, DASprite);
@@ -193,21 +176,6 @@ void sprite_set_free(SpriteSet *ss) {
 		sprite_free(s);
 	}
 	da_free(ss->sprites);
-}
-
-SpriteSet read_sprite_set() {
-	SpriteSet ss = {0};
-	ss.header = br_read(&br, SpriteSetHeader);
-#ifdef VARINT_LONG
-	assert(ss.header.pad04 == 0);
-#endif
-	assert(ss.header.unk10 == 0);
-	assert(ss.header.unk14 == 0);
-	size_t pos = br.position;
-	FSeek(ss.header.spritesOffset);
-	da_read(&ss.sprites, ss.header.spriteCount, read_sprite);
-	FSeek(pos);
-	return ss;
 }
 
 typedef struct {
@@ -392,21 +360,6 @@ void animator_free(Animator *a) {
 	da_free(a->frames);
 }
 
-Animator read_animator() {
-	Animator a = {0};
-	a.header = br_read(&br, AnimatorHeader);
-#ifdef VARINT_LONG
-	assert(a.header.pad04 == 0);
-#endif
-    assert(a.header.unk20 == 0);
-    assert(a.header.unk24 == 0);
-	size_t pos = br.position;
-	FSeek(a.header.framesOffset);
-	da_read(&a.frames, a.header.frameCount, read_frame);
-	FSeek(pos);
-	return a;
-}
-
 typedef struct {
     short id;
     short animatorCount;
@@ -431,7 +384,7 @@ typedef struct {
 
 typedef struct {
 	NodeHeader header;
-	DAAnimator animators;
+	DArrz animator_idx;
 	NodeListA nodeListA;
 	NodeListB nodeListB;
 } Node;
@@ -439,38 +392,9 @@ typedef struct {
 DA(Node, DANode);
 
 void node_free(Node *n) {
-	da_foreach(Animator, a, &n->animators) {
-		animator_free(a);
-	}
-	da_free(n->animators);
+	da_free(n->animator_idx);
 	node_list_a_free(&n->nodeListA);
 	node_list_b_free(&n->nodeListB);
-}
-
-Node read_node() {
-	Node node = {0};
-	node.header = br_read(&br, NodeHeader);
-    assert(node.header.unk14 == 1);
-    assert(node.header.unk16 == 0);
-    assert(node.header.unk28 == 0);
-    assert(node.header.unk2C == 0);
-    assert(node.header.unk30 == 0);
-    assert(node.header.unk34 == 0);
-    assert(node.header.unk38 == 0);
-    assert(node.header.unk3C == 0);
-	size_t pos = br.position;
-    FSeek(node.header.animatorsOffset);
-	da_read(&node.animators, node.header.animatorCount, read_animator);
-	if (node.header.nodeListAOffset != 0) {
-        FSeek(node.header.nodeListAOffset);
-		node.nodeListA = read_node_list_a();
-	}
-	if (node.header.nodeListBOffset != 0) {
-        FSeek(node.header.nodeListBOffset);
-		node.nodeListB = read_node_list_b();
-	}
-    FSeek(pos);
-	return node;
 }
 
 typedef struct {
@@ -489,23 +413,14 @@ typedef struct {
 
 typedef struct {
 	RootHeader header;
-	Node node;
+	size_t node_idx;
 } Root;
 
 DA(Root, DARoot);
 
+// NOT NECESSARY
 void root_free(Root *r) {
-	node_free(&r->node);
-}
-
-Root read_root() {
-	Root root = {0};
-	root.header = br_read(&br, RootHeader);
-    size_t pos = br.position;
-    FSeek(root.header.nodeOffset);
-    root.node = read_node();
-    FSeek(pos);
-	return root;
+	UNUSED(r);
 }
 
 typedef char* StringWrapper;
@@ -582,6 +497,10 @@ typedef struct {
 	DARoot roots;
 	DATexture textures;
 	DAStringWrapper strings;
+
+	Dictzuzu texture_offsets;
+	Dictzuzu node_offsets;
+	Dictzuzu animator_offsets;
 } FLO;
 
 void flo_free(FLO *flo) {
@@ -606,6 +525,125 @@ void flo_free(FLO *flo) {
 	}
 	da_free(flo->textures);
 	da_free(flo->strings);
+	ht_free(&flo->texture_offsets);
+	ht_free(&flo->node_offsets);
+	ht_free(&flo->animator_offsets);
+}
+
+size_t read_texture(FLO *flo) {
+	size_t *index = ht_find(&flo->texture_offsets, br.position);
+	if (index != NULL) {
+		return *index;
+	}
+	size_t new_idx = flo->textures.count;
+	*ht_put(&flo->texture_offsets, br.position) = new_idx;
+	Texture t = {0};
+	t.texture = br_read(&br, TextureHeader);
+    assert(t.texture.unk0A == 0);
+    assert(t.texture.unk0C == 0);
+    assert(t.texture.unk12 == 0);
+	t.name = (const char *)(br.data + t.texture.name_offset);
+	da_append(&flo->textures, t);
+	return new_idx;
+}
+
+Sprite read_sprite(FLO *flo) {
+	Sprite sprite = {0};
+	sprite.header = br_read(&br, SpriteHeader);
+    assert(sprite.header.unk18 == -1);
+#ifdef VARINT_LONG
+	assert(sprite.header.pad1C == 0);
+#endif
+    assert(sprite.header.unk2A == 0);
+#ifdef VARINT_LONG
+	assert(sprite.header.pad2C == 0);
+#endif
+    assert(sprite.header.unk38 == 0);
+    assert(sprite.header.unk3C == 0);
+	size_t pos = br.position;
+	sprite.texture_idx = *ht_find(&flo->texture_offsets, sprite.header.textureOffset);
+    FSeek(sprite.header.texRegionOffset);
+    sprite.texRegion = read_tex_region();
+    FSeek(pos);
+	return sprite;
+}
+
+SpriteSet read_sprite_set(FLO *flo) {
+	SpriteSet ss = {0};
+	ss.header = br_read(&br, SpriteSetHeader);
+#ifdef VARINT_LONG
+	assert(ss.header.pad04 == 0);
+#endif
+	assert(ss.header.unk10 == 0);
+	assert(ss.header.unk14 == 0);
+	size_t pos = br.position;
+	FSeek(ss.header.spritesOffset);
+	da_read_arg(&ss.sprites, ss.header.spriteCount, read_sprite, flo);
+	FSeek(pos);
+	return ss;
+}
+
+size_t read_animator(FLO *flo) {
+	size_t *index = ht_find(&flo->animator_offsets, br.position);
+	if (index != NULL) {
+		return *index;
+	}
+	size_t new_idx = flo->animators.count;
+	*ht_put(&flo->animator_offsets, br.position) = new_idx;
+	Animator a = {0};
+	a.header = br_read(&br, AnimatorHeader);
+#ifdef VARINT_LONG
+	assert(a.header.pad04 == 0);
+#endif
+    assert(a.header.unk20 == 0);
+    assert(a.header.unk24 == 0);
+	size_t pos = br.position;
+	FSeek(a.header.framesOffset);
+	da_read(&a.frames, a.header.frameCount, read_frame);
+	FSeek(pos);
+	return new_idx;
+}
+
+size_t read_node(FLO *flo) {
+	size_t *index = ht_find(&flo->node_offsets, br.position);
+	if (index != NULL) {
+		return *index;
+	}
+	size_t new_idx = flo->nodes.count;
+	*ht_put(&flo->node_offsets, br.position) = new_idx;
+	Node node = {0};
+	node.header = br_read(&br, NodeHeader);
+    assert(node.header.unk14 == 1);
+    assert(node.header.unk16 == 0);
+    assert(node.header.unk28 == 0);
+    assert(node.header.unk2C == 0);
+    assert(node.header.unk30 == 0);
+    assert(node.header.unk34 == 0);
+    assert(node.header.unk38 == 0);
+    assert(node.header.unk3C == 0);
+	size_t pos = br.position;
+    FSeek(node.header.animatorsOffset);
+	da_read_arg(&node.animator_idx, node.header.animatorCount, read_animator, flo);
+	if (node.header.nodeListAOffset != 0) {
+        FSeek(node.header.nodeListAOffset);
+		node.nodeListA = read_node_list_a();
+	}
+	if (node.header.nodeListBOffset != 0) {
+        FSeek(node.header.nodeListBOffset);
+		node.nodeListB = read_node_list_b();
+	}
+    FSeek(pos);
+	return new_idx;
+}
+
+Root read_root(FLO *flo) {
+	Root root = {0};
+	root.header = br_read(&br, RootHeader);
+    size_t pos = br.position;
+    FSeek(root.header.nodeOffset);
+    root.node_idx = read_node(flo);
+    FSeek(pos);
+	return root;
 }
 
 int main() {
@@ -615,30 +653,29 @@ int main() {
 	br = sb_to_br(sb);
 	FLO flo = {0};
 	flo.header = read_header();
-	if (flo.header.spriteSetCount > 0) {
-		FSeek(flo.header.spriteSetsOffset);
-		da_read(&flo.spriteSets, flo.header.spriteSetCount, read_sprite_set);
-	}
-	if (flo.header.nodeCount > 0) {
-		FSeek(flo.header.nodesOffset);
-		da_read(&flo.nodes, flo.header.nodeCount, read_node);
-	}
-	if (flo.header.animatorCount > 0) {
-		FSeek(flo.header.animatorsOffset);
-		da_read(&flo.animators, flo.header.animatorCount, read_animator);
-	}
-	if (flo.header.rootCount > 0) {
-		FSeek(flo.header.rootsOffset);
-		da_read(&flo.roots, flo.header.rootCount, read_root);
-	}
-	if (flo.header.textureCount > 0) {
-		FSeek(flo.header.texturesOffset);
-		da_read(&flo.textures, flo.header.textureCount, read_texture);
-	}
 	if (flo.header.stringCount > 0) {
 		FSeek(flo.header.stringsOffset);
 		da_read(&flo.strings, flo.header.stringCount, read_string);
 	}
-
+	if (flo.header.textureCount > 0) {
+		FSeek(flo.header.texturesOffset);
+		da_read_null(&flo.textures, flo.header.textureCount, read_texture, &flo);
+	}
+	if (flo.header.animatorCount > 0) {
+		FSeek(flo.header.animatorsOffset);
+		da_read_null(&flo.animators, flo.header.animatorCount, read_animator, &flo);
+	}
+	if (flo.header.nodeCount > 0) {
+		FSeek(flo.header.nodesOffset);
+		da_read_null(&flo.nodes, flo.header.nodeCount, read_node, &flo);
+	}
+	if (flo.header.rootCount > 0) {
+		FSeek(flo.header.rootsOffset);
+		da_read_arg(&flo.roots, flo.header.rootCount, read_root, &flo);
+	}
+	if (flo.header.spriteSetCount > 0) {
+		FSeek(flo.header.spriteSetsOffset);
+		da_read_arg(&flo.spriteSets, flo.header.spriteSetCount, read_sprite_set, &flo);
+	}
 	flo_free(&flo);
 }
