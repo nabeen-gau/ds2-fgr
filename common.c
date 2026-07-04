@@ -72,6 +72,7 @@ typedef struct {
 } Pair;
 DA(Pair, DAPair);
 typedef Ht(Pair, size_t) DictPairzu;
+typedef Ht(Pair, Pair) DictPairPair;
 
 void sb_write_varint(String_Builder *sb, varint value) {
 	nob_da_reserve(sb, sb->count + sizeof(value));
@@ -108,6 +109,18 @@ void sb_write_uint16t(String_Builder *sb, uint16_t value) {
 	nob_da_reserve(sb, sb->count + sizeof(value));
 	memcpy(sb->items + sb->count, &value, sizeof(value));
 	sb->count += sizeof(uint16_t);
+}
+
+void sb_write_float(String_Builder *sb, float value) {
+	nob_da_reserve(sb, sb->count + sizeof(value));
+	memcpy(sb->items + sb->count, &value, sizeof(value));
+	sb->count += sizeof(float);
+}
+
+void sb_write_v2f(String_Builder *sb, V2f value) {
+	nob_da_reserve(sb, sb->count + sizeof(value));
+	memcpy(sb->items + sb->count, &value, sizeof(value));
+	sb->count += sizeof(V2f);
 }
 
 void sb_reserve(String_Builder *sb, size_t nbytes) {

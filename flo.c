@@ -2,11 +2,66 @@
 
 BinaryReader br = {0};
 
+typedef struct {
+	// header
+	size_t spriteSetsOffset;
+	size_t offset2; // same as nodesOffset?
+	size_t nodesOffset;
+	size_t animatorsOffset;
+	size_t rootsOffset;
+	size_t texturesOffset;
+	size_t stringsOffset;
+	size_t textsOffset;
+	// sprite sets
+	Dictzuzu spriteSet_offsets;
+	// textures
+	DictPairPair texturesOffsetsOffset;
+	DictPairzu texRegionOffsetsOffset;
+	// node -> animators, nodeListA, nodeListB
+	Dictzuzu animatorOffsets;
+	Dictzuzu nodeListAOffsets;
+	Dictzuzu nodeListBOffsets;
+	// nodeListA -> nodeItemsA
+	Dictzuzu nodeItemsAOffsets;
+	// nodeListB -> nodeItemsB
+	Dictzuzu nodeItemsBOffsets;
+	// animator -> frames
+	Dictzuzu framesOffsets;
+	Dictzuzu animatorOffsetOffsets;
+	// nodes [id] -> [offset]
+	Dictzuzu node_id_offsets;
+	// texture -> name_offsets
+	Dictstrzu texture_names;
+	// texture [id] -> [offset]
+	Dictzuzu texture_id_offsets;
+} FLO_Writer;
+
+FLO_Writer writer = {0};
+
+#define sb_patch_offset(sb, pos)\
+	do {\
+		size_t _cur_pos_ = (sb)->count;\
+		(sb)->count = (pos);\
+		sb_write_varint((sb), _cur_pos_);\
+		(sb)->count = _cur_pos_;\
+	} while(0)
+
+#define sb_patch_offset_value(sb, pos, value)\
+	do {\
+		size_t _cur_pos_ = (sb)->count;\
+		(sb)->count = (pos);\
+		sb_write_varint((sb), (value));\
+		(sb)->count = _cur_pos_;\
+	} while(0)
+
 #define Varint int64_t
 #define Assert assert
 #define byte uint8_t
 #define VARINT_LONG
 #define ubyte byte
+
+#define sb_write_V2f sb_write_v2f
+#define sb_write_ubyte sb_append
 
 #define FSeek(offs) br.position = (offs)
 
@@ -34,13 +89,17 @@ BinaryReader br = {0};
 		}\
 	} while (0)
 
+#define sb_write_Varint sb_write_varint
+#define sb_write_short sb_write_int16t
+#define sb_write_int sb_write_int32t
+
 typedef struct {
     int unk00;
     // Many fields like this appear to just be padding in 64-bit,
     // but they sometimes have pretty suspicious values
     // so I can't be completely certain.
 #ifdef VARINT_LONG
-        int unk04;
+	int unk04;
 #endif
     Varint spriteSetsOffset;
     Varint offset2;
@@ -90,6 +149,11 @@ typedef struct {
     V2f v2;
 } TexRegion;
 
+void write_texregion(String_Builder *sb, const TexRegion *tr) {
+	sb_write_v2f(sb, tr->v1);
+	sb_write_v2f(sb, tr->v2);
+}
+
 // NOT NECESSARY
 void tex_region_free(TexRegion *tr) {
 	UNUSED(tr);
@@ -108,7 +172,7 @@ typedef struct {
     short height;
     short unk12; //Assert(unk12 == 0);
 #ifdef VARINT_LONG
-        int unk14;
+	int unk14;
 #endif
 } TextureHeader;
 
@@ -120,6 +184,20 @@ typedef struct {
 // NOT NECESSARY
 void texture_free(Texture *t) {
 	UNUSED(t);
+}
+
+void write_texture(String_Builder *sb, const Texture *t) {
+	*ht_put(&writer.texture_names, t->name) = sb->count;
+	sb_write_Varint(sb, -1);
+    sb_write_short(sb, t->texture.id);
+    sb_write_short(sb, t->texture.unk0A);
+    sb_write_short(sb, t->texture.unk0C);
+    sb_write_short(sb, t->texture.width);
+    sb_write_short(sb, t->texture.height);
+    sb_write_short(sb, t->texture.unk12);
+#ifdef VARINT_LONG
+	sb_write_int(sb, t->texture.unk14);
+#endif
 }
 
 DA(Texture, DATexture);
@@ -153,6 +231,27 @@ void sprite_free(Sprite *s) {
 	tex_region_free(&s->texRegion);
 }
 
+void write_sprite(String_Builder *sb, const Sprite *s, Pair ij) {
+	sb_write_v2f(sb, s->header.position);
+	sb_write_v2f(sb, s->header.scale);
+	sb_write_v2f(sb, s->header.skew);
+	sb_write_int32t(sb, s->header.unk18);
+#ifdef VARINT_LONG
+	sb_write_int32t(sb, s->header.pad1C);
+#endif
+	*ht_put(&writer.texturesOffsetsOffset, ij) = (Pair){s->header.textureID, sb->count};
+    sb_write_varint(sb, -1);
+    sb_write_int16t(sb, s->header.textureID);
+    sb_write_int16t(sb, s->header.unk2A);
+#ifdef VARINT_LONG
+	sb_write_int32t(sb, s->header.pad2C);
+#endif
+	*ht_put(&writer.texRegionOffsetsOffset, ij) = sb->count;
+    sb_write_varint(sb, -1);
+    sb_write_int32t(sb, s->header.unk38);
+    sb_write_int32t(sb, s->header.unk3C);
+}
+
 DA(Sprite, DASprite);
 
 typedef struct {
@@ -178,6 +277,18 @@ void sprite_set_free(SpriteSet *ss) {
 	da_free(ss->sprites);
 }
 
+void write_sprite_set(String_Builder *sb, const SpriteSet *ss, size_t idx) {
+	sb_write_int16t(sb, ss->header.id);
+	sb_write_int16t(sb, ss->sprites.count);
+#ifdef VARINT_LONG
+	sb_write_int32t(sb, ss->header.pad04);
+#endif
+	*ht_put(&writer.spriteSet_offsets, idx) = sb->count;
+	sb_write_int32t(sb, -1);
+	sb_write_int32t(sb, ss->header.unk10);
+	sb_write_int32t(sb, ss->header.unk14);
+}
+
 typedef struct {
     int unk00;
     short unk04;
@@ -195,6 +306,18 @@ DA(NodeItemB, DANodeItemB);
 // NOT NECESSARY
 void node_item_b_free(NodeItemB *nib) {
 	UNUSED(nib);
+}
+
+void write_node_item_b(String_Builder *sb, NodeItemB *nib) {
+    sb_write_int(sb, nib->unk00);
+    sb_write_short(sb, nib->unk04);
+    sb_write_short(sb, nib->unk06);
+    sb_write_int(sb, nib->unk08);
+    sb_write_int(sb, nib->unk0C);
+    sb_write_int(sb, nib->unk10);
+    sb_write_int(sb, nib->unk14);
+    sb_write_int(sb, nib->unk18);
+    sb_write_int(sb, nib->unk1C);
 }
 
 NodeItemB read_node_item_b() {
@@ -230,6 +353,18 @@ void node_list_b_free(NodeListB *nlb) {
 	da_free(nlb->nodeItemsB);
 }
 
+void write_node_list_b(String_Builder *sb, NodeListB *nlb, size_t i) {
+	*ht_put(&writer.nodeItemsBOffsets, i) = sb->count;
+    sb_write_Varint(sb, -1);
+    sb_write_short(sb, nlb->nodeItemsB.count);
+    sb_write_short(sb, nlb->header.unk0A);
+    sb_write_int(sb, nlb->header.unk0C);
+    sb_write_int(sb, nlb->header.unk10);
+#ifdef VARINT_LONG
+	sb_write_int(sb, nlb->header.unk14);
+#endif
+}
+
 NodeListB read_node_list_b() {
 	NodeListB nlb = {0};
 	nlb.header = br_read(&br, NodeListBHeader);
@@ -258,6 +393,16 @@ DA(NodeItemA, DANodeItemA);
 void node_item_a_free(NodeItemA *nia) {
 	UNUSED(nia);
 }
+
+
+void write_node_item_a(String_Builder *sb, NodeItemA *nia) {
+    sb_write_int(sb, nia->unk00);
+    sb_write_short(sb, nia->unk04);
+    sb_write_short(sb, nia->unk06);
+    sb_write_int(sb, nia->unk08);
+    sb_write_int(sb, nia->unk0C);
+}
+
 
 NodeItemA read_node_item_a() {
 	NodeItemA nia = br_read(&br, NodeItemA);
@@ -290,6 +435,18 @@ void node_list_a_free(NodeListA *nla) {
 	da_free(nla->nodeItemsA);
 }
 
+void write_node_list_a(String_Builder *sb, NodeListA *nla, size_t i) {
+	*ht_put(&writer.nodeItemsAOffsets, i) = sb->count;
+    sb_write_Varint(sb, -1);
+    sb_write_short(sb, nla->nodeItemsA.count);
+    sb_write_short(sb, nla->header.unk0A);
+    sb_write_int(sb, nla->header.unk0C);
+    sb_write_int(sb, nla->header.unk10);
+#ifdef VARINT_LONG
+	sb_write_int(sb, nla->header.unk14);
+#endif
+}
+
 NodeListA read_node_list_a() {
 	NodeListA nla = {0};
 	nla.header = br_read(&br, NodeListAHeader);
@@ -320,6 +477,21 @@ DA(Frame, DAFrame);
 // NOT NECESSARY
 void frame_free(Frame *f) {
 	UNUSED(f);
+}
+
+void write_frame(String_Builder *sb, const Frame *f) {
+    sb_write_V2f(sb, f->translation);
+    sb_write_V2f(sb, f->scale);
+    sb_write_V2f(sb, f->skew);
+    sb_write_ubyte(sb, f->color[0]);
+    sb_write_ubyte(sb, f->color[1]);
+    sb_write_ubyte(sb, f->color[2]);
+    sb_write_ubyte(sb, f->color[3]);
+    sb_write_int(sb, f->unk1C);
+    sb_write_int(sb, f->unk20);
+    sb_write_int(sb, f->unk24);
+    sb_write_int(sb, f->unk28);
+    sb_write_int(sb, f->unk2C);
 }
 
 Frame read_frame() {
@@ -360,6 +532,24 @@ void animator_free(Animator *a) {
 	da_free(a->frames);
 }
 
+void write_animator(String_Builder *sb, const Animator *a, size_t i) {
+    sb_write_short(sb, a->header.elementID);
+    sb_write_short(sb, a->frames.count);
+#ifdef VARINT_LONG
+	sb_write_int(sb, a->header.pad04);
+#endif
+	*ht_put(&writer.framesOffsets, i) = sb->count;
+    sb_write_Varint(sb, -1);
+    sb_write_short(sb, a->header.unk10);
+    sb_write_short(sb, a->header.unk12);
+    sb_write_short(sb, a->header.unk14);
+    sb_write_short(sb, a->header.unk16);
+    sb_write_int(sb, a->header.unk18);
+    sb_write_int(sb, a->header.unk1C);
+    sb_write_int(sb, a->header.unk20);
+    sb_write_int(sb, a->header.unk24);
+}
+
 typedef struct {
     short id;
     short animatorCount;
@@ -397,6 +587,29 @@ void node_free(Node *n) {
 	node_list_b_free(&n->nodeListB);
 }
 
+void write_node(String_Builder *sb, const Node *n, size_t i) {
+    sb_write_uint16t(sb, n->header.id);
+    sb_write_uint16t(sb, n->animator_idx.count);
+#ifdef VARINT_LONG
+	sb_write_int32t(sb, n->header.unk04);
+#endif
+	*ht_put(&writer.animatorOffsets, i) = sb->count;
+    sb_write_varint(sb, -1);
+    sb_write_int32t(sb, n->header.unk10);
+    sb_write_uint16t(sb, n->header.unk14);
+    sb_write_uint16t(sb, n->header.unk16);
+	*ht_put(&writer.nodeListAOffsets, i) = sb->count;
+    sb_write_varint(sb, -1);
+	*ht_put(&writer.nodeListBOffsets, i) = sb->count;
+    sb_write_varint(sb, -1);
+    sb_write_varint(sb, n->header.unk28);
+    sb_write_varint(sb, n->header.unk2C);
+    sb_write_int32t(sb, n->header.unk30);
+    sb_write_int32t(sb, n->header.unk34);
+    sb_write_int32t(sb, n->header.unk38);
+    sb_write_int32t(sb, n->header.unk3C);
+}
+
 typedef struct {
     int id;
     int nodeID;
@@ -421,6 +634,20 @@ DA(Root, DARoot);
 // NOT NECESSARY
 void root_free(Root *r) {
 	UNUSED(r);
+}
+
+void write_root(String_Builder *sb, const Root *r) {
+    sb_write_int(sb, r->header.id);
+    sb_write_int(sb, r->header.nodeID);
+    sb_write_Varint(sb, *ht_find(&writer.node_id_offsets, r->header.nodeID));
+    sb_write_V2f(sb, r->header.position);
+    sb_write_short(sb, r->header.unk18);
+    sb_write_short(sb, r->header.unk1A);
+    sb_write_int(sb, r->header.unk1C);
+    sb_write_int(sb, r->header.unk20);
+#ifdef VARINT_LONG
+	sb_write_int(sb, r->header.unk24);
+#endif
 }
 
 typedef char* StringWrapper;
@@ -456,7 +683,6 @@ typedef struct {
         int unk34;
 #endif
 } Text;
-
 
 Header read_header() {
 	Header header = br_read(&br, Header);
@@ -601,6 +827,7 @@ size_t read_animator(FLO *flo) {
 	FSeek(a.header.framesOffset);
 	da_read(&a.frames, a.header.frameCount, read_frame);
 	FSeek(pos);
+	da_append(&flo->animators, a);
 	return new_idx;
 }
 
@@ -633,6 +860,7 @@ size_t read_node(FLO *flo) {
 		node.nodeListB = read_node_list_b();
 	}
     FSeek(pos);
+	da_append(&flo->nodes, node);
 	return new_idx;
 }
 
@@ -646,10 +874,7 @@ Root read_root(FLO *flo) {
 	return root;
 }
 
-int main() {
-	String_Builder sb = {0};
-	if (!read_entire_file("./data/menu/01-febnd-dcx/l01_01_hp.flo", &sb)) return 1;
-
+FLO read_flo(String_Builder sb) {
 	br = sb_to_br(sb);
 	FLO flo = {0};
 	flo.header = read_header();
@@ -677,5 +902,222 @@ int main() {
 		FSeek(flo.header.spriteSetsOffset);
 		da_read_arg(&flo.spriteSets, flo.header.spriteSetCount, read_sprite_set, &flo);
 	}
+	return flo;
+}
+
+void write_header(String_Builder *sb, const FLO *flo) {
+    sb_write_int32t(sb, flo->header.unk00);
+#ifdef VARINT_LONG
+	sb_write_int32t(sb, flo->header.unk04);
+#endif
+	writer.spriteSetsOffset = sb->count;
+    sb_write_varint(sb, -1);
+	writer.offset2 = sb->count;
+    sb_write_varint(sb, -1);
+	writer.nodesOffset = sb->count;
+    sb_write_varint(sb, -1);
+	writer.animatorsOffset = sb->count;
+    sb_write_varint(sb, -1);
+	writer.rootsOffset = sb->count;
+    sb_write_varint(sb, -1);
+	writer.texturesOffset = sb->count;
+    sb_write_varint(sb, -1);
+	writer.stringsOffset = sb->count;
+    sb_write_varint(sb, -1);
+	writer.textsOffset = sb->count;
+    sb_write_varint(sb, -1);
+    sb_write_int16t(sb, flo->spriteSets.count);
+    sb_write_int16t(sb, flo->header.count2);
+    sb_write_int16t(sb, flo->nodes.count);
+    sb_write_int16t(sb, flo->animators.count);
+    sb_write_int16t(sb, flo->roots.count);
+    sb_write_int16t(sb, flo->textures.count);
+    sb_write_int16t(sb, flo->strings.count);
+    sb_write_int16t(sb, flo->header.textCount);
+    sb_append(sb, flo->header.bigEndian);
+    sb_append(sb, flo->header.unk59);
+    sb_append(sb, flo->header.unk5A);
+    sb_append(sb, flo->header.unk5B);
+    sb_write_int32t(sb, flo->header.unk5C);
+    sb_write_int32t(sb, flo->header.unk60);
+    sb_write_int32t(sb, flo->header.unk64);
+    sb_write_int32t(sb, flo->header.unk68);
+    sb_write_int32t(sb, flo->header.unk6C);
+    sb_write_int32t(sb, flo->header.unk70);
+    sb_write_int32t(sb, flo->header.unk74);
+    sb_write_int32t(sb, flo->header.unk78);
+    sb_write_int32t(sb, flo->header.unk7C);
+    sb_write_int32t(sb, flo->header.unk80);
+    sb_write_int32t(sb, flo->header.unk84);
+    sb_write_int32t(sb, flo->header.unk88);
+    sb_write_int32t(sb, flo->header.unk8C);
+    sb_write_int32t(sb, flo->header.unk90);
+    sb_write_int32t(sb, flo->header.unk94);
+    sb_write_int32t(sb, flo->header.unk98);
+    sb_write_int32t(sb, flo->header.unk9C);
+    sb_write_int32t(sb, flo->header.unkA0);
+#ifdef VARINT_LONG
+    sb_write_int32t(sb, flo->header.unkA4);
+#endif
+}
+
+void write_flo(String_Builder *sb, const FLO *flo) {
+	writer = (FLO_Writer){0};
+	write_header(sb, flo);
+	sb_patch_offset(sb, writer.spriteSetsOffset);
+	// sprite sets
+	for (size_t i=0; i<flo->spriteSets.count; i++) {
+		SpriteSet *ss = &flo->spriteSets.items[i];
+		write_sprite_set(sb, ss, i);
+		sb_pad_align(sb, 8);
+	}
+	// sprites
+	for (size_t i=0; i<flo->spriteSets.count; i++) {
+		SpriteSet *ss = &flo->spriteSets.items[i];
+		sb_patch_offset(sb, *ht_find(&writer.spriteSet_offsets, i));
+		for (size_t j=0; j<ss->sprites.count; j++) {
+			Sprite *s = &ss->sprites.items[j];
+			write_sprite(sb, s, (Pair){i, j});
+		}
+	}
+	// tex region
+	for (size_t i=0; i<flo->spriteSets.count; i++) {
+		SpriteSet *ss = &flo->spriteSets.items[i];
+		for (size_t j=0; j<ss->sprites.count; j++) {
+			Sprite *s = &ss->sprites.items[j];
+			sb_patch_offset(sb, *ht_find(&writer.texRegionOffsetsOffset, ((Pair){i, j})));
+			write_texregion(sb, &s->texRegion);
+		}
+	}
+	// nodes
+	sb_patch_offset(sb, writer.nodesOffset);
+	sb_patch_offset(sb, writer.offset2); // same as nodesOffset??
+	for (size_t i=0; i<flo->nodes.count; i++) {
+		Node *n = &flo->nodes.items[i];
+		assert(ht_find(&writer.node_id_offsets, n->header.id) == NULL && "Same node id detected");
+		*ht_put(&writer.node_id_offsets, n->header.id) = sb->count;
+		write_node(sb, n, i);
+	}
+	// node list b
+	for (size_t i=0; i<flo->nodes.count; i++) {
+		Node *n = &flo->nodes.items[i];
+		NodeListB *nlb = &n->nodeListB;
+		if (nlb->nodeItemsB.count > 0) sb_patch_offset(sb, *ht_find(&writer.nodeListBOffsets, i));
+		else sb_patch_offset_value(sb, *ht_find(&writer.nodeListBOffsets, i), 0);
+		if (nlb->nodeItemsB.count > 0) {
+			write_node_list_b(sb, nlb, i);
+		}
+	}
+	// node items b
+	for (size_t i=0; i<flo->nodes.count; i++) {
+		Node *n = &flo->nodes.items[i];
+		NodeListB *nlb = &n->nodeListB;
+		if (nlb->nodeItemsB.count > 0) sb_patch_offset(sb, *ht_find(&writer.nodeItemsBOffsets, i));
+		for (size_t j=0; j<nlb->nodeItemsB.count; j++) {
+			NodeItemB *nib = &nlb->nodeItemsB.items[j];
+			write_node_item_b(sb, nib);
+		}
+	}
+	// node list a
+	for (size_t i=0; i<flo->nodes.count; i++) {
+		Node *n = &flo->nodes.items[i];
+		NodeListA *nla = &n->nodeListA;
+		if (nla->nodeItemsA.count > 0) sb_patch_offset(sb, *ht_find(&writer.nodeListAOffsets, i));
+		else sb_patch_offset_value(sb, *ht_find(&writer.nodeListAOffsets, i), 0);
+		if (nla->nodeItemsA.count > 0) {
+			write_node_list_a(sb, nla, i);
+		}
+	}
+	// node items a
+	for (size_t i=0; i<flo->nodes.count; i++) {
+		Node *n = &flo->nodes.items[i];
+		NodeListA *nla = &n->nodeListA;
+		if (nla->nodeItemsA.count > 0) sb_patch_offset(sb, *ht_find(&writer.nodeItemsAOffsets, i));
+		for (size_t j=0; j<nla->nodeItemsA.count; j++) {
+			NodeItemA *nia = &nla->nodeItemsA.items[j];
+			write_node_item_a(sb, nia);
+		}
+	}
+	// animators
+	sb_patch_offset(sb, writer.animatorsOffset);
+	for (size_t i=0; i<flo->animators.count; i++) {
+		Animator *a = &flo->animators.items[i];
+		*ht_put(&writer.animatorOffsetOffsets, i) = sb->count;
+		write_animator(sb, a, i);
+	}
+	// backpatch animator offsets in nodes
+	for (size_t i=0; i<flo->nodes.count; i++) {
+		Node *n = &flo->nodes.items[i];
+		size_t *patch_dst = ht_find(&writer.animatorOffsets, i);
+		if (n->animator_idx.count > 0) {
+			size_t animator_id = n->animator_idx.items[0];
+			size_t *patch_src = ht_find(&writer.animatorOffsetOffsets, animator_id);
+			assert(patch_dst != NULL && patch_src != NULL);
+			sb_patch_offset_value(sb, *patch_dst, *patch_src);
+		}
+	}
+	// frames
+	for (size_t i=0; i<flo->animators.count; i++) {
+		Animator *a = &flo->animators.items[i];
+		sb_patch_offset(sb, *ht_find(&writer.framesOffsets, i));
+		for (size_t j=0; j<a->frames.count; j++) {
+			Frame *f = &a->frames.items[j];
+			write_frame(sb, f);
+		}
+	}
+	// roots
+	sb_patch_offset(sb, writer.rootsOffset);
+	for (size_t i=0; i<flo->roots.count; i++) {
+		Root *r = &flo->roots.items[i];
+		write_root(sb, r);
+	}
+	// textures
+	sb_patch_offset(sb, writer.texturesOffset);
+	for (size_t i=0; i<flo->textures.count; i++) {
+		Texture *t = &flo->textures.items[i];
+		*ht_put(&writer.texture_id_offsets, t->texture.id) = sb->count;
+		write_texture(sb, t);
+	}
+	// texture names
+	sb_patch_offset(sb, writer.stringsOffset);
+	sb_patch_offset(sb, writer.textsOffset);
+	ht_foreach(offset, &writer.texture_names) {
+		sb_patch_offset(sb, *offset);
+		sb_append_cstr(sb, ht_key(&writer.texture_names, offset));
+		sb_append_null(sb);
+	}
+	// backpatch textures in sprites
+	for (size_t i=0; i<flo->spriteSets.count; i++) {
+		SpriteSet *ss = &flo->spriteSets.items[i];
+		for (size_t j=0; j<ss->sprites.count; j++) {
+			Pair p = *ht_find(&writer.texturesOffsetsOffset, ((Pair){i, j}));
+			size_t texture_id = p.from;
+			size_t sprite_texture_offset = p.to;
+			size_t texture_offset = *ht_find(&writer.texture_id_offsets, texture_id);
+			sb_patch_offset_value(sb, sprite_texture_offset, texture_offset);
+		}
+	}
+	sb_pad_align(sb, 0x20);
+}
+
+#define PATH "menu/01-febnd-dcx/l01_01_hp.flo"
+
+int main() {
+	String_Builder sb = {0};
+	if (!read_entire_file("./data/"PATH, &sb)) return 1;
+	FLO flo = read_flo(sb);
+	// for (size_t i=0; i<flo.spriteSets.count; i++) {
+	// 	SpriteSet *ss = &flo.spriteSets.items[i];
+	// 	for (size_t j=0; j<ss->sprites.count; j++) {
+	// 		Sprite *s = &ss->sprites.items[j];
+	// 		s->header.scale.y *= 2;
+	// 	}
+	// }
+	String_Builder wsb = {0};
+	write_flo(&wsb, &flo);
+	if (!mkdir_if_not_exists("output")) return 1;
+	if (!mkdir_if_not_exists("output/menu")) return 1;
+	if (!mkdir_if_not_exists("output/menu/01-febnd-dcx")) return 1;
+	if (!write_entire_file("output/"PATH, wsb.items, wsb.count)) return 1;
 	flo_free(&flo);
 }
