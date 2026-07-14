@@ -1,0 +1,58 @@
+Texts
+id = 25; Current Bonfire Name/Item Name(Attune/Item Box)/Menu Name/Short Item Description(Item Box)
+id = 33; Control Description
+id = 46; Uses Count for Spells/Item Count/Weapon Stats Number/Stats Required Number
+id = 48; Spell Type/ "Uses" text in Item Box
+id = 162; Subtitle
+id = 200; "Uses" text in Attune
+
+
+Roots
+id = 3; Item Box
+id = 5; Attune Spells
+
+id
+	roots (0) 0
+	roots (1) 3 Item Box (??)
+	roots (2) 5 Attune Spells
+	roots (3) 1
+	roots (4) 4
+	roots (5) 2
+	roots (6) 6
+
+node id
+	roots (0)  29
+	roots (1) 167
+	roots (2) 209
+	roots (3) 344
+	roots (4) 353
+	roots (5) 404
+	roots (6) 425
+
+unk18
+	roots (0) 1
+	roots (1) 3
+	roots (2) 2345
+	roots (3) 3211
+	roots (4) 3295
+	roots (5) 3297
+	roots (6) 4248
+
+node.unk04
+	roots (0) 4246909
+	roots (1) 4246909
+	roots (2) 4246909
+	roots (3) 4246909
+	roots (4) 4246909
+	roots (5) 4246909
+	roots (6) 4246909
+
+unk24
+	roots (0) e4 f3 18 00 = 1635300
+	roots (1) bc f3 18 00 = 1635260
+	roots (2) bc f3 18 00 = 1635260
+	roots (3) bc f3 18 00 = 1635260
+	roots (4) bc f3 18 00 = 1635260
+	roots (5) bc f3 18 00 = 1635260
+	roots (6) bc f3 18 00 = 1635260
+
