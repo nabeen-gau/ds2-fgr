@@ -62,6 +62,7 @@ FLO_Writer writer = {0};
 
 #define sb_write_V2f sb_write_v2f
 #define sb_write_ubyte sb_append
+#define sb_write_byte sb_append
 
 #define FSeek(offs) br.position = (offs)
 
@@ -671,7 +672,6 @@ typedef struct {
     ubyte color[4]; // RGBA
     byte unk16;
     byte unk17;
-    
     // Dubious
     Varint unk18; //Assert(unk18.val == 0);
     int unk20; //Assert(unk20 == 0);
@@ -680,9 +680,44 @@ typedef struct {
     int unk2C; //Assert(unk2C == 0);
     int unk30; //Assert(unk30 == 0);
 #ifdef VARINT_LONG
-        int unk34;
+	int unk34;
 #endif
 } Text;
+
+DA(Text, DAText);
+
+Text read_text() {
+	Text t = br_read(&br, Text);
+	return t;
+}
+
+void write_text(String_Builder *sb, const Text *t) {
+    sb_write_short(sb, t->id);
+    sb_write_short(sb, t->unk02);
+    sb_write_short(sb, t->font);
+    sb_write_short(sb, t->unk06);
+    sb_write_short(sb, t->size);
+    sb_write_short(sb, t->unk0A);
+    sb_write_short(sb, t->unk0C);
+    sb_write_short(sb, t->unk0E);
+    sb_write_short(sb, t->unk10);
+    sb_write_ubyte(sb, t->color[0]);
+    sb_write_ubyte(sb, t->color[1]);
+    sb_write_ubyte(sb, t->color[2]);
+    sb_write_ubyte(sb, t->color[3]);
+    sb_write_byte(sb, t->unk16);
+    sb_write_byte(sb, t->unk17);
+    sb_write_Varint(sb, t->unk18);
+    sb_write_int(sb, t->unk20);
+    sb_write_int(sb, t->unk24);
+    sb_write_int(sb, t->unk28);
+    sb_write_int(sb, t->unk2C);
+    sb_write_int(sb, t->unk30);
+#ifdef VARINT_LONG
+	sb_write_int(sb, t->unk34);
+#endif
+}
+
 
 Header read_header() {
 	Header header = br_read(&br, Header);
@@ -723,6 +758,7 @@ typedef struct {
 	DARoot roots;
 	DATexture textures;
 	DAStringWrapper strings;
+	DAText texts;
 
 	Dictzuzu texture_offsets;
 	Dictzuzu node_offsets;
@@ -902,6 +938,10 @@ FLO read_flo(String_Builder sb) {
 		FSeek(flo.header.spriteSetsOffset);
 		da_read_arg(&flo.spriteSets, flo.header.spriteSetCount, read_sprite_set, &flo);
 	}
+	if (flo.header.textCount > 0) {
+		FSeek(flo.header.textsOffset);
+		da_read(&flo.texts, flo.header.textCount, read_text);
+	}
 	return flo;
 }
 
@@ -933,7 +973,7 @@ void write_header(String_Builder *sb, const FLO *flo) {
     sb_write_int16t(sb, flo->roots.count);
     sb_write_int16t(sb, flo->textures.count);
     sb_write_int16t(sb, flo->strings.count);
-    sb_write_int16t(sb, flo->header.textCount);
+    sb_write_int16t(sb, flo->texts.count);
     sb_append(sb, flo->header.bigEndian);
     sb_append(sb, flo->header.unk59);
     sb_append(sb, flo->header.unk5A);
@@ -1058,6 +1098,22 @@ void write_flo(String_Builder *sb, const FLO *flo) {
 	}
 	// frames
 	for (size_t i=0; i<flo->animators.count; i++) {
+		// to create 1 to 1 copy these swaps are necessay for l03_01_Bonfire file
+		// if      (i == 579) i = 580;
+		// else if (i == 581) i = 584;
+		// else if (i == 585) i = 579;
+		// else if (i == 580) i = 582;
+		// else if (i == 584) i = 581;
+		// else if (i == 582) i = 585;
+		// else if (i == 587) i = 588;
+		// else if (i == 589) i = 587;
+		// else if (i == 588) i = 589;
+		// else if (i == 661) i = 662;
+		// else if (i == 663) i = 661;
+		// else if (i == 662) i = 663;
+		// else if (i == 701) i = 702;
+		// else if (i == 703) i = 701;
+		// else if (i == 702) i = 703;
 		Animator *a = &flo->animators.items[i];
 		sb_patch_offset(sb, *ht_find(&writer.framesOffsets, i));
 		for (size_t j=0; j<a->frames.count; j++) {
@@ -1078,14 +1134,26 @@ void write_flo(String_Builder *sb, const FLO *flo) {
 		*ht_put(&writer.texture_id_offsets, t->texture.id) = sb->count;
 		write_texture(sb, t);
 	}
+	// texts
+	sb_patch_offset(sb, writer.textsOffset);
+	for (size_t i=0; i<flo->texts.count; i++) {
+		Text *t = &flo->texts.items[i];
+		write_text(sb, t);
+	}
 	// texture names
 	sb_patch_offset(sb, writer.stringsOffset);
-	sb_patch_offset(sb, writer.textsOffset);
-	ht_foreach(offset, &writer.texture_names) {
+	for (size_t i=0; i<flo->textures.count; i++) {
+		Texture *t = &flo->textures.items[i];
+		size_t *offset = ht_find(&writer.texture_names, t->name);
 		sb_patch_offset(sb, *offset);
 		sb_append_cstr(sb, ht_key(&writer.texture_names, offset));
 		sb_append_null(sb);
 	}
+	// ht_foreach(offset, &writer.texture_names) {
+	// 	sb_patch_offset(sb, *offset);
+	// 	sb_append_cstr(sb, ht_key(&writer.texture_names, offset));
+	// 	sb_append_null(sb);
+	// }
 	// backpatch textures in sprites
 	for (size_t i=0; i<flo->spriteSets.count; i++) {
 		SpriteSet *ss = &flo->spriteSets.items[i];
@@ -1100,24 +1168,36 @@ void write_flo(String_Builder *sb, const FLO *flo) {
 	sb_pad_align(sb, 0x20);
 }
 
-#define PATH "menu/01-febnd-dcx/l01_01_hp.flo"
+// #define PATH "menu/01-febnd-dcx/l01_01_hp.flo"
+#define PATH "menu/03-febnd-dcx/l03_01_Bonfire.flo"
 
 int main() {
 	String_Builder sb = {0};
 	if (!read_entire_file("./data/"PATH, &sb)) return 1;
 	FLO flo = read_flo(sb);
-	// for (size_t i=0; i<flo.spriteSets.count; i++) {
-	// 	SpriteSet *ss = &flo.spriteSets.items[i];
-	// 	for (size_t j=0; j<ss->sprites.count; j++) {
-	// 		Sprite *s = &ss->sprites.items[j];
-	// 		s->header.scale.y *= 2;
-	// 	}
-	// }
+
+	flo.roots.count = 0;
+	flo.spriteSets.count = 0;
+	flo.nodes.count = 0;
+	flo.animators.count = 0;
+	flo.textures.count = 0;
+	flo.strings.count = 0;
+	flo.texts.count = 0;
+
 	String_Builder wsb = {0};
 	write_flo(&wsb, &flo);
 	if (!mkdir_if_not_exists("output")) return 1;
 	if (!mkdir_if_not_exists("output/menu")) return 1;
-	if (!mkdir_if_not_exists("output/menu/01-febnd-dcx")) return 1;
+	// if (!mkdir_if_not_exists("output/menu/01-febnd-dcx")) return 1;
+	if (!mkdir_if_not_exists("output/menu/03-febnd-dcx")) return 1;
 	if (!write_entire_file("output/"PATH, wsb.items, wsb.count)) return 1;
 	flo_free(&flo);
+	da_free(sb);
+	da_free(wsb);
+
+	Cmd cmd = {0};
+	cmd_append(&cmd, "D:\\utils\\witchy-bnd\\WitchyBND.exe");
+	cmd_append(&cmd, "output/menu/03-febnd-dcx");
+	if (!cmd_run(&cmd)) return 1;
+	return 0;
 }
