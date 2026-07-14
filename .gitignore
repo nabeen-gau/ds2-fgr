@@ -11,3 +11,6 @@ item_info.c
 *.html
 *.res
 /bin
+/.vs
+/.vscode
+/tools

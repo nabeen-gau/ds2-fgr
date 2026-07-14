@@ -1,5 +1,5 @@
 CC := gcc
-# CC := ./llvm-mingw-20260616-msvcrt-x86_64/llvm-mingw-20260616-msvcrt-x86_64/bin/gcc.exe
+# CC := ./tools/llvm-mingw-20260616-msvcrt-x86_64/llvm-mingw-20260616-msvcrt-x86_64/bin/gcc.exe
 
 WFLAGS := -Wall -Wextra -Wno-unused-function -Wno-initializer-overrides
 CFLAGS := -ggdb $(WFLAGS)
