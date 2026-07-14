@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "fgr.h"
+
 // Link the DWM API for the dark title bar
 #pragma comment(lib, "dwmapi.lib")
 
@@ -17,11 +19,6 @@ HWND hBeginBtn;
 HWND hItemCheck;
 HWND hStatusLabel;
 HBRUSH hDarkBrush;
-
-// will be linked during compilation
-int start_randomization(BOOL load_item_rando, int seed); // returns 0 on success 1 on failure
-void init_rando();
-void deinit_rando();
 
 DWORD WINAPI RandomizeTask(LPVOID lpParam) {
 	HWND hwnd = (HWND)lpParam;
