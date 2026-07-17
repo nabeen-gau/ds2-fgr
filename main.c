@@ -6013,13 +6013,16 @@ void update_inventory_from_visited_places(DS2FGR *fgr) {
 	if ((ht_find(&fgr->obtained_items.hm, ItemFlashSweat))
 			&& (ht_find(&fgr->obtained_items.hm, ItemPyromancyFlame) || ht_find(&fgr->obtained_items.hm, ItemDarkPyromancyFlame))
 	   ) x2_append(&fgr->inventory.keys, Conn_FireDefense);
+	// dlc3eye is obtained when you interact with the shrine
+	if (ht_find(&fgr->visited.hm, EleumLoyceAfterGettingEyeToSeeGhostsFront) != NULL
+	   ) x2_append(&fgr->inventory.keys, Conn_DLC3Eye);
 	// bow/crossbow
 	inventory_update_bowcrossbow(fgr);
 }
 
-// ???
 // fragrant branches
-
+// right now the way the randomizer works ensures that no fragrant branches or pharros lockstone is necessary to progress through the game
+// making it actually require is very tedious and i don't want to do it
 ConnectionType get_connection_type_from_item_id(int item_id) {
 	 if (item_id == ItemRotundaLockstone) {
 		return Conn_RotundaLockstone;
@@ -6048,7 +6051,10 @@ ConnectionType get_connection_type_from_item_id(int item_id) {
 	} else if (item_id == ItemEternalSanctumKey) {
 		return Conn_ShulvaSanctumKey;
 	} else if (item_id == ItemEyeofthePriestess) {
-		return Conn_DLC3Eye;
+		// the way the item randomizer works is it does not require you to obtain the item to see ghosts 
+		// you have to interact with the shrine to see them
+		// NOTE: this logic has been moved to `update_inventory_from_visited_places()`
+		return Conn_None;
 	} else if (item_id == ItemGarrisonWardKey) {
 		return Conn_FrigidOutskirtsKey;
 	} else if (item_id == ItemIronKey) {
@@ -6173,6 +6179,8 @@ void inventory_update(DS2FGR *fgr) {
 					} else if (item->id == ItemGiantsKinship) {
 						// cosmetic
 					} else if (item->id == ItemPyromancyFlame || item->id == ItemDarkPyromancyFlame || item->id == ItemFlashSweat) {
+						// handled in `update_inventory_from_visited_places(fgr)`
+					} else if (item->id == ItemEyeofthePriestess) {
 						// handled in `update_inventory_from_visited_places(fgr)`
 					} else {
 						TODO("");
