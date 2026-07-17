@@ -6831,7 +6831,7 @@ void export_to_interactive_html(DS2FGR *fgr, String_Builder *sb) {
     sb_appendf(sb, "</script>\n</body>\n</html>\n");
 }
 
-bool generate_graph(DS2FGR *fgr) {
+bool generate_graph(DS2FGR *fgr, int seed) {
 	String_Builder sb = {0};
 	export_to_interactive_html(fgr, &sb);
 	if (!mkdir_if_not_exists(OUT_FOLDER_PATH"log/")) return false;
@@ -6842,6 +6842,7 @@ bool generate_graph(DS2FGR *fgr) {
 	printf("Generated graph-log at %s\n", tg);
 	sb.count = 0;
 	sb_appendf(&sb, "INFO: suffix Front and Back below specify either side of the fog gate\nFront usually means the way you usually encounter the fog gate while traversing the game normally\nBack  is the opposite side of Front.\n\n");
+	sb_appendf(&sb, "Seed: %d\n\n", seed);
 	ht_foreach(value, &fgr->randomized_gates) {
 		sb_appendf(&sb, "%s - %s\n", WarpNodeNames[ht_key(&fgr->randomized_gates, value)], WarpNodeNames[*value]);
 	}
@@ -6897,7 +6898,7 @@ int start_randomization(bool load_item_rando, int seed) {
 	if (!generate_map_objects(&editor, load_item_rando)) return 1;
 	if (!randomize_warps(&editor, &fgr)) return 1;
 
-	generate_graph(&fgr);
+	generate_graph(&fgr, seed);
 
 	temp_rewind(mark);
 	return 0;
