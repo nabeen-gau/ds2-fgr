@@ -2664,9 +2664,6 @@ WarpNode get_item_warp_node(size_t item_id) {
 	return __WarpNodeCount;
 }
 
-#define LotID_Chr_BrightstoneKey 50830000
-#define LotID_Item_FragrantBranchOfYore 60537000
-
 // not considered in logic:
 // 1. Jump down from bonfire above dragonrider
 // 2. Jump down from Gilligan ladder location in earthen peak to harvest valley
@@ -2675,7 +2672,7 @@ WarpNode get_item_warp_node(size_t item_id) {
 //	  Sentinels Room
 // 5. Killing Licia when items are randomized in tower of flame might softlock you as she is able to unlock Rotunda
 //
-// might be difficult to find these
+// HINTS:
 // 1. You can enter back into smeltor demon arena after the fog gate by jumping down
 // 2. You can drop down in undead crypt to skip the first mandatory fog gate and reach bonfire Undead Ditch
 // 3. You can drop behind the foggate near the windmill burn location in earthen peak
