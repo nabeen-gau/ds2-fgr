@@ -6180,6 +6180,8 @@ void inventory_update(DS2FGR *fgr) {
 						// cosmetic
 					} else if (item->id == ItemPyromancyFlame || item->id == ItemDarkPyromancyFlame || item->id == ItemFlashSweat) {
 						// handled in `update_inventory_from_visited_places(fgr)`
+					} else if (item->id == ItemEyeofthePriestess) {
+						// handled in `update_inventory_from_visited_places(fgr)`
 					} else {
 						TODO("");
 					}
