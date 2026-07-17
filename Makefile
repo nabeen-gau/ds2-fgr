@@ -5,7 +5,6 @@ WFLAGS := -Wall -Wextra -Wno-unused-function -Wno-initializer-overrides
 CFLAGS := -ggdb $(WFLAGS)
 CPPFLAGS := -Iother
 MINIZ := other/miniz.c
-SOURCES := main.c $(MINIZ)
 DBG_OBJ := dbg.o
 MAIN_OBJ := fgr.o
 OUT_NAME := DS2FGR
@@ -35,7 +34,7 @@ dump-esd: dump-esd.c
 
 # Debug
 $(DBG_OBJ): $(MAIN_DEPS)
-	$(CC) -c main.c $(WFLAGS) $(CPPFLAGS) -o $(DBG_OBJ)
+	$(CC) -c main.c $(CFLAGS) $(CPPFLAGS) -o $(DBG_OBJ)
 
 # Release
 $(MAIN_OBJ): $(MAIN_DEPS)
@@ -56,7 +55,7 @@ zip: release
 	cd bin && zip -r $(OUT_NAME).zip $(ZIPPED_FILES)
 
 cli: cli.c $(DBG_OBJ) $(MINIZ_OBJ)
-	$(CC) $(WFLAGS) -o $(OUT_NAME) cli.c $(DBG_OBJ) $(MINIZ_OBJ)
+	$(CC) $(CFLAGS) -o $(OUT_NAME) cli.c $(DBG_OBJ) $(MINIZ_OBJ)
 
 pdb: cli.c $(DBG_OBJ) $(MINIZ_OBJ)
 	$(NCC) $(CFLAGS) $(CPPFLAGS) -Wl,--pdb=$(OUT_NAME).pdb -o $(OUT_NAME) cli.c $(DBG_OBJ) $(MINIZ_OBJ)
