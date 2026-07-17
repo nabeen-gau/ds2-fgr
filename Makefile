@@ -6,17 +6,17 @@ CFLAGS := -ggdb $(WFLAGS)
 CPPFLAGS := -Iother
 MINIZ := other/miniz.c
 SOURCES := main.c $(MINIZ)
+DBG_OBJ := dbg.o
 MAIN_OBJ := fgr.o
 OUT_NAME := DS2FGR
 OUT_EXE := $(OUT_NAME).exe
 ICON_RES := resource.res
+MAIN_DEPS := main.c item_info.c esd.c foggates.c common.c other/miniz.h nob.h ht.h $(ICON_RES)
 
 ZIPPED_FILES := mod/$(OUT_EXE) mod/data/enc_regulation.bnd.dcx mod/data/map/ mod/data/menu/ mod/data/Param/ mod/data/ezstate/ dinput8.dll modengine.ini
 MINIZ_OBJ := miniz.o
 
-.PHONY: all ui cli release zip test dump-esd fgr-release clean
-
-all: ui
+all: cli
 
 item_info.c: data/item-lot.txt reformat-item-info.py
 	python reformat-item-info.py
@@ -33,18 +33,18 @@ test: test.c
 dump-esd: dump-esd.c
 	$(CC) -O3 $(CFLAGS) -o dump-esd dump-esd.c
 
-$(MAIN_OBJ): main.c $(ICON_RES) item_info.c
-	$(CC) -c main.c $(WFLAGS) $(CPPFLAGS) -o $(MAIN_OBJ)
+# Debug
+$(DBG_OBJ): $(MAIN_DEPS)
+	$(CC) -c main.c $(WFLAGS) $(CPPFLAGS) -o $(DBG_OBJ)
 
-fgr-release: $(MAIN_OBJ)
-
-fgr-release: main.c $(ICON_RES) item_info.c
+# Release
+$(MAIN_OBJ): $(MAIN_DEPS)
 	$(CC) -O3 -DRELEASE -c main.c $(WFLAGS) $(CPPFLAGS) -o $(MAIN_OBJ)
 
-ui: ui.c $(MAIN_OBJ) $(MINIZ_OBJ)
-	$(CC) ui.c $(MAIN_OBJ) $(MINIZ_OBJ) $(ICON_RES) -o $(OUT_NAME) -ldwmapi -lgdi32
+ui: ui.c $(DBG_OBJ) $(MINIZ_OBJ)
+	$(CC) ui.c $(DBG_OBJ) $(MINIZ_OBJ) $(ICON_RES) -o $(OUT_NAME) -ldwmapi -lgdi32
 
-release: ui.c fgr-release
+release: ui.c $(MAIN_OBJ) $(MINIZ_OBJ) $(ICON_RES)
 	if not exist ".\bin" mkdir ".\bin"
 	if exist ".\bin\mod" rmdir /s /q ".\bin\mod"
 	mkdir ".\bin\mod"
@@ -55,9 +55,23 @@ zip: release
 	if exist ".\bin\$(OUT_NAME).zip" del ".\bin\$(OUT_NAME).zip"
 	cd bin && zip -r $(OUT_NAME).zip $(ZIPPED_FILES)
 
-cli: cli.c $(MAIN_OBJ)
-	$(CC) $(WFLAGS) -o $(OUT_NAME) cli.c $(MAIN_OBJ) $(MINIZ)
+cli: cli.c $(DBG_OBJ) $(MINIZ_OBJ)
+	$(CC) $(WFLAGS) -o $(OUT_NAME) cli.c $(DBG_OBJ) $(MINIZ_OBJ)
 
-pdb: cli.c $(MAIN_OBJ)
-	$(NCC) $(CFLAGS) $(CPPFLAGS) -Wl,--pdb=$(OUT_NAME).pdb -o $(OUT_NAME) cli.c $(MAIN_OBJ) $(MINIZ_OBJ)
+pdb: cli.c $(DBG_OBJ) $(MINIZ_OBJ)
+	$(NCC) $(CFLAGS) $(CPPFLAGS) -Wl,--pdb=$(OUT_NAME).pdb -o $(OUT_NAME) cli.c $(DBG_OBJ) $(MINIZ_OBJ)
 
+clean:
+	del *.exe
+	del *.o
+	del *.pdb
+	if exist settings.ini del settings.ini
+	if exist $(ICON_RES) del $(ICON_RES)
+	if exist output\ezstate rmdir /s /q output\ezstate
+	if exist output\log rmdir /s /q output\log
+	if exist output\map rmdir /s /q output\map
+	if exist output\menu rmdir /s /q output\menu
+	if exist output\Param rmdir /s /q output\Param
+	if exist output\enc_regulation.bnd.dcx del output\enc_regulation.bnd.dcx
+	if exist bin\mod rmdir /s /q bin\mod
+	if exist bin\DS2FGR.zip del bin\DS2FGR.zip
