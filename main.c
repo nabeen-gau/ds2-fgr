@@ -5808,6 +5808,11 @@ typedef struct {
 } X2KeyItemsEnum;
 
 typedef struct {
+	DArrz da;
+	HashSetZ hm;
+} X2Z;
+
+typedef struct {
 	DAWarpNode remaining_nodes;
 	Connections conns;
 
@@ -5832,11 +5837,17 @@ typedef struct {
 	bool obtained_great_arrow;
 	bool obtained_normal_arrow;
 
-	size_t lockstone_count; // TODO: updating these is incorrect (grows infinitely)
+	X2Z lockstones; // TODO: add these to logic
+	X2Z torches;
+	X2Z branches;
+	X2Z smelter_wedges;
+	X2Z giant_souls;
+
+	size_t lockstone_count;
 	size_t torch_count;
 	size_t branches_count;
 	size_t wedges_count;
-	size_t giantssoul_count;
+	size_t giantsoul_count;
 
 	bitmask128_t keys;
 } DS2FGR;
@@ -5894,11 +5905,16 @@ void reset_ds2fgr(DS2FGR *fgr) {
 	fgr->obtained_bolts = 0;
 	fgr->obtained_great_arrow = 0;
 	fgr->obtained_normal_arrow = 0;
+	x2_reset(&fgr->lockstones);
+	x2_reset(&fgr->torches);
+	x2_reset(&fgr->branches);
+	x2_reset(&fgr->smelter_wedges);
+	x2_reset(&fgr->giant_souls);
 	fgr->lockstone_count = 0;
 	fgr->torch_count = 0;
 	fgr->branches_count = 0;
 	fgr->wedges_count = 0;
-	fgr->giantssoul_count = 0;
+	fgr->giantsoul_count = 0;
 	fgr->keys = 0;
 }
 
@@ -5979,7 +5995,7 @@ void update_inventory_from_visited_places(DS2FGR *fgr) {
 	   ) x2_append(&fgr->inventory.keys, Conn_LudAndZallenDead);
 	if (ht_find(&fgr->visited.hm, MythaEntryBack) != NULL
 	   ) x2_append(&fgr->inventory.keys, Conn_Gilligan_Ladder);
-	if (fgr->giantssoul_count >= 4
+	if (fgr->giantsoul_count >= 4
 			&& ht_find(&fgr->visited.hm, VendrickBack) != NULL
 	   ) x2_append(&fgr->inventory.keys, Conn_VendrickSoul);
 	if (ht_find(&fgr->visited.hm, ScorpionessNajkaEntryBack) != NULL
@@ -6123,22 +6139,37 @@ void inventory_update(DS2FGR *fgr) {
 				ConnectionType type = get_connection_type_from_item_id(item->id);
 				if (type == Conn_None) {
 					if (item->id == ItemPharrosLockstone) {
-						fgr->lockstone_count++;
+						if (ht_find(&fgr->lockstones.hm, i) == NULL) {
+							x2_append(&fgr->lockstones, i);
+							fgr->lockstone_count += item->counts.items[i];
+						}
 					} else if (item->id == ItemTorch) {
-						fgr->torch_count += item->counts.items[i];
+						if (ht_find(&fgr->torches.hm, i) == NULL) {
+							x2_append(&fgr->torches, i);
+							fgr->torch_count += item->counts.items[i];
+						}
 						if (fgr->torch_count > TorchObtainedKeyCheckLimit) {
 							x2_append(&fgr->inventory.keys, Conn_Torch);
 							recursively_update_items(fgr);
 						}
 					} else if (item->id == ItemFragrantBranchofYore) {
-						fgr->branches_count++;
+						if (ht_find(&fgr->branches.hm, i) == NULL) {
+							x2_append(&fgr->branches, i);
+							fgr->branches_count += item->counts.items[i];
+						}
 					} else if (item->id == ItemSmelterWedge) {
-						fgr->wedges_count++;
+						if (ht_find(&fgr->smelter_wedges.hm, i) == NULL) {
+							x2_append(&fgr->smelter_wedges, i);
+							fgr->wedges_count += item->counts.items[i];
+						}
 					} else if (is_item_bowcrossbow(item->id)) {
 						// skip 
 						// handled in `inventory_update_bowcrossbow(fgr)`
 					} else if (item->id == ItemSoulofaGiant) {
-						fgr->giantssoul_count++;
+						if (ht_find(&fgr->giant_souls.hm, i) == NULL) {
+							x2_append(&fgr->giant_souls, i);
+							fgr->giantsoul_count += item->counts.items[i];
+						}
 					} else if (item->id == ItemGiantsKinship) {
 						// cosmetic
 					} else if (item->id == ItemPyromancyFlame || item->id == ItemDarkPyromancyFlame || item->id == ItemFlashSweat) {
@@ -6501,6 +6532,7 @@ restart_merging_clusters:
 		*ht_put(&fgr->randomized_gates, random_target_node) = random_visited_node;
 		*ht_put(&fgr->randomized_gates, random_visited_node) = random_target_node;
 	}
+	inventory_update(fgr);
 	assert(fgr->randomized_gates.count == AllFogGatesCount);
 
 	if (0) {
