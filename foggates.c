@@ -376,6 +376,7 @@ bool point_has_cutscene(WarpNode node) {
 		|| node == DukesDearFreyjaEntryBack
 		|| node == TheRottenEntryBack
 		|| node == VelsdatEntryBack
+		|| node == FinalFightArenaBack
 	) return true;
 	return false;
 }

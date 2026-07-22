@@ -1,3 +1,6 @@
 v.2.0.2
 Save randomized seed id to log
 Eye of the priestess logic for item randomizer handled properly
+Removed duplicated state group in generated esd during randomization
+Fixed cutscene play trigger not using valid fog gate instance id
+Fixed Issue: Nashandra 2nd cutscene does not play
