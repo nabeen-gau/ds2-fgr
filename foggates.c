@@ -1591,9 +1591,7 @@ void generate_connections() {
 	connection_add(ChariotEntryFront, .to = SkeletonLordsEntryFront);
 	warp_node_count++;
 
-	connection_init(SkeletonLordsEntryFront, 2);
-	connection_add(SkeletonLordsEntryFront, .to = HuntsmanCopseToMajulaBack);
-	connection_add(SkeletonLordsEntryFront, .to = ChariotEntryFront);
+	connection_init(SkeletonLordsEntryFront, 0);
 	warp_node_count++;
 
 	connection_two_way(ChariotEntryBack, ChariotExitFront);
