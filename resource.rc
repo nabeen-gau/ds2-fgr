@@ -1,1 +1,37 @@
+#include <windows.h>
+
+#ifndef APP_VERSION_STR
+#define APP_VERSION_STR "2.0.2.0"
+#endif
+
+#ifndef APP_VERSION_NUM
+#define APP_VERSION_NUM 2,0,2,0
+#endif
+
 101 ICON "icon.ico"
+
+1 VERSIONINFO
+FILEVERSION     APP_VERSION_NUM
+PRODUCTVERSION  APP_VERSION_NUM
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0x0L
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "None"
+            VALUE "FileDescription",  "Fog Gate Randomizer by nabeen for Dark Souls II: Scholar of the First Sin"
+            VALUE "FileVersion",      APP_VERSION_STR
+            VALUE "ProductName",      "Fog Gate Randomizer by nabeen"
+            VALUE "ProductVersion",   APP_VERSION_STR
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
