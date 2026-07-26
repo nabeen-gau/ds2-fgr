@@ -23,10 +23,11 @@ HBRUSH hDarkBrush;
 DWORD WINAPI RandomizeTask(LPVOID lpParam) {
 	HWND hwnd = (HWND)lpParam;
 
-	char seedStr[16];
-    GetWindowText(hSeedEdit, seedStr, sizeof(seedStr));
-    int seed = atoi(seedStr);
-	BOOL load_item_rando = (SendMessage(hItemCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+	Config config = {0};
+    GetWindowText(hSeedEdit, config.Seed, sizeof(config.Seed));
+
+	config.ItemRando = (SendMessage(hItemCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+	BOOL load_item_rando = config.ItemRando;
 	if (load_item_rando) {
 		DWORD fileAttr = GetFileAttributes("..\\randomizer\\DS2SRandomizer.exe");
         
@@ -42,7 +43,7 @@ DWORD WINAPI RandomizeTask(LPVOID lpParam) {
             return 1; // Exit thread early
         }
 	}
-	if (start_randomization(load_item_rando, seed) == 0) {
+	if (start_randomization(config) == 0) {
 		SetWindowText(hStatusLabel, "Status: Randomization Complete!");
 	} else {
 		SetWindowText(hStatusLabel, "Status: Randomization Failed!");

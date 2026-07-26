@@ -6899,7 +6899,12 @@ void deinit_rando() {
 	printf("Exit.\n");
 }
 
-int start_randomization(bool load_item_rando, int seed) {
+#include "fgr.h"
+
+int start_randomization(Config config) {
+	int seed = atoi(config.Seed);
+	bool load_item_rando = config.ItemRando;
+
 	size_t mark = temp_save();
 	srand(seed);
 	printf("Current Seed: %d\n", seed);
