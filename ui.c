@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <uxtheme.h>
+
 #include "fgr.h"
 
 // Link the DWM API for the dark title bar
@@ -59,12 +61,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             DwmSetWindowAttribute(hwnd, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, &dark, sizeof(dark));
 
 			int currentY = (WINDOW_HEIGHT / 2) - 100;
-			int chkWidth = 275;
+			int chkWidth = 350;
             int chkX = (WINDOW_WIDTH - chkWidth) / 2;
 
             // 2. Checkbox for item randomizer
             hItemCheck = CreateWindow("BUTTON", "Include Item and Enemy Randomizer", WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 
                          10, 10, chkWidth, BTN_HEIGHT, hwnd, NULL, NULL, NULL);
+
+			SetWindowTheme(hItemCheck, L"DarkMode_Explorer", NULL);
 
 			currentY += BTN_HEIGHT + MARGIN_Y;
 
@@ -151,12 +155,12 @@ int main() {
     wc.lpfnWndProc = WndProc;
     wc.hInstance = GetModuleHandle(NULL);
     wc.hbrBackground = hDarkBrush;
-    wc.lpszClassName = "RandApp";
+    wc.lpszClassName = "DS2FGR";
 	wc.hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE(101));
     RegisterClass(&wc);
 
     // Create a fixed-size, non-resizable window
-    HWND hwnd = CreateWindow("RandApp", "DS2S Fog Gate Randomizer by nabeen", 
+    HWND hwnd = CreateWindow("DS2FGR", "DS2S Fog Gate Randomizer by nabeen", 
                              WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE, 
                              100, 100, WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, wc.hInstance, 0);
 
