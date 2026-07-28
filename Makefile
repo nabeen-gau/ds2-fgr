@@ -14,6 +14,7 @@ MAIN_DEPS := main.c item_info.c esd.c foggates.c common.c other/miniz.h nob.h ht
 
 ZIPPED_FILES := mod/$(OUT_EXE) mod/data/enc_regulation.bnd.dcx mod/data/map/ mod/data/menu/ mod/data/Param/ mod/data/ezstate/ dinput8.dll modengine.ini
 MINIZ_OBJ := miniz.o
+MINIZ_OBJ_REL := miniz-rel.o
 
 all: cli
 
@@ -24,7 +25,10 @@ $(ICON_RES): resource.rc
 	windres resource.rc -O coff -o $(ICON_RES)
 
 $(MINIZ_OBJ): $(MINIZ)
-	$(CC) $(WFLAGS) -c -o miniz.o $(MINIZ)
+	$(CC) $(WFLAGS) -DMINIZ_NO_ARCHIVE_APIS -c -o $(MINIZ_OBJ) $(MINIZ)
+
+$(MINIZ_OBJ_REL): $(MINIZ)
+	$(CC) $(WFLAGS) -O3 -flto -DMINIZ_NO_ARCHIVE_APIS -c -o $(MINIZ_OBJ_REL) $(MINIZ)
 
 test: test.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o test test.c $(MINIZ)
@@ -38,7 +42,7 @@ $(DBG_OBJ): $(MAIN_DEPS)
 
 # Release
 $(MAIN_OBJ): $(MAIN_DEPS)
-	$(CC) -O3 -DRELEASE -c main.c $(WFLAGS) $(CPPFLAGS) -o $(MAIN_OBJ)
+	$(CC) -O3 -flto -DRELEASE -c main.c $(WFLAGS) $(CPPFLAGS) -o $(MAIN_OBJ)
 
 ui: ui.c $(DBG_OBJ) $(MINIZ_OBJ)
 	$(CC) ui.c $(DBG_OBJ) $(MINIZ_OBJ) $(ICON_RES) -o $(OUT_NAME) -ldwmapi -lgdi32 -luxtheme
@@ -47,7 +51,7 @@ release: ui.c $(MAIN_OBJ) $(MINIZ_OBJ) $(ICON_RES)
 	if not exist ".\bin" mkdir ".\bin"
 	if exist ".\bin\mod" rmdir /s /q ".\bin\mod"
 	mkdir ".\bin\mod"
-	$(CC) -O3 ui.c $(MAIN_OBJ) $(MINIZ_OBJ) $(ICON_RES) -o ".\bin\mod\$(OUT_NAME)" -ldwmapi -lgdi32 -luxtheme
+	$(CC) -O3 -s -flto ui.c $(MAIN_OBJ) $(MINIZ_OBJ) $(ICON_RES) -o ".\bin\mod\$(OUT_NAME)" -ldwmapi -lgdi32 -luxtheme
 	xcopy /s /q /i /y "data" ".\bin\mod\data"
 
 zip: release
