@@ -4,3 +4,8 @@ Eye of the priestess logic for item randomizer handled properly
 Removed duplicated state group in generated esd during randomization
 Fixed cutscene play trigger not using valid fog gate instance id
 Fixed Issue: Nashandra 2nd cutscene does not play
+
+v.2.0.3
+Fixed logic handling from Skeleton Lords Entry Gate access points
+Fixed the swapped fog gate object id for Chariot Entrance
+Fixed issue: chariot boss entry gate cannot interact
