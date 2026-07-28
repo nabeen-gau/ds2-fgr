@@ -6,7 +6,7 @@
 
 // program_name <seed> <load_item_rando>
 int main(int argc, char **argv) {
-	int seed = 6996;
+	int seed = 848693776;
 	bool load_item_rando = false;
 	if (argc >= 2) {
 		int ret = atoi(argv[1]);

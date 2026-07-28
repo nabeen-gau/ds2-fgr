@@ -662,14 +662,14 @@ static WarpPoint warp_points[] = {
 
 	// Huntsman Copse
 	[SkeletonLordsEntryFront]    = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0000"),
-	[SkeletonLordsExitFront]     = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0001", .boss = SkeletonLords),
-	[ChariotEntryFront]          = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0004"),
+	[SkeletonLordsExitFront]     = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0004", .boss = SkeletonLords),
+	[ChariotEntryFront]          = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0001"),
 	[ChariotExitFront]           = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0006", .boss = ExecutionersChariot, .cutscene_gate_id = ChariotEntryBack),
 	[HuntsmanCopseToMajulaFront] = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0007", .pvp = true, .reverse = true),
 
 	[SkeletonLordsEntryBack]     = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0000", .boss = SkeletonLords),
-	[SkeletonLordsExitBack]      = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0001"),
-	[ChariotEntryBack]           = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0004", .boss = ExecutionersChariot),
+	[SkeletonLordsExitBack]      = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0004"),
+	[ChariotEntryBack]           = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0001", .boss = ExecutionersChariot),
 	[ChariotExitBack]            = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0006"),
 	[HuntsmanCopseToMajulaBack]  = NEW_WARP_PT(.map = HuntsmanCopseUndeadPurgatory, .obj_id = "o00_0501_0007", .pvp = true, .reverse = true),
 
