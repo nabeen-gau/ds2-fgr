@@ -28,7 +28,7 @@ $(MINIZ_OBJ): $(MINIZ)
 	$(CC) $(WFLAGS) -DMINIZ_NO_ARCHIVE_APIS -c -o $(MINIZ_OBJ) $(MINIZ)
 
 $(MINIZ_OBJ_REL): $(MINIZ)
-	$(CC) $(WFLAGS) -O3 -flto -DMINIZ_NO_ARCHIVE_APIS -c -o $(MINIZ_OBJ_REL) $(MINIZ)
+	$(CC) $(WFLAGS) -O3 -DMINIZ_NO_ARCHIVE_APIS -c -o $(MINIZ_OBJ_REL) $(MINIZ)
 
 test: test.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o test test.c $(MINIZ)
@@ -42,7 +42,7 @@ $(DBG_OBJ): $(MAIN_DEPS)
 
 # Release
 $(MAIN_OBJ): $(MAIN_DEPS)
-	$(CC) -O3 -flto -DRELEASE -c main.c $(WFLAGS) $(CPPFLAGS) -o $(MAIN_OBJ)
+	$(CC) -O3 -DRELEASE -c main.c $(WFLAGS) $(CPPFLAGS) -o $(MAIN_OBJ)
 
 ui: ui.c $(DBG_OBJ) $(MINIZ_OBJ)
 	$(CC) ui.c $(DBG_OBJ) $(MINIZ_OBJ) $(ICON_RES) -o $(OUT_NAME) -ldwmapi -lgdi32 -luxtheme
@@ -51,7 +51,7 @@ release: ui.c $(MAIN_OBJ) $(MINIZ_OBJ) $(ICON_RES)
 	if not exist ".\bin" mkdir ".\bin"
 	if exist ".\bin\mod" rmdir /s /q ".\bin\mod"
 	mkdir ".\bin\mod"
-	$(CC) -O3 -s -flto ui.c $(MAIN_OBJ) $(MINIZ_OBJ) $(ICON_RES) -o ".\bin\mod\$(OUT_NAME)" -ldwmapi -lgdi32 -luxtheme
+	$(CC) -O3 ui.c $(MAIN_OBJ) $(MINIZ_OBJ) $(ICON_RES) -o ".\bin\mod\$(OUT_NAME)" -ldwmapi -lgdi32 -luxtheme
 	xcopy /s /q /i /y "data" ".\bin\mod\data"
 
 zip: release

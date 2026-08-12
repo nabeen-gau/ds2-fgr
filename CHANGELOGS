@@ -9,3 +9,7 @@ v.2.0.3
 Fixed logic handling from Skeleton Lords Entry Gate access points
 Fixed the swapped fog gate object id for Chariot Entrance
 Fixed issue: chariot boss entry gate cannot interact
+
+v.2.0.4
+Fixed missing logic for handling not activated ship in No-Man's Wharf
+Fixed swapped fog gate object names in Things Betwixt
