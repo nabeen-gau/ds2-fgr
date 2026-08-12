@@ -497,16 +497,16 @@ static WarpPoint warp_points[] = {
 
 	// Things betwixt
 	[Tutorial1EntryFront] = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0001"),
-	[Tutorial1ExitFront]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0003"),
-	[Tutorial2EntryFront] = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0004", .blocktype = WPBT_FragrantBranchOfYore),
-	[Tutorial2ExitFront]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0000"),
-	[Tutorial3EntryFront] = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0005"),
+	[Tutorial1ExitFront]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0000"),
+	[Tutorial2EntryFront] = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0003", .blocktype = WPBT_FragrantBranchOfYore),
+	[Tutorial2ExitFront]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0005"),
+	[Tutorial3EntryFront] = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0004"),
 	[Tutorial3ExitFront]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0002"),
 	[Tutorial1EntryBack]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0001"),
-	[Tutorial1ExitBack]   = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0003"),
-	[Tutorial2EntryBack]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0004"),
-	[Tutorial2ExitBack]   = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0000"),
-	[Tutorial3EntryBack]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0005"),
+	[Tutorial1ExitBack]   = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0000"),
+	[Tutorial2EntryBack]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0003"),
+	[Tutorial2ExitBack]   = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0005"),
+	[Tutorial3EntryBack]  = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0004"),
 	[Tutorial3ExitBack]   = NEW_WARP_PT(.map = ThingsBetwixt, .obj_id = "o00_0500_0002"),
 
 	// Majula
