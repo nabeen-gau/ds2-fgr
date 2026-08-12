@@ -1560,16 +1560,24 @@ void generate_connections() {
 	warp_node_count++;
 
 	// no man's wharf
-	connection_two_way(NoMansWharfToHeidesBack, FlexileSentryEntryFront);
-	warp_node_count++;
+	connection_init(NoMansWharfToHeidesBack, 1);
+	connection_add(NoMansWharfToHeidesBack, .to = FlexileSentryEntryFront);
 	warp_node_count++;
 
-	connection_two_way(FlexileSentryEntryBack, FlexileSentryExitFront);
+	connection_init(FlexileSentryEntryFront, 1);
+	connection_add(FlexileSentryEntryFront, .to = NoMansWharfToHeidesBack, .type = CT(Conn_ShipBellRang));
 	warp_node_count++;
+
+	connection_init(FlexileSentryEntryBack, 1);
+	connection_add(FlexileSentryEntryBack, .to = FlexileSentryExitFront, .type = CT(Conn_ShipBellRang));
+	warp_node_count++;
+
+	connection_init(FlexileSentryExitFront, 1);
+	connection_add(FlexileSentryExitFront, .to = FlexileSentryEntryBack, .type = CT(Conn_ShipBellRang));
 	warp_node_count++;
 
 	connection_init(FlexileSentryExitBack, 1);
-	connection_add(FlexileSentryExitBack, .to = PirateShipWharf);
+	connection_add(FlexileSentryExitBack, .to = PirateShipWharf, .type = CT(Conn_ShipBellRang));
 	warp_node_count++;
 
 	connection_init(PirateShipWharf, 1);
