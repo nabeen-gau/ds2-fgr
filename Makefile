@@ -1,7 +1,7 @@
 CC := gcc
 NCC := ./tools/llvm-mingw-20260616-msvcrt-x86_64/llvm-mingw-20260616-msvcrt-x86_64/bin/gcc.exe
 
-WFLAGS := -Wall -Wextra -Wno-unused-function -Wno-initializer-overrides
+WFLAGS := -Wall -Wextra -Wno-unused-function -Wno-implicit-fallthrough -Wno-override-init
 CFLAGS := -ggdb $(WFLAGS)
 CPPFLAGS := -Iother
 MINIZ := other/miniz.c
@@ -10,7 +10,7 @@ MAIN_OBJ := fgr.o
 OUT_NAME := DS2FGR
 OUT_EXE := $(OUT_NAME).exe
 ICON_RES := resource.res
-MAIN_DEPS := main.c item_info.c esd.c foggates.c common.c other/miniz.h nob.h ht.h $(ICON_RES)
+MAIN_DEPS := main.c item_info.c esd.c foggates.c common.c other/miniz.h nob.h ht.h
 
 ZIPPED_FILES := mod/$(OUT_EXE) mod/data/enc_regulation.bnd.dcx mod/data/map/ mod/data/menu/ mod/data/Param/ mod/data/ezstate/ dinput8.dll modengine.ini
 MINIZ_OBJ := miniz.o
@@ -41,7 +41,7 @@ $(DBG_OBJ): $(MAIN_DEPS)
 	$(CC) -c main.c $(CFLAGS) $(CPPFLAGS) -o $(DBG_OBJ)
 
 # Release
-$(MAIN_OBJ): $(MAIN_DEPS)
+$(MAIN_OBJ): $(MAIN_DEPS) $(ICON_RES)
 	$(CC) -O3 -DRELEASE -c main.c $(WFLAGS) $(CPPFLAGS) -o $(MAIN_OBJ)
 
 ui: ui.c $(DBG_OBJ) $(MINIZ_OBJ)
@@ -59,7 +59,7 @@ zip: release
 	cd bin && zip -r $(OUT_NAME).zip $(ZIPPED_FILES)
 
 cli: cli.c $(DBG_OBJ) $(MINIZ_OBJ)
-	$(CC) $(CFLAGS) -o $(OUT_NAME) cli.c $(DBG_OBJ) $(MINIZ_OBJ)
+	$(CC) $(CFLAGS) -o $(OUT_NAME) cli.c $(DBG_OBJ) $(MINIZ_OBJ) -lm
 
 pdb: cli.c $(DBG_OBJ) $(MINIZ_OBJ)
 	$(NCC) $(CFLAGS) $(CPPFLAGS) -Wl,--pdb=$(OUT_NAME).pdb -o $(OUT_NAME) cli.c $(DBG_OBJ) $(MINIZ_OBJ)

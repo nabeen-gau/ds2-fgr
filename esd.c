@@ -494,7 +494,7 @@ typedef struct {
 DA(StateGroup, DAStateGroup);
 
 typedef struct {
-	wchar_t *name;
+	utf16_t *name;
 	size_t nameLength;
 
 	int32_t Unk70;
@@ -540,7 +540,7 @@ void print_command(ESD *esd, const Command *c) {
 }
 
 void print_state(ESD *esd, State *state) {
-	printf("    State_%lld:\n", state->id);
+	printf("    State_"LIF":\n", state->id);
 	da_foreach(size_t, ci, &state->entry_commands_ids) {
 		Command *command = &esd->commands.items[*ci];
 		print_command(esd, command);
@@ -553,7 +553,7 @@ void print_state(ESD *esd, State *state) {
 		printf(")");
 		if (c->target_state_offset > 0) {
 			State *ts = &esd->states.items[c->target_state_id];
-			printf(" goto State %lld\n", ts->id);
+			printf(" goto State "LIF"\n", ts->id);
 		}
 		da_foreach(size_t, pcid, &c->pass_commands_ids) {
 			const Command *pc = &esd->commands.items[*pcid];
@@ -579,7 +579,7 @@ void print_state(ESD *esd, State *state) {
 			const Condition *sc = &esd->conditions.items[*scid];
 			if (sc->target_state_offset > 0) {
 				State *ts = &esd->states.items[sc->target_state_id];
-				printf(" goto State %lld\n", ts->id);
+				printf(" goto State "LIF"\n", ts->id);
 			}
 		}
 	}
@@ -590,7 +590,7 @@ void print_state(ESD *esd, State *state) {
 }
 
 void print_state_group(ESD *esd, StateGroup *sg) {
-	printf("StateGroup_%lld {\n", sg->id);
+	printf("StateGroup_"LIF" {\n", sg->id);
 	da_foreach(size_t, id, &sg->states_ids) {
 		State *state = &esd->states.items[*id];
 		print_state(esd, state);
@@ -1582,9 +1582,9 @@ void write_esd(String_Builder *sb, ESD *esd, const char *name) {
 		}
 		name_buf[2*len] = 0;
 		name_buf[2*len+1] = 0;
-		esd->name = (wchar_t *)name_buf;
+		esd->name = (utf16_t *)name_buf;
 	}
-	sb_pad_align(sb, sizeof(wchar_t));
+	sb_pad_align(sb, sizeof(utf16_t));
 
 	// write name offset
 	dst =  sb_base(sb) + offsetof(StateGroupHeader, nameOffset);
@@ -1595,7 +1595,7 @@ void write_esd(String_Builder *sb, ESD *esd, const char *name) {
 	// write name
 	size_t name_length = sb->count;
 	sb_append_utf16t(sb, esd->name);
-	name_length = (sb->count - name_length)/sizeof(wchar_t);
+	name_length = (sb->count - name_length)/sizeof(utf16_t);
 
 	// write name length
 	dst =  sb->items + ESD_MAGIC_LENGTH + offsetof(ESD_HEADER, nameLength);

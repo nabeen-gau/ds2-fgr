@@ -3,7 +3,7 @@
 #include <string.h>
 #include <math.h>
 
-// #define LOG_GENERATED_FILES
+#define LOG_GENERATED_FILES
 
 #include "common.c"
 #include "foggates.c"
@@ -123,12 +123,67 @@ typedef struct {
 
 DA(Entry, Model);
 
+size_t utf16t_len(const utf16_t *str) {
+#ifdef _WIN32
+	return wcslen(str);
+#else
+	size_t n = 0;
+    while (str[n] != u'\0')
+        ++n;
+    return n;
+#endif
+}
+
+utf16_t *utf16t_memcpy(utf16_t *dst, const utf16_t *src, size_t length) {
+#ifdef _WIN32
+	return wmemcpy(dst, src, length);
+#else
+    for (size_t i = 0; i < length; ++i)
+        dst[i] = src[i];
+
+    return dst;
+#endif
+}
+
+int utf16t_cpy(char16_t *dst, size_t capacity, const char16_t *src) {
+#ifdef _WIN32
+	return wcscpy_s(dst, capacity, src);
+#else
+    if (dst == NULL || src == NULL || capacity == 0)
+        return 1;
+
+    size_t n = utf16t_len(src);
+    if (n >= capacity) {
+        dst[0] = u'\0';
+        return 1;
+    }
+
+    for (size_t i = 0; i <= n; ++i)  /* Include the terminator. */
+        dst[i] = src[i];
+
+    return 0;
+#endif
+}
+
+int utf16t_cmp(const char16_t *a, const char16_t *b) {
+#ifdef _WIN32
+	return wcscmp(a, b);
+#else
+    while (*a != u'\0' && *a == *b) {
+        ++a;
+        ++b;
+    }
+
+    return (*a > *b) - (*a < *b);
+#endif
+}
+
 void entry_copy(Entry *copy, const Entry *src, const char *buf, size_t size) {
-	size_t str_len = wcslen(src->name);
+	size_t str_len = utf16t_len(src->name);
 	assert(size > str_len);
-	wchar_t *dst = (wchar_t *)(buf);
+	utf16_t *dst = (utf16_t *)(buf);
 	*copy = *src;
-	assert(wcscpy_s(dst, size, src->name) == 0);
+	assert(utf16t_cpy(dst, size, src->name) == 0);
 	copy->name = dst;
 }
 
@@ -552,11 +607,11 @@ typedef struct {
 } Part;
 
 void part_copy(Part *copy, const Part *src, const char *buf, size_t size) {
-	size_t str_len = wcslen(src->name);
+	size_t str_len = utf16t_len(src->name);
 	assert(size > str_len);
-	wchar_t *dst = (wchar_t *)(buf);
+	utf16_t *dst = (utf16_t *)(buf);
 	*copy = *src;
-	assert(wcscpy_s(dst, size, src->name) == 0);
+	assert(utf16t_cpy(dst, size, src->name) == 0);
 	copy->name = dst;
 }
 
@@ -708,13 +763,20 @@ void* get_param_entry(const ParamSt *param, size_t i) {
 	return (void*)(map_begin + param->entry_offsets[i]);
 }
 
+#ifdef _WIN32
+#define WIDE_STR(str) L ## str
+#else
+#define WIDE_STR(str) u ## str
+#endif
+
 ModelParam read_model_param(String_View *sv) {
     ModelParam model = {0};
 	model.param = read_param(sv);
 
     model.name = get_param_name(&model.param);
-	utf16_t *required = L"MODEL_PARAM_ST";
-	assert(wcscmp(model.name, required) == 0);
+
+	utf16_t *required = WIDE_STR("MODEL_PARAM_ST");
+	assert(utf16t_cmp(model.name, required) == 0);
 
 	for (int i=0; i<model.param.offset_count-1; i++) {
 		Entry entry = {0};
@@ -919,8 +981,8 @@ EventParam read_event_param(String_View *sv) {
 	events.param = param;
     utf16_t *name = get_param_name(&param);
 	events.name = name;
-	utf16_t *required = L"EVENT_PARAM_ST";
-	assert(wcscmp(name, required) == 0);
+	utf16_t *required = WIDE_STR("EVENT_PARAM_ST");
+	assert(utf16t_cmp(name, required) == 0);
 
 	for (int i=0; i<param.offset_count-1; i++) {
 		sv->data = get_param_entry(&param, i);
@@ -1162,8 +1224,8 @@ PointParam read_point_param(String_View *sv) {
 	regions.param = param;
     utf16_t *name = get_param_name(&param);
 	regions.name = name;
-	utf16_t *required = L"POINT_PARAM_ST";
-	assert(wcscmp(name, required) == 0);
+	utf16_t *required = WIDE_STR("POINT_PARAM_ST");
+	assert(utf16t_cmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
 		sv->data = get_param_entry(&param, i);
 		RegionType region_type = *(byte *)(sv->data + sizeof(varint) + 2);
@@ -1222,8 +1284,8 @@ RouteParam read_route_param(String_View *sv) {
 	route.param = read_param(sv);
     utf16_t *name = get_param_name(&route.param);
 	route.name = name;
-	utf16_t *required = L"ROUTE_PARAM_ST";
-	assert(wcscmp(name, required) == 0);
+	utf16_t *required = WIDE_STR("ROUTE_PARAM_ST");
+	assert(utf16t_cmp(name, required) == 0);
 	for (int i=0; i<route.param.offset_count-1; i++) {
 		UNREACHABLE("route params are empty in ds2");
 	}
@@ -1237,8 +1299,8 @@ LayerParam read_layer_param(String_View *sv) {
 	layer.param = param;
     utf16_t *name = get_param_name(&param);
 	layer.name = name;
-	utf16_t *required = L"LAYER_PARAM_ST";
-	assert(wcscmp(name, required) == 0);
+	utf16_t *required = WIDE_STR("LAYER_PARAM_ST");
+	assert(utf16t_cmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
 		UNREACHABLE("layer params are empty in ds2");
 	}
@@ -1289,8 +1351,8 @@ PartParam read_parts_param(String_View *sv) {
 	parts.param = param;
     utf16_t *name = get_param_name(&param);
 	parts.name = name;
-	utf16_t *required = L"PARTS_PARAM_ST";
-	assert(wcscmp(name, required) == 0);
+	utf16_t *required = WIDE_STR("PARTS_PARAM_ST");
+	assert(utf16t_cmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
 		sv->data = get_param_entry(&param, i);
 		PartType part_type = *(byte *)(sv->data + sizeof(varint));
@@ -1335,8 +1397,8 @@ PartPoses read_part_poses(String_View *sv) {
 	pp.param = param;
     utf16_t *name = get_param_name(&param);
 	pp.name = name;
-	utf16_t *required = L"MAPSTUDIO_PARTS_POSE_ST";
-	assert(wcscmp(name, required) == 0);
+	utf16_t *required = WIDE_STR("MAPSTUDIO_PARTS_POSE_ST");
+	assert(utf16t_cmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
 		sv->data = get_param_entry(&param, i);
 		const char *start = sv->data;
@@ -1365,8 +1427,8 @@ BoneNames read_bone_names(String_View *sv) {
 	names.param = param;
     utf16_t *name = get_param_name(&param);
 	names.name = name;
-	utf16_t *required = L"MAPSTUDIO_BONE_NAME_STRING";
-	assert(wcscmp(name, required) == 0);
+	utf16_t *required = WIDE_STR("MAPSTUDIO_BONE_NAME_STRING");
+	assert(utf16t_cmp(name, required) == 0);
 	for (int i=0; i<param.offset_count-1; i++) {
 		sv->data = get_param_entry(&param, i);
 		utf16_t *name = (utf16_t *)sv->data;
@@ -2344,7 +2406,7 @@ PARAM load_param(String_View *sv, CellType cell_type) {
 	if (((param.format.Format2D & FF1_Flag01) && (param.format.Format2D & FF1_IntDataOffset)) || (param.format.Format2D & FF1_LongDataOffset)) {
 		assert_item(int16_t, sv, 0);
 	} else { 
-		read_item(uint16_t, sv); //data_start
+		(void)read_item(uint16_t, sv); //data_start
 	}
 	param.Unk06 = read_item(int16_t, sv);
 	param.ParamdefDataVersion = read_item(int16_t, sv);
@@ -2367,12 +2429,12 @@ PARAM load_param(String_View *sv, CellType cell_type) {
 	}
 	sv->data += sizeof(PARAM_Format); // Skip Format
 	if (param.format.Format2D & FF1_Flag01 && param.format.Format2D & FF1_IntDataOffset) {
-		read_item(int32_t, sv); // data_start
+		(void)read_item(int32_t, sv); // data_start
 		assert_item(int32_t, sv, 0);
 		assert_item(int32_t, sv, 0);
 		assert_item(int32_t, sv, 0);
 	} else if (param.format.Format2D & FF1_LongDataOffset) {
-		read_item(int64_t, sv); // data_start
+		(void)read_item(int64_t, sv); // data_start
 		assert_item(int64_t, sv, 0);
 	}
 
@@ -3523,7 +3585,7 @@ bool disable_fog_gate_ier() {
 
 typedef struct {
 	int id;
-	wchar_t *text;
+	utf16_t *text;
 } FMG_Entry;
 
 DA(FMG_Entry, FMG_Entries);
@@ -3625,7 +3687,7 @@ void write_fmg(String_Builder *sb, FMG *fmg) {
 	da_free(offsets);
 }
 
-#define PIRATE_SHIP_ARRIVAL_MSG L"Ghost ship in No Mans Wharf not docked"
+#define PIRATE_SHIP_ARRIVAL_MSG WIDE_STR("Ghost ship in No Mans Wharf not docked")
 
 bool add_pirate_ship_msg_to_game_files(const char *input_path, const char *output_path, int *msg_id) {
 	String_Builder sb = {0};
@@ -3780,7 +3842,7 @@ size_t map_ids[] = {
 };
 static_assert(ARRAY_LEN(map_ids) == __MapNameCount, "Missing map id");
 
-wchar_t * write_cstr_to_wchar(const char *src, String_Builder *dst_sb) {
+utf16_t * write_cstr_to_wchar(const char *src, String_Builder *dst_sb) {
 	size_t count = 0;
 	assert(dst_sb->capacity - dst_sb->count > 2*strlen(src) + 2);
 	char *loc = dst_sb->items + dst_sb->count;
@@ -3794,7 +3856,7 @@ wchar_t * write_cstr_to_wchar(const char *src, String_Builder *dst_sb) {
 		sb_append(dst_sb, c);
 		sb_append(dst_sb, 0);
 	}
-	return (wchar_t *)loc;
+	return (utf16_t *)loc;
 }
 
 Part warp_part_new(const Part *src, V3f pos, V3f rot, int32_t instance_id, size_t name_id, String_Builder *name_buf, int model_index) {
@@ -3820,7 +3882,7 @@ Part warp_part_new(const Part *src, V3f pos, V3f rot, int32_t instance_id, size_
 
 void add_map_obj_instance_param_warpobj(PARAM *param, int32_t id, size_t insert_loc) {
 	Row row = {
-		.ID = id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+		.ID = id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = WIDE_STR(""),
 	};
 	Cell cell = {
 		.as.map_obj_instance_param = {
@@ -3838,7 +3900,7 @@ void add_map_obj_instance_param_warpobj(PARAM *param, int32_t id, size_t insert_
 
 void add_event_param_warpobj(PARAM *param, int32_t event_param_id, int32_t warp_obj_inst_id) {
 	Row row = {
-		.ID = event_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+		.ID = event_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = WIDE_STR(""),
 	};
 	Cell cell = {
 		.as.event_param = {
@@ -3854,7 +3916,7 @@ void add_event_param_warpobj(PARAM *param, int32_t event_param_id, int32_t warp_
 
 void add_event_param_cutscene_trigger(PARAM *param, int32_t event_param_id) {
 	Row row = {
-		.ID = event_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+		.ID = event_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = WIDE_STR(""),
 	};
 	Cell cell = {
 		.as.event_param = {
@@ -3871,7 +3933,7 @@ void add_event_param_cutscene_trigger(PARAM *param, int32_t event_param_id) {
 
 void add_event_loc_warpobj(PARAM *param, int32_t warp_point_begin, V3f pos, V3f rot, size_t insert_loc) {
 	Row row = {
-		.ID = warp_point_begin, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+		.ID = warp_point_begin, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = WIDE_STR(""),
 	};
 	Cell cell = {
 		.as.event_loc = {
@@ -4629,7 +4691,7 @@ bool write_esd_from_map_name(String_Builder *wsb, MapName name, ESD *esd) {
 	return true;
 }
 
-bool str_wchar_eq(wchar_t *ws, const char *s) {
+bool str_wchar_eq(utf16_t *ws, const char *s) {
 	const char *ws_cstr = (char *)ws;
 	int n = strlen(s);
 	for (int i=0; i<n; i++) {
@@ -4860,14 +4922,14 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 		if (map_name_id == ThingsBetwixt) {
 			for (size_t j=0; j<map.parts.Objects.count; j++) {
 				Part *part = &map.parts.Objects.items[j];
-				if (wcscmp(part->name, L""WARP_OBJ_NAME) == 0) {
+				if (utf16t_cmp(part->name, WIDE_STR("")WARP_OBJ_NAME) == 0) {
 					part_copy(&warp_part, part, warp_part_name_buf, sizeof(warp_part_name_buf));
 					break;
 				}
 			}
 			for (size_t j=0; j<map.models.Objects.count; j++) {
 				Entry *model = &map.models.Objects.items[j];
-				if (wcscmp(model->name, L""WARP_OBJ_MODEL_NAME) == 0) {
+				if (utf16t_cmp(model->name, WIDE_STR("")WARP_OBJ_MODEL_NAME) == 0) {
 					entry_copy(&warp_model, model, warp_model_name_buf, sizeof(warp_model_name_buf));
 					model_index = j + map.models.MapPieces.count;
 					break;
@@ -4919,15 +4981,12 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 		size_t warp_obj_inst_id = pair.from;
 		size_t oip_insert_loc = pair.to;
 
-		assert(warp_obj_inst_id >= 0);
-		assert(oip_insert_loc >= 0);
-
 		// fixing draw groups for fog gates
 		if (map_name_id == BrumeTower) {
 			for (size_t j=0; j<map.parts.Objects.count; j++) {
 				Part *part = &map.parts.Objects.items[j];
 				// fume knight exit gate
-				if (wcscmp(part->name, L"o00_0501_0001") == 0) {
+				if (utf16t_cmp(part->name, WIDE_STR("o00_0501_0001")) == 0) {
 					part->part.draw_groups[1] = 1879048192;
 					part->part.disp_groups[1] = 1879048192;
 					break;
@@ -4960,15 +5019,10 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 		if (!load_event_param_from_map_name(&editor->ep_sb, map_name_id, &ev_param, load_item_rando)) return false;
 		size_t event_param_id = find_row_id_gap(ev_param.rows, total_event_count).from;
 
-		assert(event_param_id >= 0);
-
 		if (!load_event_loc_from_map_name(&editor->el_sb, map_name_id, &el_param, load_item_rando)) return false;
 		pair = find_row_id_gap(el_param.rows, n_warp_points);
 		size_t warp_point_begin = pair.from;
 		size_t el_insert_loc = pair.to;
-
-		assert(warp_point_begin >= 0);
-		assert(el_insert_loc >= 0);
 
 		ESD_Data *esd_data = editor_get_esd_data(editor);
 		esd_data->sb.count = 0;
@@ -4987,7 +5041,7 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 			return false;
 		}
 #ifdef LOG_GENERATED_FILES
-		printf("[Read] %s: %zu bytes\n", esd_full_path, esd_sb_orig.count);
+		printf("[Read] %s: %zu bytes\n", esd_full_path, esd_data->sb.count);
 #endif
 		temp_rewind(mark2);
 
@@ -5007,7 +5061,7 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 		if (map_name_id == NomansWharf) {
 			bell_ring_param_id = event_param_id++;
 			Row row = {
-				.ID = bell_ring_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+				.ID = bell_ring_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = WIDE_STR(""),
 			};
 			Cell cell = {
 				.as.event_param = {
@@ -5022,7 +5076,7 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 		} else if (map_name_id == FrozenEleumLoyce) { // create and add event for unfreezing the dlc3
 			unfreeze_param_id = event_param_id++;
 			Row row = {
-				.ID = unfreeze_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = L"",
+				.ID = unfreeze_param_id, .garbage = 0, .Name.type = Str_Wide, .Name.as.str_wide = WIDE_STR(""),
 			};
 			Cell cell = {
 				.as.event_param = {
@@ -5162,7 +5216,7 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 			for (size_t j=0; j<map.parts.Objects.count; j++) {
 				Part *part = &map.parts.Objects.items[j];
 				// majula to shaded woods
-				if (wcscmp(part->name, L"o00_0502_0103") == 0) {
+				if (utf16t_cmp(part->name, WIDE_STR("o00_0502_0103")) == 0) {
 					part->part.position.y = 14.380;
 					break;
 				}
@@ -5171,7 +5225,7 @@ bool generate_map_objects(Editor *editor, bool load_item_rando) {
 			for (size_t j=0; j<map.parts.Objects.count; j++) {
 				Part *part = &map.parts.Objects.items[j];
 				// entrance to undead crypt
-				if (wcscmp(part->name, L"o00_0502_0000") == 0) {
+				if (utf16t_cmp(part->name, WIDE_STR("o00_0502_0000")) == 0) {
 					part->part.position.y = -142.539;
 					break;
 				}
@@ -6667,7 +6721,72 @@ bool delete_flat_directory(const char *dir) {
 #endif
 	return true;
 #else
-	TODO("Not Implemented");
+	DIR *directory = opendir(dir);
+    if (directory == NULL) {
+        fprintf(stderr, "[WARNING]: Could not open %s: %s\n",
+                dir, strerror(errno));
+        return false;
+    }
+
+    struct dirent *entry;
+
+    while ((entry = readdir(directory)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        char path[PATH_MAX];
+        int written = snprintf(path, sizeof(path), "%s/%s",
+                               dir, entry->d_name);
+
+        if (written < 0 || (size_t)written >= sizeof(path)) {
+            fprintf(stderr, "Error: Path is too long: %s/%s\n",
+                    dir, entry->d_name);
+            closedir(directory);
+            return false;
+        }
+
+        struct stat file_stat;
+
+        /*
+         * lstat() prevents symlinks to directories from being followed.
+         * They are treated as files and removed with unlink().
+         */
+        if (lstat(path, &file_stat) != 0) {
+            fprintf(stderr, "Error: Could not inspect %s: %s\n",
+                    path, strerror(errno));
+            closedir(directory);
+            return false;
+        }
+
+        if (S_ISDIR(file_stat.st_mode)) {
+            fprintf(stderr,
+                    "Error: Expected only files, but found a directory: %s\n",
+                    path);
+            closedir(directory);
+            return false;
+        }
+
+        if (unlink(path) != 0) {
+            fprintf(stderr, "Error: Could not delete file %s: %s\n",
+                    path, strerror(errno));
+            closedir(directory);
+            return false;
+        }
+    }
+
+    if (closedir(directory) != 0) {
+        fprintf(stderr, "Error: Could not close directory %s: %s\n",
+                dir, strerror(errno));
+        return false;
+    }
+
+#ifdef LOG_GENERATED_FILES
+    printf("[DELETE] folder %s successfully deleted.\n", dir);
+#endif
+
+    return true;
 #endif
 }
 

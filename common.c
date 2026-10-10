@@ -46,7 +46,13 @@ typedef packed_struct {
 #define DA2(type, name) typedef struct {struct type *items; size_t count; size_t capacity;} name
 
 #define varint int64_t
+
+#ifdef _WIN32
 #define utf16_t wchar_t
+#else
+#include <uchar.h>
+#define utf16_t char16_t
+#endif //_WIN32
 
 typedef Ht(varint, size_t) Dictlldz;
 typedef Ht(size_t, varint) Dictzulld;
@@ -142,5 +148,12 @@ void sb_append_utf16t(String_Builder *sb, utf16_t *str) {
 	memcpy(sb->items + sb->count, str, name_size);
 	sb->count += name_size;
 }
+
+// %lld conflict in win32 and linux
+#ifdef _WIN32
+#define LIF "%lld"
+#else
+#define LIF "%ld"
+#endif
 
 #endif
